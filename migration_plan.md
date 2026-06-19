@@ -13,16 +13,16 @@ This file tracks the step-by-step progress of migrating the Kotlin/JavaFX SFTP M
 - [x] Install production/development dependencies (`ssh2`, `electron`, `react`, `framer-motion`, `tailwindcss`, etc.)
 - [x] Commit initial boilerplate setup
 
-### ⬜ Phase 2: SSH Multi-Hop & MFA Logic Migration (Active)
-- [ ] Implement SLF4J/Log4j style `Logger.ts` matching parent log format
-- [ ] Migrate `SshConnector` (multi-hop jump proxy logic with netcat duplex stream relay)
-- [ ] Migrate `SshClient` & `SshExecutor` (command execution, streams, and virtual term session wrappers)
-- [ ] Migrate `SftpBrowser` (directory listings, permissions, folder stats)
-- [ ] Migrate `SftpTransfer` (concurrent file & folder uploads/downloads, progress callback, cancellation)
-- [ ] Create simple CLI connection test-driver (`test-connection.ts`) to compile and verify connection success
-- [ ] Commit ported logic
+### 🟩 Phase 2: SSH Multi-Hop & MFA Logic Migration (Completed)
+- [x] Implement SLF4J/Log4j style `Logger.ts` matching parent log format
+- [x] Migrate `SshConnector` (multi-hop jump proxy logic with netcat duplex stream relay)
+- [x] Migrate `SshClient` & `SshExecutor` (command execution, streams, and virtual term session wrappers)
+- [x] Migrate `SftpBrowser` (directory listings, permissions, folder stats)
+- [x] Migrate `SftpTransfer` (concurrent file & folder uploads/downloads, progress callback, cancellation)
+- [x] Create simple CLI connection test-driver (`test-connection.ts`) to compile and verify connection success
+- [x] Commit ported logic
 
-### ⬜ Phase 3: SQLite & Authentication Strategies
+### ⬜ Phase 3: SQLite & Authentication Strategies (Active)
 - [ ] Integrate SQLite for connection profiles and state persistence
 - [ ] Port Password, SSH Key, and Keyboard-Interactive Auth strategies
 - [ ] Handle TOTP/MFA automatic responses in `StoredCredentialsUserInfo`
