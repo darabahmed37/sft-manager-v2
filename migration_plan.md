@@ -39,8 +39,14 @@ This is an internal private application written from scratch. We are rewriting t
 
 ## Technical Specs & Architecture Decisions
 
-1. **Written From Scratch**: Built cleanly without copy-pasting legacy baggage.
-2. **TypeScript Only**: Strict compilation, no raw JS.
-3. **Duplex Jump Proxy Relay**: Recreate custom `SshJumpProxy` behavior using `ssh2` Client `exec` channel piped as a socket to the next `ssh2` hop.
-4. **Structured Logs**: Custom Logger matching `[TIMESTAMP] [LEVEL] [Context] Message` formatting to ensure easy diagnostic tracing.
-5. **Clean Code Comments**: No explanatory comments for what code does; comments are reserved strictly to explain the "why" behind complex hacks or API designs.
+1. **Written From Scratch**: Built cleanly from the ground up.
+2. **Clean DB Schema Design**:
+   - The legacy SQLite layout was highly coupled (storing credentials and UI state in connection profiles).
+   - The new schema is highly normalized: separates credentials (`stored_credentials`), UI settings (`connection_settings`), and connection definitions (`connections`).
+   - Mapped to two explicit connection types: `DIRECT` (direct SSH connections) and `BASTION` (bastion jump proxies).
+   - Multi-hop jump tunnels are represented recursively using `tunnel_via_connection_id` pointing to the respective bastion profile.
+   - Database migrations from legacy formats are ignored. The application boots with a clean database.
+3. **TypeScript Only**: Strict compilation, no raw JS.
+4. **Duplex Jump Proxy Relay**: Recreate custom `SshJumpProxy` behavior using `ssh2` Client `exec` channel piped as a socket to the next `ssh2` hop.
+5. **Structured Logs**: Custom Logger matching `[TIMESTAMP] [LEVEL] [Context] Message` formatting to ensure easy diagnostic tracing.
+6. **Clean Code Comments**: No explanatory comments for what code does; comments are reserved strictly to explain the "why" behind complex hacks or API designs.

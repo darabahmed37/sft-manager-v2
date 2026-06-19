@@ -10,7 +10,6 @@ CREATE TABLE IF NOT EXISTS connection_types (
 -- Seed Connection Types
 INSERT OR IGNORE INTO connection_types (id, code, name) VALUES (1, 'DIRECT', 'Direct SSH/SFTP Connection');
 INSERT OR IGNORE INTO connection_types (id, code, name) VALUES (2, 'BASTION', 'Bastion Jump Proxy');
-INSERT OR IGNORE INTO connection_types (id, code, name) VALUES (3, 'SFTP_ONLY', 'SFTP Only Connection');
 
 -- 2. Stored Authentication Credentials
 CREATE TABLE IF NOT EXISTS stored_credentials (
