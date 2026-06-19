@@ -64,9 +64,9 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
               setAuthMethod(cred.type === 'PASSWORD_TOTP' ? 'PASSWORD' : cred.type === 'KEY_ONLY' ? 'KEY' : 'KEYBOARD_INTERACTIVE');
               setPassword(cred.password || '');
               setTotpSecret(cred.totpSecret || '');
-              // Backwards mapping keys if available in name
               if (cred.type === 'KEY_ONLY') {
-                setPrivateKeyPath(cred.password || ''); // Using password field as key path fallback in simple DB
+                setPrivateKeyPath(cred.privateKeyName || cred.password || '');
+                setPassphrase(cred.privateKeyPassphrase || '');
               }
             }
           }
@@ -83,18 +83,57 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
     }
   };
 
+  const getPrivateKeyFilename = (filePath: string) => {
+    if (!filePath) return '';
+    const cleanPath = filePath.replace(/\\/g, '/');
+    const parts = cleanPath.split('/');
+    return parts[parts.length - 1] || '';
+  };
+
   const handleTestConnection = async () => {
     setTesting(true);
     setTestResult(null);
     try {
+      let keyName = '';
+      let keyContent = '';
+      let keyPassphrase = '';
+
+      if (authMethod === 'KEY') {
+        try {
+          keyName = getPrivateKeyFilename(privateKeyPath);
+          keyContent = await window.electronAPI.fs.readFile(privateKeyPath);
+          keyPassphrase = passphrase;
+        } catch (readErr: any) {
+          let loaded = false;
+          if (connectionId !== null) {
+            const existingConn = await window.electronAPI.db.getConnection(connectionId);
+            if (existingConn && existingConn.credentialId) {
+              const cred = await window.electronAPI.db.getCredential(existingConn.credentialId);
+              if (cred && (cred.privateKeyName === privateKeyPath || !privateKeyPath)) {
+                keyName = cred.privateKeyName || '';
+                keyContent = cred.privateKeyContent || '';
+                keyPassphrase = passphrase || cred.privateKeyPassphrase || '';
+                loaded = true;
+              }
+            }
+          }
+          if (!loaded) {
+            throw readErr;
+          }
+        }
+      }
+
       // Temporarily save connection profile configuration to test it
       const tempCredId = await window.electronAPI.db.addCredential({
         name: `TEMP_TEST_CRED_${Date.now()}`,
         username,
-        passwordPlain: authMethod === 'KEY' ? privateKeyPath : password,
+        passwordPlain: authMethod === 'KEY' ? '' : password,
         totpSecretPlain: totpSecret,
         isDefault: false,
         type: authMethod === 'PASSWORD' ? 'PASSWORD_TOTP' : authMethod === 'KEY' ? 'KEY_ONLY' : 'PASSWORD_TOTP',
+        privateKeyName: keyName,
+        privateKeyContentPlain: keyContent,
+        privateKeyPassphrasePlain: keyPassphrase,
       });
 
       const tempConnId = await window.electronAPI.db.addConnection({
@@ -117,7 +156,6 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
       }
 
       if (res.success) {
-        // Disconnect temp session
         if (res.sessionId) {
           await window.electronAPI.ssh.disconnect(res.sessionId);
         }
@@ -140,8 +178,37 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
 
     setLoading(true);
     try {
+      let keyName = '';
+      let keyContent = '';
+      let keyPassphrase = '';
+
+      if (authMethod === 'KEY') {
+        try {
+          keyName = getPrivateKeyFilename(privateKeyPath);
+          keyContent = await window.electronAPI.fs.readFile(privateKeyPath);
+          keyPassphrase = passphrase;
+        } catch (readErr: any) {
+          let loaded = false;
+          if (connectionId !== null) {
+            const existingConn = await window.electronAPI.db.getConnection(connectionId);
+            if (existingConn && existingConn.credentialId) {
+              const cred = await window.electronAPI.db.getCredential(existingConn.credentialId);
+              if (cred && (cred.privateKeyName === privateKeyPath || !privateKeyPath)) {
+                keyName = cred.privateKeyName || '';
+                keyContent = cred.privateKeyContent || '';
+                keyPassphrase = passphrase || cred.privateKeyPassphrase || '';
+                loaded = true;
+              }
+            }
+          }
+          if (!loaded) {
+            throw readErr;
+          }
+        }
+      }
+
       const credType = authMethod === 'PASSWORD' ? 'PASSWORD_TOTP' : authMethod === 'KEY' ? 'KEY_ONLY' : 'PASSWORD_TOTP';
-      const passwordVal = authMethod === 'KEY' ? privateKeyPath : password;
+      const passwordVal = authMethod === 'KEY' ? '' : password;
 
       let credId = null;
 
@@ -158,6 +225,9 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
             totpSecretPlain: totpSecret,
             isDefault: false,
             type: credType,
+            privateKeyName: keyName,
+            privateKeyContentPlain: keyContent,
+            privateKeyPassphrasePlain: keyPassphrase,
           });
         }
       }
@@ -170,6 +240,9 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
           totpSecretPlain: totpSecret,
           isDefault: false,
           type: credType,
+          privateKeyName: keyName,
+          privateKeyContentPlain: keyContent,
+          privateKeyPassphrasePlain: keyPassphrase,
         });
       }
 

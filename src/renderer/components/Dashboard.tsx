@@ -81,7 +81,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       {/* Connection Cards Grid Grid */}
-      <div className="flex-1 overflow-y-auto p-4.5 flex flex-wrap gap-3 align-content-start">
+      <div className="flex-1 overflow-y-auto p-4.5 flex flex-wrap gap-3 content-start items-start">
         {filteredConnections.length > 0 ? (
           filteredConnections.map((conn) => (
             <ConnectionCard

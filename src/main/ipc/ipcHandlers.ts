@@ -34,8 +34,28 @@ async function buildHopChain(connectionId: number): Promise<any[]> {
       const cred = StoredCredentialDao.getCredential(conn.credentialId);
       if (cred) {
         serverConf.username = cred.username;
-        if (cred.password) serverConf.password = cred.password;
-        if (cred.totpSecret) serverConf.totpSecret = cred.totpSecret;
+        if (cred.type === 'KEY_ONLY') {
+          if (cred.privateKeyContent) {
+            serverConf.privateKey = cred.privateKeyContent;
+            if (cred.privateKeyPassphrase) {
+              serverConf.passphrase = cred.privateKeyPassphrase;
+            }
+          } else {
+            try {
+              const fs = require('fs');
+              serverConf.privateKey = fs.readFileSync(cred.password, 'utf8');
+              if (cred.totpSecret) {
+                serverConf.passphrase = cred.totpSecret;
+              }
+            } catch (fileErr: any) {
+              log.error(`Failed to read private key fallback at ${cred.password}`, fileErr);
+              throw new Error(`Failed to read private key file: ${fileErr.message}`);
+            }
+          }
+        } else {
+          if (cred.password) serverConf.password = cred.password;
+          if (cred.totpSecret) serverConf.totpSecret = cred.totpSecret;
+        }
       }
     }
 
@@ -80,6 +100,16 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
       return result.filePaths[0];
     }
     return null;
+  });
+
+  ipcMain.handle('fs-read-file', async (event, filePath: string) => {
+    try {
+      const fs = require('fs');
+      return fs.readFileSync(filePath, 'utf8');
+    } catch (err: any) {
+      log.error(`Failed to read file ${filePath}`, err);
+      throw err;
+    }
   });
 
   // ─── Database Connections CRUD ───
@@ -164,6 +194,9 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
     totpSecretPlain: string;
     isDefault: boolean;
     type: string;
+    privateKeyName?: string;
+    privateKeyContentPlain?: string;
+    privateKeyPassphrasePlain?: string;
   }) => {
     return StoredCredentialDao.addCredential(
       data.name,
@@ -171,7 +204,10 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
       data.passwordPlain,
       data.totpSecretPlain,
       data.isDefault,
-      data.type
+      data.type,
+      data.privateKeyName,
+      data.privateKeyContentPlain,
+      data.privateKeyPassphrasePlain
     );
   });
 
@@ -183,6 +219,9 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
     totpSecretPlain: string;
     isDefault: boolean;
     type: string;
+    privateKeyName?: string;
+    privateKeyContentPlain?: string;
+    privateKeyPassphrasePlain?: string;
   }) => {
     StoredCredentialDao.updateCredential(
       data.id,
@@ -191,7 +230,10 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
       data.passwordPlain,
       data.totpSecretPlain,
       data.isDefault,
-      data.type
+      data.type,
+      data.privateKeyName,
+      data.privateKeyContentPlain,
+      data.privateKeyPassphrasePlain
     );
     return { success: true };
   });
@@ -238,4 +280,84 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
     }
     return { success: false, error: 'Session not found' };
   });
+
+  // ─── Local Filesystem Operations ───
+  ipcMain.handle('fs-list-directory', async (event, pathStr: string) => {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const os = require('os');
+      
+      let targetPath = pathStr;
+      if (!targetPath || targetPath === '~') {
+        targetPath = os.homedir();
+      } else if (targetPath.startsWith('~/')) {
+        targetPath = path.join(os.homedir(), targetPath.substring(2));
+      } else {
+        targetPath = path.resolve(targetPath);
+      }
+      
+      if (!fs.existsSync(targetPath)) {
+        throw new Error(`Directory does not exist: ${targetPath}`);
+      }
+      
+      const files = fs.readdirSync(targetPath, { withFileTypes: true });
+      return files.map((f: any) => {
+        let size = 0;
+        let mtime = new Date();
+        try {
+          const stats = fs.statSync(path.join(targetPath, f.name));
+          size = stats.size;
+          mtime = stats.mtime;
+        } catch (e) {}
+        
+        return {
+          name: f.name,
+          isDirectory: f.isDirectory(),
+          size,
+          modified: mtime.toISOString().substring(0, 10), // YYYY-MM-DD
+        };
+      });
+    } catch (err: any) {
+      log.error(`Local LS failed for path="${pathStr}"`, err);
+      throw err;
+    }
+  });
+
+  ipcMain.handle('fs-get-home-dir', () => {
+    const os = require('os');
+    return os.homedir();
+  });
+
+  // ─── SSH Session Filesystem Operations ───
+  ipcMain.handle('ssh-list-directory', async (event, sessionId: string, pathStr: string) => {
+    const client = activeSessions.get(sessionId);
+    if (!client) throw new Error('Session not found or disconnected');
+    return await client.listDirectory(pathStr);
+  });
+
+  ipcMain.handle('ssh-get-home-dir', async (event, sessionId: string) => {
+    const client = activeSessions.get(sessionId);
+    if (!client) throw new Error('Session not found or disconnected');
+    return await client.getHomeDir();
+  });
+
+  ipcMain.handle('ssh-delete', async (event, sessionId: string, pathStr: string, recursive: boolean) => {
+    const client = activeSessions.get(sessionId);
+    if (!client) throw new Error('Session not found or disconnected');
+    return await client.delete(pathStr, recursive);
+  });
+
+  ipcMain.handle('ssh-rename', async (event, sessionId: string, from: string, to: string) => {
+    const client = activeSessions.get(sessionId);
+    if (!client) throw new Error('Session not found or disconnected');
+    return await client.rename(from, to);
+  });
+
+  ipcMain.handle('ssh-mkdir', async (event, sessionId: string, pathStr: string) => {
+    const client = activeSessions.get(sessionId);
+    if (!client) throw new Error('Session not found or disconnected');
+    return await client.mkdir(pathStr);
+  });
 }
+

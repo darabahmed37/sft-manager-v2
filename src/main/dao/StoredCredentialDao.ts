@@ -14,6 +14,9 @@ export interface StoredCredential {
   type: string;
   password?: string;
   totpSecret?: string;
+  privateKeyName?: string;
+  privateKeyContent?: string;
+  privateKeyPassphrase?: string;
 }
 
 export class StoredCredentialDao {
@@ -23,22 +26,30 @@ export class StoredCredentialDao {
     passwordPlain: string,
     totpSecretPlain: string,
     isDefault = false,
-    type = 'I2C_MFA'
+    type = 'PASSWORD_TOTP',
+    privateKeyName = '',
+    privateKeyContentPlain = '',
+    privateKeyPassphrasePlain = ''
   ): number {
     const db = getDatabase();
     const pwdEnc = PlatformCipher.encrypt(passwordPlain);
     const totpEnc = PlatformCipher.encrypt(totpSecretPlain);
+    const keyContentEnc = PlatformCipher.encrypt(privateKeyContentPlain);
+    const keyPassphraseEnc = PlatformCipher.encrypt(privateKeyPassphrasePlain);
 
     try {
       const stmt = db.prepare(`
-        INSERT INTO stored_credentials (name, username, password, totp_secret, is_default, type)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO stored_credentials (name, username, password, totp_secret, private_key_name, private_key_content, private_key_passphrase, is_default, type)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       const info = stmt.run(
         name.trim(),
         username.trim(),
         pwdEnc,
         totpEnc,
+        privateKeyName.trim(),
+        keyContentEnc,
+        keyPassphraseEnc,
         isDefault ? 1 : 0,
         type
       );
@@ -54,7 +65,9 @@ export class StoredCredentialDao {
     const db = getDatabase();
     try {
       const rows = db.prepare(`
-        SELECT id, name, username, password as passwordEncrypted, totp_secret as totpSecretEncrypted, is_default as isDefault, type
+        SELECT id, name, username, password as passwordEncrypted, totp_secret as totpSecretEncrypted,
+               private_key_name as privateKeyName, private_key_content as privateKeyContentEncrypted,
+               private_key_passphrase as privateKeyPassphraseEncrypted, is_default as isDefault, type
         FROM stored_credentials
         ORDER BY name ASC
       `).all() as any[];
@@ -70,7 +83,9 @@ export class StoredCredentialDao {
     const db = getDatabase();
     try {
       const row = db.prepare(`
-        SELECT id, name, username, password as passwordEncrypted, totp_secret as totpSecretEncrypted, is_default as isDefault, type
+        SELECT id, name, username, password as passwordEncrypted, totp_secret as totpSecretEncrypted,
+               private_key_name as privateKeyName, private_key_content as privateKeyContentEncrypted,
+               private_key_passphrase as privateKeyPassphraseEncrypted, is_default as isDefault, type
         FROM stored_credentials
         WHERE id = ?
       `).get(id) as any;
@@ -89,22 +104,30 @@ export class StoredCredentialDao {
     passwordPlain: string,
     totpSecretPlain: string,
     isDefault = false,
-    type = 'I2C_MFA'
+    type = 'PASSWORD_TOTP',
+    privateKeyName = '',
+    privateKeyContentPlain = '',
+    privateKeyPassphrasePlain = ''
   ): void {
     const db = getDatabase();
     const pwdEnc = PlatformCipher.encrypt(passwordPlain);
     const totpEnc = PlatformCipher.encrypt(totpSecretPlain);
+    const keyContentEnc = PlatformCipher.encrypt(privateKeyContentPlain);
+    const keyPassphraseEnc = PlatformCipher.encrypt(privateKeyPassphrasePlain);
 
     try {
       db.prepare(`
         UPDATE stored_credentials
-        SET name = ?, username = ?, password = ?, totp_secret = ?, is_default = ?, type = ?
+        SET name = ?, username = ?, password = ?, totp_secret = ?, private_key_name = ?, private_key_content = ?, private_key_passphrase = ?, is_default = ?, type = ?
         WHERE id = ?
       `).run(
         name.trim(),
         username.trim(),
         pwdEnc,
         totpEnc,
+        privateKeyName.trim(),
+        keyContentEnc,
+        keyPassphraseEnc,
         isDefault ? 1 : 0,
         type,
         id
@@ -150,7 +173,9 @@ export class StoredCredentialDao {
     const db = getDatabase();
     try {
       const row = db.prepare(`
-        SELECT id, name, username, password as passwordEncrypted, totp_secret as totpSecretEncrypted, is_default as isDefault, type
+        SELECT id, name, username, password as passwordEncrypted, totp_secret as totpSecretEncrypted,
+               private_key_name as privateKeyName, private_key_content as privateKeyContentEncrypted,
+               private_key_passphrase as privateKeyPassphraseEncrypted, is_default as isDefault, type
         FROM stored_credentials
         WHERE is_default = 1
         LIMIT 1
@@ -166,6 +191,8 @@ export class StoredCredentialDao {
   private static mapRow(row: any): StoredCredential {
     const passwordEncrypted = row.passwordEncrypted || '';
     const totpSecretEncrypted = row.totpSecretEncrypted || '';
+    const keyContentEnc = row.privateKeyContentEncrypted || '';
+    const keyPassphraseEnc = row.privateKeyPassphraseEncrypted || '';
     
     return {
       id: row.id,
@@ -174,9 +201,12 @@ export class StoredCredentialDao {
       passwordEncrypted,
       totpSecretEncrypted,
       isDefault: row.isDefault === 1,
-      type: row.type || 'I2C_MFA',
+      type: row.type || 'PASSWORD_TOTP',
       password: PlatformCipher.decrypt(passwordEncrypted),
-      totpSecret: PlatformCipher.decrypt(totpSecretEncrypted)
+      totpSecret: PlatformCipher.decrypt(totpSecretEncrypted),
+      privateKeyName: row.privateKeyName || '',
+      privateKeyContent: PlatformCipher.decrypt(keyContentEnc),
+      privateKeyPassphrase: PlatformCipher.decrypt(keyPassphraseEnc),
     };
   }
 }

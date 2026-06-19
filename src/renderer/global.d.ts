@@ -6,6 +6,11 @@ export interface ElectronAPI {
     getPlatform: () => Promise<string>;
     openFile: () => Promise<string | null>;
   };
+  fs: {
+    readFile: (filePath: string) => Promise<string>;
+    listDirectory: (pathStr: string) => Promise<any[]>;
+    getHomeDir: () => Promise<string>;
+  };
   db: {
     getConnections: () => Promise<any[]>;
     getConnection: (id: number) => Promise<any | null>;
@@ -40,6 +45,9 @@ export interface ElectronAPI {
       totpSecretPlain: string;
       isDefault: boolean;
       type: string;
+      privateKeyName?: string;
+      privateKeyContentPlain?: string;
+      privateKeyPassphrasePlain?: string;
     }) => Promise<number>;
     updateCredential: (data: {
       id: number;
@@ -49,12 +57,20 @@ export interface ElectronAPI {
       totpSecretPlain: string;
       isDefault: boolean;
       type: string;
+      privateKeyName?: string;
+      privateKeyContentPlain?: string;
+      privateKeyPassphrasePlain?: string;
     }) => Promise<{ success: boolean }>;
     deleteCredential: (id: number) => Promise<{ success: boolean }>;
   };
   ssh: {
     connect: (connectionId: number) => Promise<{ success: boolean; sessionId?: string; error?: string }>;
     disconnect: (sessionId: string) => Promise<{ success: boolean; error?: string }>;
+    listDirectory: (sessionId: string, pathStr: string) => Promise<any[]>;
+    getHomeDir: (sessionId: string) => Promise<string>;
+    delete: (sessionId: string, pathStr: string, recursive: boolean) => Promise<void>;
+    rename: (sessionId: string, from: string, to: string) => Promise<void>;
+    mkdir: (sessionId: string, pathStr: string) => Promise<void>;
     onProgress: (
       callback: (event: any, data: { connectionId: number; message: string }) => void
     ) => () => void;

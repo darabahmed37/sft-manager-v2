@@ -2,35 +2,34 @@ import { useEffect, useState } from 'react';
 import { TitleBar } from './components/TitleBar';
 import { Dashboard } from './components/Dashboard';
 import { ConnectionLoading } from './components/ConnectionLoading';
+import { FileManager } from './components/FileManager';
 import { NewConnectionWizard } from './components/NewConnectionWizard';
 import type { Connection } from './components/ConnectionCard';
+
+interface Tab {
+  id: string; // 'connections' or `conn-${connectionId}`
+  name: string;
+  type: 'connections' | 'connection';
+  connectionId?: number;
+  status?: 'connecting' | 'connected' | 'failed';
+  error?: string;
+  loadingStatus?: string;
+  hasJump?: boolean;
+  jumpHost?: string;
+}
 
 function App() {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [activeSessions, setActiveSessions] = useState<Set<number>>(new Set());
   const [sessionIds, setSessionIds] = useState<Map<number, string>>(new Map());
 
-  // Views & Overlay state
-  const [currentView, setCurrentView] = useState<'DASHBOARD' | 'LOADING' | 'FILE_EXPLORER'>('DASHBOARD');
+  // Views, tabs & Overlay state
+  const [tabs, setTabs] = useState<Tab[]>([
+    { id: 'connections', name: 'Connections', type: 'connections' }
+  ]);
+  const [activeTabId, setActiveTabId] = useState<string>('connections');
   const [isWizardOpen, setIsWizardOpen] = useState<boolean>(false);
   const [editingConnectionId, setEditingConnectionId] = useState<number | null>(null);
-
-  // Loading indicator details
-  const [loadingState, setLoadingState] = useState<{
-    connectionId: number;
-    name: string;
-    host: string;
-    status: string;
-    hasJump: boolean;
-    jumpHost: string;
-  }>({
-    connectionId: 0,
-    name: '',
-    host: '',
-    status: '',
-    hasJump: false,
-    jumpHost: '',
-  });
 
   const refreshConnections = async () => {
     try {
@@ -57,34 +56,22 @@ function App() {
     refreshConnections();
   }, []);
 
-  // Set up connection progress listener
+  // Set up connection progress listener across active tabs
   useEffect(() => {
     const unsub = window.electronAPI.ssh.onProgress((_event, data) => {
-      setLoadingState((prev) => {
-        if (prev.connectionId === data.connectionId) {
-          return { ...prev, status: data.message };
-        }
-        return prev;
+      setTabs((prev) => {
+        return prev.map((t) => {
+          if (t.type === 'connection' && t.connectionId === data.connectionId) {
+            return { ...t, loadingStatus: data.message };
+          }
+          return t;
+        });
       });
     });
     return () => unsub();
   }, []);
 
-  const handleConnect = async (id: number) => {
-    const conn = connections.find((c) => c.id === id);
-    if (!conn) return;
-
-    setLoadingState({
-      connectionId: id,
-      name: conn.name,
-      host: conn.host,
-      status: 'Initializing connection sequence...',
-      hasJump: conn.tunnelViaConnectionId !== null,
-      jumpHost: conn.tunnelName || 'jump-gateway.net',
-    });
-
-    setCurrentView('LOADING');
-
+  const runConnectionFlow = async (id: number, tabId: string) => {
     try {
       const res = await window.electronAPI.ssh.connect(id);
       if (res.success && res.sessionId) {
@@ -98,15 +85,49 @@ function App() {
           next.set(id, res.sessionId!);
           return next;
         });
-        setCurrentView('DASHBOARD');
+        setTabs(prev => prev.map(t => t.id === tabId ? { ...t, status: 'connected' } : t));
       } else {
-        alert(`Connection Failed: ${res.error || 'Unknown error'}`);
-        setCurrentView('DASHBOARD');
+        setTabs(prev => prev.map(t => t.id === tabId ? { ...t, status: 'failed', error: res.error || 'Unknown error' } : t));
       }
     } catch (err: any) {
-      alert(`Connection Exception: ${err.message}`);
-      setCurrentView('DASHBOARD');
+      setTabs(prev => prev.map(t => t.id === tabId ? { ...t, status: 'failed', error: err.message } : t));
     }
+  };
+
+  const handleConnect = async (id: number) => {
+    const conn = connections.find((c) => c.id === id);
+    if (!conn) return;
+
+    const tabId = `conn-${id}`;
+    
+    // If tab already exists, activate it
+    const existingTab = tabs.find(t => t.id === tabId);
+    if (existingTab) {
+      setActiveTabId(tabId);
+      return;
+    }
+
+    const newTab: Tab = {
+      id: tabId,
+      name: conn.name,
+      type: 'connection',
+      connectionId: id,
+      status: 'connecting',
+      loadingStatus: 'Initializing connection sequence...',
+      hasJump: conn.tunnelViaConnectionId !== null,
+      jumpHost: conn.tunnelName || 'jump-gateway.net',
+    };
+
+    setTabs(prev => [...prev, newTab]);
+    setActiveTabId(tabId);
+
+    runConnectionFlow(id, tabId);
+  };
+
+  const handleRetryConnect = (id: number) => {
+    const tabId = `conn-${id}`;
+    setTabs(prev => prev.map(t => t.id === tabId ? { ...t, status: 'connecting', loadingStatus: 'Re-initializing connection sequence...' } : t));
+    runConnectionFlow(id, tabId);
   };
 
   const handleDisconnect = async (id: number) => {
@@ -125,8 +146,30 @@ function App() {
         next.delete(id);
         return next;
       });
+
+      // Update corresponding tab if it exists
+      const tabId = `conn-${id}`;
+      setTabs(prev => prev.map(t => t.id === tabId ? { ...t, status: 'failed', error: 'Session disconnected by user' } : t));
     } catch (err: any) {
       alert(`Disconnect failed: ${err.message}`);
+    }
+  };
+
+  const handleCloseTab = (tabId: string) => {
+    const tab = tabs.find(t => t.id === tabId);
+    if (!tab) return;
+
+    setTabs(prev => prev.filter(t => t.id !== tabId));
+
+    if (activeTabId === tabId) {
+      setActiveTabId('connections');
+    }
+
+    if (tab.connectionId) {
+      const sessionId = sessionIds.get(tab.connectionId);
+      if (sessionId) {
+        handleDisconnect(tab.connectionId);
+      }
     }
   };
 
@@ -143,6 +186,8 @@ function App() {
       try {
         await window.electronAPI.db.deleteConnection(id);
         refreshConnections();
+        // Close tab if open
+        handleCloseTab(`conn-${id}`);
       } catch (err: any) {
         alert(`Delete failed: ${err.message}`);
       }
@@ -169,19 +214,96 @@ function App() {
     }
   };
 
-  const handleCancelLoading = async () => {
-    // Return to dashboard panel
-    setCurrentView('DASHBOARD');
-  };
+  // Determine Title Bar title dynamically based on active tab
+  const activeTab = tabs.find(t => t.id === activeTabId) || tabs[0];
+  let title = 'i2c SFTP';
+  if (activeTab.type === 'connection') {
+    if (activeTab.status === 'connecting') {
+      title = 'Connecting...';
+    } else if (activeTab.status === 'connected') {
+      title = `i2c SFTP — ${activeTab.name}`;
+    } else if (activeTab.status === 'failed') {
+      title = `Connection Failed — ${activeTab.name}`;
+    }
+  }
 
   return (
     <div className="h-screen flex flex-col bg-[#141414] overflow-hidden">
       {/* Title Bar */}
-      <TitleBar title="i2c SFTP" />
+      <TitleBar title={title} />
+
+      {/* Menu Bar */}
+      <div className="h-[22px] bg-[#1e1e1e] border-b border-[#252525] flex items-center pl-1 shrink-0 text-xs text-[#bbb] select-none">
+        <div className="px-2.5 h-full flex items-center cursor-default hover:bg-neutral-800 hover:text-white transition-colors">File</div>
+        <div className="px-2.5 h-full flex items-center cursor-default hover:bg-neutral-800 hover:text-white transition-colors">Edit</div>
+        <div className="px-2.5 h-full flex items-center cursor-default hover:bg-neutral-800 hover:text-white transition-colors">View</div>
+        <div className="px-2.5 h-full flex items-center cursor-default hover:bg-neutral-800 hover:text-white transition-colors">Help</div>
+      </div>
+
+      {/* Session Tab Strip */}
+      <div className="h-[30px] bg-[#252526] border-b border-[#141414] flex items-end shrink-0 overflow-hidden select-none">
+        {/* Connections home tab */}
+        <div 
+          onClick={() => setActiveTabId('connections')}
+          className={`h-7 px-3.5 flex items-center gap-1.5 text-xs cursor-pointer border-r border-[#1a1a1a] shrink-0 border-t ${activeTabId === 'connections' ? 'bg-[#1e1e1e] text-[#ccc] border-t-[#29ABEE] border-b border-b-[#1e1e1e]' : 'bg-[#252526] text-[#777] border-t-transparent border-b border-b-[#141414] hover:bg-[#1f1f20] hover:text-[#bbb]'}`}
+        >
+          <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4">
+            <rect x="1" y="2" width="10" height="8" rx="1"/>
+            <line x1="1" y1="4.5" x2="11" y2="4.5"/>
+            <line x1="3.5" y1="6.5" x2="5.5" y2="6.5"/>
+            <line x1="3.5" y1="8" x2="7.5" y2="8"/>
+          </svg>
+          Connections
+        </div>
+
+        {/* Active connection tabs */}
+        {tabs.filter(t => t.type === 'connection').map((tab) => {
+          const isActive = activeTabId === tab.id;
+          const statusDotColor = tab.status === 'connected' ? '#4ec9b0' : tab.status === 'failed' ? '#f44747' : '#29ABEE';
+          return (
+            <div 
+              key={tab.id}
+              onClick={() => setActiveTabId(tab.id)}
+              className={`h-7 px-3 flex items-center gap-1.5 text-xs cursor-pointer border-r border-[#1a1a1a] shrink-0 border-t ${isActive ? 'bg-[#1e1e1e] text-[#ccc] border-t-[#29ABEE] border-b border-b-[#1e1e1e]' : 'bg-[#252526] text-[#777] border-t-transparent border-b border-b-[#141414] hover:bg-[#1f1f20] hover:text-[#bbb]'}`}
+            >
+              <div 
+                className="w-1.5 h-1.5 rounded-full shrink-0 transition-colors duration-300"
+                style={{ 
+                  backgroundColor: statusDotColor,
+                  boxShadow: tab.status === 'connecting' ? '0 0 3px #29ABEE' : tab.status === 'connected' ? '0 0 3px #4ec9b0' : 'none' 
+                }}
+              ></div>
+              <span>{tab.name}</span>
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCloseTab(tab.id);
+                }}
+                className="ml-1 text-neutral-600 hover:text-white font-semibold text-[15px] leading-none mt-[-1px] outline-none cursor-pointer"
+              >
+                ×
+              </button>
+            </div>
+          );
+        })}
+
+        {/* Plus tab button */}
+        <div 
+          onClick={() => {
+            setEditingConnectionId(null);
+            setIsWizardOpen(true);
+          }}
+          className="h-7 w-[30px] flex items-center justify-center cursor-pointer text-neutral-600 hover:text-neutral-400 text-[17px] mt-[-1px] shrink-0 border-b border-[#141414]"
+          title="New Connection"
+        >
+          +
+        </div>
+        <div className="flex-1 border-b border-b-[#141414]"></div>
+      </div>
 
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
-        {currentView === 'DASHBOARD' && (
+        {activeTabId === 'connections' ? (
           <Dashboard
             connections={connections}
             activeSessions={activeSessions}
@@ -195,17 +317,73 @@ function App() {
               setIsWizardOpen(true);
             }}
           />
-        )}
+        ) : (
+          (() => {
+            const currentTab = tabs.find(t => t.id === activeTabId);
+            if (!currentTab) return null;
 
-        {currentView === 'LOADING' && (
-          <ConnectionLoading
-            connectionName={loadingState.name}
-            host={`${loadingState.host}`}
-            status={loadingState.status}
-            hasJump={loadingState.hasJump}
-            jumpHost={loadingState.jumpHost}
-            onCancel={handleCancelLoading}
-          />
+            if (currentTab.status === 'connecting') {
+              return (
+                <ConnectionLoading
+                  connectionName={currentTab.name}
+                  host={connections.find(c => c.id === currentTab.connectionId)?.host || ''}
+                  status={currentTab.loadingStatus || ''}
+                  hasJump={currentTab.hasJump}
+                  jumpHost={currentTab.jumpHost}
+                  onCancel={() => handleCloseTab(currentTab.id)}
+                />
+              );
+            }
+
+            if (currentTab.status === 'connected') {
+              const conn = connections.find(c => c.id === currentTab.connectionId);
+              return (
+                <FileManager
+                  connectionName={currentTab.name}
+                  username={conn?.credentialUsername || 'ubuntu'}
+                  host={conn?.host || ''}
+                  sessionId={sessionIds.get(currentTab.connectionId!) || ''}
+                  onDisconnect={() => {
+                    if (currentTab.connectionId) {
+                      handleDisconnect(currentTab.connectionId);
+                    }
+                  }}
+                />
+              );
+            }
+
+            if (currentTab.status === 'failed') {
+              return (
+                <div className="flex-1 flex flex-col items-center justify-center bg-[#141414] select-none text-neutral-300 font-sans p-6">
+                  <div className="w-[420px] bg-[#1e1e1e] border border-neutral-800 rounded-[4px] p-6 shadow-xl text-center">
+                    <div className="w-12 h-12 bg-red-950/20 border border-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 text-xl font-bold">
+                      !
+                    </div>
+                    <h3 className="text-[14px] font-semibold text-neutral-200 mb-2">Connection Failed</h3>
+                    <p className="text-xs text-neutral-500 font-mono bg-[#141414] p-3 rounded-[3px] border border-neutral-900/60 break-all text-left mb-6 leading-relaxed max-h-40 overflow-y-auto">
+                      {currentTab.error}
+                    </p>
+                    <div className="flex gap-3 justify-center">
+                      <button 
+                        onClick={() => currentTab.connectionId && handleRetryConnect(currentTab.connectionId)}
+                        className="bg-[#29ABEE] hover:bg-[#1a9ad9] active:bg-[#1685bc] border-none text-white text-xs px-5 py-2 rounded-[3px] font-semibold cursor-pointer outline-none transition-colors"
+                      >
+                        Retry Connection
+                      </button>
+                      <button 
+                        onClick={() => handleCloseTab(currentTab.id)}
+                        className="bg-transparent hover:bg-neutral-800 border border-neutral-800 hover:border-neutral-700 text-neutral-400 text-xs px-5 py-2 rounded-[3px] font-medium cursor-pointer outline-none transition-colors"
+                      >
+                        Close Tab
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
+            return null;
+          })()
         )}
       </div>
 
