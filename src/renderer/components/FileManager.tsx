@@ -37,7 +37,9 @@ export const FileManager: React.FC<FileManagerProps> = ({
   const [localCollapsed, setLocalCollapsed] = useState(false);
   const [localView, setLocalView] = useState<'list' | 'grid'>('list');
   const [remoteView, setRemoteView] = useState<'list' | 'grid'>('list');
-  const [activeRemoteTab, setActiveRemoteTab] = useState(0);
+  const [remoteTabs, setRemoteTabs] = useState<{ path: string; isPinned: boolean }[]>([]);
+  const [activeRemoteTabIdx, setActiveRemoteTabIdx] = useState(0);
+  const [tabContextMenu, setTabContextMenu] = useState<{ x: number; y: number; tabIdx: number } | null>(null);
 
   // Bookmarks state
   const [localBookmarks, setLocalBookmarks] = useState<any[]>([]);
@@ -245,7 +247,6 @@ export const FileManager: React.FC<FileManagerProps> = ({
     return `${mb.toFixed(1)} MB`;
   };
 
-  const remoteDirTabs = [remoteCurrentDir || '/home/ubuntu'];
 
   // Directory navigation helpers (platform independent string parsing)
   const getParentLocal = (curPath: string) => {
@@ -303,6 +304,11 @@ export const FileManager: React.FC<FileManagerProps> = ({
     }
   };
 
+  const activeRemoteTabIdxRef = React.useRef(activeRemoteTabIdx);
+  useEffect(() => {
+    activeRemoteTabIdxRef.current = activeRemoteTabIdx;
+  }, [activeRemoteTabIdx]);
+
   // Fetch remote file list
   const loadRemoteDirectory = async (dirPath: string) => {
     setRemoteLoading(true);
@@ -315,6 +321,21 @@ export const FileManager: React.FC<FileManagerProps> = ({
       });
       setRemoteFiles(sorted);
       setRemoteCurrentDir(dirPath);
+
+      setRemoteTabs(prev => {
+        const next = [...prev];
+        const currentIdx = activeRemoteTabIdxRef.current;
+        if (next[currentIdx]) {
+          next[currentIdx] = { ...next[currentIdx], path: dirPath };
+          if (next[currentIdx].isPinned && connectionId) {
+            const pinnedOnly = next
+              .map((t, idx) => ({ path: t.path, tabOrder: idx, isActive: idx === currentIdx, isPinned: t.isPinned }))
+              .filter(t => t.isPinned);
+            window.electronAPI.settings.saveRemoteTabs(connectionId, pinnedOnly).catch(console.error);
+          }
+        }
+        return next;
+      });
     } catch (err: any) {
       console.error('Failed to load remote directory', err);
       setErrorMsg(`Remote error: ${err.message}`);
@@ -399,6 +420,113 @@ export const FileManager: React.FC<FileManagerProps> = ({
       loadRemoteDirectory(parent);
     }
   };
+
+  const savePinnedTabsToDb = async (currentTabs: { path: string; isPinned: boolean }[], activeIdx: number) => {
+    if (!connectionId) return;
+    const pinnedOnly = currentTabs
+      .map((t, idx) => ({ path: t.path, tabOrder: idx, isActive: idx === activeIdx, isPinned: t.isPinned }))
+      .filter(t => t.isPinned);
+    try {
+      await window.electronAPI.settings.saveRemoteTabs(connectionId, pinnedOnly);
+    } catch (err) {
+      console.error('Failed to save pinned tabs', err);
+    }
+  };
+
+  useEffect(() => {
+    const initRemoteTabs = async () => {
+      if (!connectionId) return;
+      try {
+        const savedTabs = await window.electronAPI.settings.getRemoteTabs(connectionId);
+        if (savedTabs && savedTabs.length > 0) {
+          const mapped = savedTabs.map((t: any) => ({
+            path: t.path,
+            isPinned: true
+          }));
+          setRemoteTabs(mapped);
+          const activeIdx = savedTabs.findIndex((t: any) => t.isActive === 1);
+          const finalIdx = activeIdx >= 0 ? activeIdx : 0;
+          setActiveRemoteTabIdx(finalIdx);
+          if (localCollapsed && mapped[finalIdx]) {
+            loadRemoteDirectory(mapped[finalIdx].path);
+          }
+        } else {
+          const defaultPath = remoteCurrentDir || remoteHome || '/';
+          setRemoteTabs([{ path: defaultPath, isPinned: false }]);
+          setActiveRemoteTabIdx(0);
+        }
+      } catch (err) {
+        console.error('Failed to load remote tabs', err);
+      }
+    };
+
+    if (localCollapsed) {
+      initRemoteTabs();
+    }
+  }, [connectionId, localCollapsed]);
+
+  const handleSelectTab = (idx: number) => {
+    setActiveRemoteTabIdx(idx);
+    const tab = remoteTabs[idx];
+    if (tab) {
+      loadRemoteDirectory(tab.path);
+    }
+  };
+
+  const handleAddTab = () => {
+    const newPath = remoteCurrentDir || remoteHome || '/';
+    const nextTabs = [...remoteTabs, { path: newPath, isPinned: false }];
+    setRemoteTabs(nextTabs);
+    setActiveRemoteTabIdx(nextTabs.length - 1);
+    loadRemoteDirectory(newPath);
+  };
+
+  const handleCloseRemoteTab = (idx: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (remoteTabs.length <= 1) return;
+    const nextTabs = remoteTabs.filter((_, i) => i !== idx);
+    let nextIdx = activeRemoteTabIdx;
+    if (idx <= activeRemoteTabIdx) {
+      nextIdx = Math.max(0, activeRemoteTabIdx - 1);
+    }
+    setRemoteTabs(nextTabs);
+    setActiveRemoteTabIdx(nextIdx);
+    if (nextTabs[nextIdx]) {
+      loadRemoteDirectory(nextTabs[nextIdx].path);
+    }
+    savePinnedTabsToDb(nextTabs, nextIdx);
+  };
+
+  const handleDuplicateTab = (idx: number) => {
+    const tabToDup = remoteTabs[idx];
+    if (!tabToDup) return;
+    const nextTabs = [...remoteTabs];
+    nextTabs.splice(idx + 1, 0, { path: tabToDup.path, isPinned: false });
+    setRemoteTabs(nextTabs);
+    setActiveRemoteTabIdx(idx + 1);
+    savePinnedTabsToDb(nextTabs, idx + 1);
+  };
+
+  const handleTogglePinTab = (idx: number) => {
+    const nextTabs = remoteTabs.map((t, i) => i === idx ? { ...t, isPinned: !t.isPinned } : t);
+    setRemoteTabs(nextTabs);
+    savePinnedTabsToDb(nextTabs, activeRemoteTabIdx);
+  };
+
+  const handleTabContextMenu = (e: React.MouseEvent, idx: number) => {
+    e.preventDefault();
+    setTabContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      tabIdx: idx
+    });
+  };
+
+  useEffect(() => {
+    const hideMenu = () => setTabContextMenu(null);
+    document.addEventListener('click', hideMenu);
+    return () => document.removeEventListener('click', hideMenu);
+  }, []);
 
   const toggleLocalSort = (field: 'name' | 'size' | 'modified') => {
     let nextAsc = true;
@@ -791,22 +919,40 @@ export const FileManager: React.FC<FileManagerProps> = ({
 
           {/* Remote Directory Tabs - Only visible when local panel is collapsed */}
           {localCollapsed && (
-            <div className="h-[26px] bg-[var(--bg-panel-header)] border-b border-[var(--border-color)] flex items-end overflow-hidden shrink-0 theme-transition">
-              {remoteDirTabs.map((label: string, i: number) => (
-                <div 
-                  key={i}
-                  onClick={() => setActiveRemoteTab(i)} 
-                  className={`h-6 px-2.5 flex items-center gap-1.5 text-[11px] cursor-pointer border-r border-[var(--border-color)] shrink-0 border-t ${
-                    activeRemoteTab === i 
-                      ? 'bg-[var(--bg-panel)] text-[var(--active-tab-text)] border-t border-t-[var(--color-primary)] font-semibold' 
-                      : 'bg-transparent text-[var(--text-muted)] border-t-transparent hover:text-[var(--text-main)]'
-                  }`}
-                >
-                  {label}
-                  <span className="text-[var(--text-subtle)] text-xs ml-0.5 mt-[-1px] font-semibold">×</span>
-                </div>
-              ))}
-              <div className="w-6 h-6 flex items-center justify-center cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] text-[15px] shrink-0">+</div>
+            <div className="h-[26px] bg-[var(--bg-panel-header)] border-b border-[var(--border-color)] flex items-end overflow-hidden shrink-0 theme-transition select-none">
+              {remoteTabs.map((tab, i) => {
+                const isActive = activeRemoteTabIdx === i;
+                const pathParts = tab.path.split('/').filter(Boolean);
+                const folderName = pathParts.length > 0 ? pathParts[pathParts.length - 1] : '/';
+                return (
+                  <div 
+                    key={i}
+                    onClick={() => handleSelectTab(i)} 
+                    onContextMenu={(e) => handleTabContextMenu(e, i)}
+                    className={`h-6 px-2.5 flex items-center gap-1.5 text-[11.5px] cursor-pointer border-r border-[var(--border-color)] shrink-0 border-t transition-all ${
+                      isActive 
+                        ? 'bg-[var(--bg-panel)] text-[var(--active-tab-text)] border-t border-t-[var(--color-primary)] font-semibold' 
+                        : 'bg-transparent text-[var(--text-muted)] border-t-transparent hover:text-[var(--text-main)] hover:bg-[var(--bg-panel)]/40'
+                    }`}
+                    title={tab.path}
+                  >
+                    <span>{tab.isPinned ? '📌 ' : ''}{folderName}</span>
+                    <span 
+                      onClick={(e) => handleCloseRemoteTab(i, e)}
+                      className="text-[var(--text-subtle)] hover:text-[var(--text-main)] text-[13px] font-bold ml-1 cursor-pointer"
+                    >
+                      ×
+                    </span>
+                  </div>
+                );
+              })}
+              <div 
+                onClick={handleAddTab}
+                className="w-6 h-6 flex items-center justify-center cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] text-[16px] shrink-0 border-b border-b-[var(--border-color)]"
+                title="New Remote Tab"
+              >
+                +
+              </div>
             </div>
           )}
 
@@ -1154,6 +1300,26 @@ export const FileManager: React.FC<FileManagerProps> = ({
           Disconnect Session
         </button>
       </div>
+      {/* Remote Tab Right-Click Context Menu */}
+      {tabContextMenu && (
+        <div 
+          style={{ top: `${tabContextMenu.y}px`, left: `${tabContextMenu.x}px` }}
+          className="fixed bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-[3px] shadow-lg py-1 z-[100] w-36 text-xs text-[var(--text-main)] font-sans"
+        >
+          <button 
+            onClick={() => handleTogglePinTab(tabContextMenu.tabIdx)}
+            className="w-full text-left px-3 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
+          >
+            {remoteTabs[tabContextMenu.tabIdx]?.isPinned ? '📌 Unpin Tab' : '📌 Pin Tab'}
+          </button>
+          <button 
+            onClick={() => handleDuplicateTab(tabContextMenu.tabIdx)}
+            className="w-full text-left px-3 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs border-t border-[var(--border-color)]/50 text-left"
+          >
+            📋 Duplicate Tab
+          </button>
+        </div>
+      )}
     </div>
   );
 };
