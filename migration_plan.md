@@ -22,11 +22,11 @@ This is an internal private application written from scratch. We are rewriting t
 - [x] Create simple CLI connection test-driver (`test-connection.ts`) to compile and verify connection success
 - [x] Commit logic implementation
 
-### ⬜ Phase 3: SQLite & Authentication Strategies (Active)
-- [ ] Integrate SQLite for connection profiles and state persistence
-- [ ] Implement Password, SSH Key, and Keyboard-Interactive Auth strategies
-- [ ] Handle TOTP/MFA automatic responses in connection flows
-- [ ] Commit authentication and database logic
+### 🟩 Phase 3: SQLite & Authentication Strategies (Completed)
+- [x] Integrate SQLite for connection profiles and state persistence
+- [x] Implement Password, SSH Key, and Keyboard-Interactive Auth strategies
+- [x] Handle TOTP/MFA automatic responses in connection flows
+- [x] Commit authentication and database logic
 
 ### ⬜ Phase 4: UI Screens Development (Vite + React)
 - [ ] Connection Screen (profiles manager, saved lists)
