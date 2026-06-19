@@ -77,6 +77,26 @@ export interface ElectronAPI {
       callback: (event: any, data: { connectionId: number; message: string }) => void
     ) => () => void;
   };
+  settings: {
+    getSetting: (key: string, defaultValue: string) => Promise<string>;
+    setSetting: (key: string, value: string) => Promise<any>;
+    getAllSettings: () => Promise<Record<string, string>>;
+    getBookmarks: (connectionId: number, pane: string) => Promise<any[]>;
+    addBookmark: (connectionId: number, pane: string, path: string) => Promise<void>;
+    deleteBookmark: (id: number) => Promise<void>;
+    setDefaultBookmark: (connectionId: number, pane: string, id: number) => Promise<void>;
+    getKnownHosts: () => Promise<any[]>;
+    deleteKnownHost: (id: number) => Promise<void>;
+    addKnownHost: (host: string, port: number, keyType: string, publicKey: string, fingerprint: string) => Promise<void>;
+    getConnectionSettings: (connectionId: number) => Promise<any | null>;
+    updateConnectionSettings: (connectionId: number, settings: any) => Promise<void>;
+    getRemoteTabs: (connectionId: number) => Promise<any[]>;
+    saveRemoteTabs: (connectionId: number, tabs: any[]) => Promise<void>;
+    resetApp: () => Promise<void>;
+    clearTemp: () => Promise<{ success: boolean; clearedCount: number }>;
+    clearLogs: () => Promise<{ success: boolean; clearedCount: number }>;
+    openTemp: () => Promise<void>;
+  };
 }
 
 declare global {

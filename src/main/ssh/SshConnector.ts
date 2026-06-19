@@ -46,7 +46,7 @@ export class SshConnector {
           });
         }
 
-        const client = await this.connectHop(server, sock);
+        const client = await this.connectHop(server, config, sock);
         completedHops.push({
           client,
           server,
@@ -80,7 +80,7 @@ export class SshConnector {
     }
   }
 
-  private static connectHop(server: Server, sock?: any): Promise<Client> {
+  private static connectHop(server: Server, config: Config, sock?: any): Promise<Client> {
     return new Promise((resolve, reject) => {
       const client = new Client();
       let isSettled = false;
@@ -153,10 +153,16 @@ export class SshConnector {
         finish(responses);
       });
 
+      const connectTimeout = parseInt(config.get('ssh.connect.timeout', '60'), 10);
+      const keepaliveInterval = parseInt(config.get('ssh.keepalive.interval', '180'), 10);
+      const keepaliveMaxFailures = parseInt(config.get('ssh.keepalive.max.failures', '3'), 10);
+
       const connOpts: any = {
         username: server.username,
         tryKeyboard: true,
-        readyTimeout: 30000,
+        readyTimeout: connectTimeout * 1000,
+        keepaliveInterval: keepaliveInterval * 1000,
+        keepaliveCountMax: keepaliveMaxFailures,
       };
 
       if (sock) {

@@ -2,6 +2,8 @@ import { ipcMain, BrowserWindow } from 'electron';
 import * as path from 'path';
 import { ConnectionDao } from '../dao/ConnectionDao';
 import { StoredCredentialDao } from '../dao/StoredCredentialDao';
+import { SettingsDao } from '../dao/SettingsDao';
+import { getDatabase } from '../config/Database';
 import { SshClient } from '../ssh/SshClient';
 import { Config } from '../config/Config';
 import { Logger } from '../log/Logger';
@@ -330,6 +332,10 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
       const chain = await buildHopChain(connectionId);
       
       const config = new Config();
+      const allSettings = SettingsDao.getAllSettings();
+      for (const [k, v] of Object.entries(allSettings)) {
+        config.set(k, v);
+      }
       
       const client = await SshClient.connect(chain, config, (progressMsg) => {
         mainWindow.webContents.send('ssh-connect-progress', { connectionId, message: progressMsg });
@@ -540,6 +546,153 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
       try { stream.end(); } catch (_) {}
       activeShells.delete(shellId);
     }
+  });
+
+  // ─── Settings Key-Value ───
+  ipcMain.handle('settings-get', (event, key: string, defaultValue: string) => {
+    return SettingsDao.getSetting(key, defaultValue);
+  });
+
+  ipcMain.handle('settings-set', (event, key: string, value: string) => {
+    SettingsDao.setSetting(key, value);
+    return { success: true };
+  });
+
+  ipcMain.handle('settings-get-all', () => {
+    return SettingsDao.getAllSettings();
+  });
+
+  // ─── Bookmarks CRUD ───
+  ipcMain.handle('bookmarks-get', (event, connectionId: number, pane: string) => {
+    return SettingsDao.getBookmarks(connectionId, pane);
+  });
+
+  ipcMain.handle('bookmarks-add', (event, connectionId: number, pane: string, path: string) => {
+    SettingsDao.addBookmark(connectionId, pane, path);
+    return { success: true };
+  });
+
+  ipcMain.handle('bookmarks-delete', (event, id: number) => {
+    SettingsDao.deleteBookmark(id);
+    return { success: true };
+  });
+
+  ipcMain.handle('bookmarks-set-default', (event, connectionId: number, pane: string, id: number) => {
+    SettingsDao.setDefaultBookmark(connectionId, pane, id);
+    return { success: true };
+  });
+
+  // ─── Known Hosts CRUD ───
+  ipcMain.handle('known-hosts-get', () => {
+    return SettingsDao.getKnownHosts();
+  });
+
+  ipcMain.handle('known-hosts-delete', (event, id: number) => {
+    SettingsDao.deleteKnownHost(id);
+    return { success: true };
+  });
+
+  ipcMain.handle('known-hosts-add', (event, host: string, port: number, keyType: string, publicKey: string, fingerprint: string) => {
+    SettingsDao.addKnownHost(host, port, keyType, publicKey, fingerprint);
+    return { success: true };
+  });
+
+  // ─── Connection Specific Layout Settings ───
+  ipcMain.handle('connection-settings-get', (event, connectionId: number) => {
+    return SettingsDao.getConnectionSettings(connectionId);
+  });
+
+  ipcMain.handle('connection-settings-update', (event, connectionId: number, settings: any) => {
+    SettingsDao.updateConnectionSettings(connectionId, settings);
+    return { success: true };
+  });
+
+  // ─── Remote Pinned Tabs ───
+  ipcMain.handle('remote-tabs-get', (event, connectionId: number) => {
+    return SettingsDao.getRemoteTabs(connectionId);
+  });
+
+  ipcMain.handle('remote-tabs-save', (event, connectionId: number, tabs: any[]) => {
+    SettingsDao.saveRemoteTabs(connectionId, tabs);
+    return { success: true };
+  });
+
+  // ─── Maintenance Actions ───
+  ipcMain.handle('maintenance-reset-app', async () => {
+    const db = getDatabase();
+    db.close();
+
+    const fs = require('fs');
+    const path = require('path');
+    const dbPath = path.join(process.cwd(), 'data', 'settings.db');
+    if (fs.existsSync(dbPath)) {
+      try {
+        fs.unlinkSync(dbPath);
+      } catch (err) {}
+    }
+    
+    const { app } = require('electron');
+    app.quit();
+  });
+
+  ipcMain.handle('maintenance-clear-temp', async () => {
+    const fs = require('fs');
+    const path = require('path');
+    const tempDir = path.join(process.cwd(), 'data', 'temp');
+    let clearedCount = 0;
+    if (fs.existsSync(tempDir)) {
+      const files = fs.readdirSync(tempDir);
+      for (const f of files) {
+        try {
+          const fp = path.join(tempDir, f);
+          const stats = fs.statSync(fp);
+          if (stats.isDirectory()) {
+            fs.rmSync(fp, { recursive: true, force: true });
+          } else {
+            fs.unlinkSync(fp);
+          }
+          clearedCount++;
+        } catch (err) {}
+      }
+    }
+    return { success: true, clearedCount };
+  });
+
+  ipcMain.handle('maintenance-clear-logs', async () => {
+    const fs = require('fs');
+    const path = require('path');
+    const logsDir = path.join(process.cwd(), 'logs');
+    let clearedCount = 0;
+    if (fs.existsSync(logsDir)) {
+      const files = fs.readdirSync(logsDir);
+      for (const f of files) {
+        if (f.endsWith('.log') || f.endsWith('.log.gz')) {
+          try {
+            const fp = path.join(logsDir, f);
+            fs.unlinkSync(fp);
+            clearedCount++;
+          } catch (err) {
+            try {
+              fs.writeFileSync(path.join(logsDir, f), '');
+              clearedCount++;
+            } catch (inner) {}
+          }
+        }
+      }
+    }
+    return { success: true, clearedCount };
+  });
+
+  ipcMain.handle('maintenance-open-temp', async () => {
+    const { shell } = require('electron');
+    const path = require('path');
+    const fs = require('fs');
+    const tempDir = path.join(process.cwd(), 'data', 'temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+    await shell.openPath(tempDir);
+    return { success: true };
   });
 }
 
