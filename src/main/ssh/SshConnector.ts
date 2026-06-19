@@ -10,7 +10,8 @@ export class SshConnector {
   static async connect(
     chain: Server[],
     config: Config,
-    listener?: (msg: string) => void
+    listener?: (msg: string) => void,
+    verifyHostKey?: (hostKeyData: { host: string; port: number; keyType: string; fingerprint: string; publicKey: string }) => Promise<{ trust: boolean; save: boolean }>
   ): Promise<SshSessionState> {
     if (chain.length === 0) {
       throw new Error('Hop chain must not be empty');
@@ -46,7 +47,7 @@ export class SshConnector {
           });
         }
 
-        const client = await this.connectHop(server, config, sock);
+        const client = await this.connectHop(server, config, sock, verifyHostKey);
         completedHops.push({
           client,
           server,
@@ -80,7 +81,12 @@ export class SshConnector {
     }
   }
 
-  private static connectHop(server: Server, config: Config, sock?: any): Promise<Client> {
+  private static connectHop(
+    server: Server,
+    config: Config,
+    sock?: any,
+    verifyHostKey?: (hostKeyData: { host: string; port: number; keyType: string; fingerprint: string; publicKey: string }) => Promise<{ trust: boolean; save: boolean }>
+  ): Promise<Client> {
     return new Promise((resolve, reject) => {
       const client = new Client();
       let isSettled = false;
@@ -182,6 +188,58 @@ export class SshConnector {
           connOpts.passphrase = server.passphrase;
         }
       }
+
+      // Configure host key verification
+      connOpts.hostVerifier = (key: Buffer, callback: (result: boolean) => void) => {
+        try {
+          const len = key.readUInt32BE(0);
+          const keyType = key.toString('ascii', 4, 4 + len);
+          const crypto = require('crypto');
+          const fingerprint = 'SHA256:' + crypto.createHash('sha256').update(key).digest('base64').replace(/=+$/, '');
+          const publicKey = key.toString('base64');
+
+          const SettingsDao = require('../dao/SettingsDao').SettingsDao;
+          const knownHosts = SettingsDao.getKnownHosts();
+          const match = knownHosts.find(
+            (kh: any) => kh.host === server.host && kh.port === server.port && kh.keyType === keyType
+          );
+
+          if (match) {
+            if (match.fingerprint === fingerprint) {
+              log.info(`[HostVerifier] Host ${server.host} verified against known_hosts`);
+              callback(true);
+              return;
+            } else {
+              log.warn(`[HostVerifier] Host key fingerprint mismatch for ${server.host}! Expected ${match.fingerprint}, got ${fingerprint}`);
+            }
+          }
+
+          if (verifyHostKey) {
+            verifyHostKey({ host: server.host, port: server.port, keyType, fingerprint, publicKey })
+              .then((res) => {
+                if (res.trust) {
+                  if (res.save) {
+                    SettingsDao.addKnownHost(server.host, server.port, keyType, publicKey, fingerprint);
+                  }
+                  callback(true);
+                } else {
+                  callback(false);
+                }
+              })
+              .catch((err) => {
+                log.error('[HostVerifier] Error during host key verification prompt', err);
+                callback(false);
+              });
+          } else {
+            // Auto accept if no verification callback provided
+            log.info(`[HostVerifier] Auto-accepting host key for ${server.host}`);
+            callback(true);
+          }
+        } catch (err) {
+          log.error('[HostVerifier] Error in hostVerifier', err);
+          callback(false);
+        }
+      };
 
       client.connect(connOpts);
     });

@@ -40,9 +40,10 @@ export class SshClient {
   static async connect(
     chain: Server[],
     config: Config,
-    listener?: (msg: string) => void
+    listener?: (msg: string) => void,
+    verifyHostKey?: (hostKeyData: { host: string; port: number; keyType: string; fingerprint: string; publicKey: string }) => Promise<{ trust: boolean; save: boolean }>
   ): Promise<SshClient> {
-    const state = await SshConnector.connect(chain, config, listener);
+    const state = await SshConnector.connect(chain, config, listener, verifyHostKey);
     return new SshClient(state);
   }
 

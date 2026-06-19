@@ -32,6 +32,69 @@ function App() {
   const [isWizardOpen, setIsWizardOpen] = useState<boolean>(false);
   const [editingConnectionId, setEditingConnectionId] = useState<number | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+  const [hostKeyPrompt, setHostKeyPrompt] = useState<{
+    host: string;
+    port: number;
+    keyType: string;
+    fingerprint: string;
+    publicKey: string;
+  } | null>(null);
+
+  // Listen to host key verification events
+  useEffect(() => {
+    const unsub = window.electronAPI.ssh.onHostKeyVerify((_event, data) => {
+      setHostKeyPrompt(data);
+    });
+    return () => unsub();
+  }, []);
+
+  // Inactivity tracking and disconnect
+  useEffect(() => {
+    if (activeSessions.size === 0) return;
+
+    let timeoutMinutes = 20;
+    window.electronAPI.settings.getSetting('ssh.inactivity.timeout', '20')
+      .then(val => {
+        timeoutMinutes = parseInt(val, 10) || 20;
+      })
+      .catch(() => {});
+
+    let timeoutId: any;
+
+    const resetTimer = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        // Disconnect all sessions
+        setTabs(prev => {
+          const conns = prev.filter(t => t.type === 'connection');
+          conns.forEach(c => {
+            if (c.connectionId) {
+              const sessionId = sessionIds.get(c.connectionId);
+              if (sessionId) {
+                window.electronAPI.ssh.disconnect(sessionId).catch(console.error);
+              }
+            }
+          });
+          return [{ id: 'connections', name: 'Connections', type: 'connections' }];
+        });
+        setActiveSessions(new Set());
+        setSessionIds(new Map());
+        setActiveTabId('connections');
+        alert('You have been disconnected due to inactivity.');
+      }, timeoutMinutes * 60 * 1000);
+    };
+
+    const events = ['mousemove', 'keydown', 'mousedown', 'scroll', 'click'];
+    const handleEvent = () => resetTimer();
+    events.forEach(ev => window.addEventListener(ev, handleEvent));
+
+    resetTimer();
+
+    return () => {
+      clearTimeout(timeoutId);
+      events.forEach(ev => window.removeEventListener(ev, handleEvent));
+    };
+  }, [activeSessions, sessionIds]);
 
   // Global Dark/Light Theme state
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
@@ -428,6 +491,79 @@ function App() {
           onClose={() => setIsSettingsOpen(false)}
           onThemeChange={(newTheme) => setTheme(newTheme)}
         />
+      )}
+
+      {/* Host Key Verification Dialog Overlay */}
+      {hostKeyPrompt && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-xs flex items-center justify-center z-[200] text-[13px] text-[var(--text-main)] font-sans">
+          <div className="w-[500px] bg-[var(--bg-panel)] border border-red-500/30 rounded-[4px] flex flex-col shadow-[0_24px_60px_rgba(0,0,0,0.5)] overflow-hidden">
+            
+            {/* Header */}
+            <div className="h-[36px] bg-red-950/20 border-b border-[var(--border-color)] flex items-center px-4.5 gap-2 text-red-400">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M12 11.5L7 3 2 11.5z"/>
+                <line x1="7" y1="6.5" x2="7" y2="8.5"/>
+                <circle cx="7" cy="10" r="0.5" fill="currentColor"/>
+              </svg>
+              <span className="font-bold text-[11.5px] uppercase tracking-wider">Security Warning: Untrusted Host Key</span>
+            </div>
+
+            {/* Content */}
+            <div className="p-5 flex flex-col gap-3.5 leading-relaxed text-xs">
+              <p className="text-[var(--text-main)] font-medium">
+                The authenticity of the remote server <span className="font-mono text-cyan-400 font-semibold">{hostKeyPrompt.host}:{hostKeyPrompt.port}</span> cannot be verified.
+              </p>
+              <p className="text-[var(--text-muted)]">
+                The server presented a public key with the following signature:
+              </p>
+              <div className="bg-[var(--bg-panel-header)] border border-[var(--border-color)]/70 rounded-[3px] p-3 flex flex-col gap-2 font-mono text-[11px] select-text">
+                <div className="flex">
+                  <span className="w-20 text-[var(--text-muted)] shrink-0">Key Type:</span>
+                  <span className="text-emerald-400">{hostKeyPrompt.keyType}</span>
+                </div>
+                <div className="flex items-start">
+                  <span className="w-20 text-[var(--text-muted)] shrink-0">Fingerprint:</span>
+                  <span className="text-amber-500 break-all">{hostKeyPrompt.fingerprint}</span>
+                </div>
+              </div>
+              <p className="text-[var(--text-muted)] mt-1">
+                Are you sure you want to trust this key and proceed with the connection?
+              </p>
+            </div>
+
+            {/* Footer */}
+            <div className="h-[48px] bg-[var(--bg-panel-header)] border-t border-[var(--border-color)] flex items-center px-4.5 justify-end gap-2.5">
+              <button 
+                onClick={() => {
+                  window.electronAPI.ssh.respondHostKeyVerify({ trust: true, save: true });
+                  setHostKeyPrompt(null);
+                }}
+                className="bg-emerald-650 hover:bg-emerald-700 text-white border-none rounded-[3px] px-4.5 py-1.5 text-xs font-semibold cursor-pointer outline-none transition-all"
+              >
+                Trust & Connect
+              </button>
+              <button 
+                onClick={() => {
+                  window.electronAPI.ssh.respondHostKeyVerify({ trust: true, save: false });
+                  setHostKeyPrompt(null);
+                }}
+                className="bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white border-none rounded-[3px] px-4.5 py-1.5 text-xs font-semibold cursor-pointer outline-none transition-all"
+              >
+                Trust Once
+              </button>
+              <button 
+                onClick={() => {
+                  window.electronAPI.ssh.respondHostKeyVerify({ trust: false, save: false });
+                  setHostKeyPrompt(null);
+                }}
+                className="bg-transparent border border-[var(--border-color)] text-[var(--text-muted)] hover:text-white rounded-[3px] px-4.5 py-1.5 text-xs font-semibold cursor-pointer outline-none transition-all"
+              >
+                Cancel
+              </button>
+            </div>
+
+          </div>
+        </div>
       )}
     </div>
   );

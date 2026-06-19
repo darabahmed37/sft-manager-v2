@@ -12,6 +12,14 @@ export interface ElectronAPI {
     readFile: (filePath: string) => Promise<string>;
     listDirectory: (pathStr: string) => Promise<any[]>;
     getHomeDir: () => Promise<string>;
+    mkdir: (pathStr: string) => Promise<{ success: boolean }>;
+    delete: (pathStr: string, recursive: boolean) => Promise<{ success: boolean }>;
+    rename: (from: string, to: string) => Promise<{ success: boolean }>;
+    copy: (from: string, to: string) => Promise<{ success: boolean }>;
+    createFile: (filePath: string) => Promise<{ success: boolean }>;
+    compress: (dirPath: string, tarPath: string) => Promise<{ success: boolean }>;
+    extract: (archivePath: string, destDir: string) => Promise<{ success: boolean }>;
+    calculateSize: (pathStr: string) => Promise<number>;
   };
   db: {
     getConnections: () => Promise<any[]>;
@@ -73,9 +81,22 @@ export interface ElectronAPI {
     delete: (sessionId: string, pathStr: string, recursive: boolean) => Promise<void>;
     rename: (sessionId: string, from: string, to: string) => Promise<void>;
     mkdir: (sessionId: string, pathStr: string) => Promise<void>;
+    copy: (sessionId: string, from: string, to: string) => Promise<{ success: boolean }>;
+    createFile: (sessionId: string, pathStr: string) => Promise<{ success: boolean }>;
+    compress: (sessionId: string, dirPath: string, tarPath: string) => Promise<{ success: boolean }>;
+    extract: (sessionId: string, archivePath: string, destDir: string) => Promise<{ success: boolean }>;
+    calculateSize: (sessionId: string, pathStr: string) => Promise<number>;
+    upload: (sessionId: string, localPath: string, remoteDir: string) => Promise<{ success: boolean }>;
+    download: (sessionId: string, remotePath: string, localDir: string) => Promise<{ success: boolean }>;
+    uploadFolder: (sessionId: string, localFolder: string, remoteDir: string) => Promise<{ success: boolean }>;
+    downloadFolder: (sessionId: string, remoteFolder: string, localDir: string) => Promise<{ success: boolean }>;
     onProgress: (
       callback: (event: any, data: { connectionId: number; message: string }) => void
     ) => () => void;
+    onHostKeyVerify: (
+      callback: (event: any, data: { host: string; port: number; keyType: string; fingerprint: string; publicKey: string }) => void
+    ) => () => void;
+    respondHostKeyVerify: (response: { trust: boolean; save: boolean }) => void;
   };
   settings: {
     getSetting: (key: string, defaultValue: string) => Promise<string>;

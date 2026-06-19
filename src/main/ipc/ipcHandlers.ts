@@ -337,9 +337,21 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
         config.set(k, v);
       }
       
-      const client = await SshClient.connect(chain, config, (progressMsg) => {
-        mainWindow.webContents.send('ssh-connect-progress', { connectionId, message: progressMsg });
-      });
+      const client = await SshClient.connect(
+        chain,
+        config,
+        (progressMsg) => {
+          mainWindow.webContents.send('ssh-connect-progress', { connectionId, message: progressMsg });
+        },
+        async (hostKeyData) => {
+          mainWindow.webContents.send('ssh-host-key-verify', hostKeyData);
+          return new Promise<{ trust: boolean; save: boolean }>((resolve) => {
+            ipcMain.once('ssh-host-key-verify-response', (event, response) => {
+              resolve(response);
+            });
+          });
+        }
+      );
       
       const sessionId = `session-${connectionId}-${Date.now()}`;
       activeSessions.set(sessionId, client);
@@ -692,6 +704,188 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
       fs.mkdirSync(tempDir, { recursive: true });
     }
     await shell.openPath(tempDir);
+    return { success: true };
+  });
+
+  // ─── Local Filesystem Additional Operations ───
+  ipcMain.handle('fs-mkdir', async (event, pathStr: string) => {
+    const fs = require('fs');
+    fs.mkdirSync(pathStr, { recursive: true });
+    return { success: true };
+  });
+
+  ipcMain.handle('fs-delete', async (event, pathStr: string, recursive: boolean) => {
+    const fs = require('fs');
+    if (recursive) {
+      fs.rmSync(pathStr, { recursive: true, force: true });
+    } else {
+      fs.unlinkSync(pathStr);
+    }
+    return { success: true };
+  });
+
+  ipcMain.handle('fs-rename', async (event, from: string, to: string) => {
+    const fs = require('fs');
+    fs.renameSync(from, to);
+    return { success: true };
+  });
+
+  ipcMain.handle('fs-copy', async (event, from: string, to: string) => {
+    const fs = require('fs');
+    fs.cpSync(from, to, { recursive: true });
+    return { success: true };
+  });
+
+  ipcMain.handle('fs-create-file', async (event, filePath: string) => {
+    const fs = require('fs');
+    fs.writeFileSync(filePath, '');
+    return { success: true };
+  });
+
+  ipcMain.handle('fs-compress', async (event, dirPath: string, tarPath: string) => {
+    const { execSync } = require('child_process');
+    const path = require('path');
+    const parentDir = path.dirname(dirPath);
+    const baseName = path.basename(dirPath);
+    const cmd = `tar -czf "${tarPath}" -C "${parentDir}" "${baseName}"`;
+    execSync(cmd);
+    return { success: true };
+  });
+
+  ipcMain.handle('fs-extract', async (event, archivePath: string, destDir: string) => {
+    const { execSync } = require('child_process');
+    const fs = require('fs');
+    if (!fs.existsSync(destDir)) {
+      fs.mkdirSync(destDir, { recursive: true });
+    }
+    const cmd = `tar -xzf "${archivePath}" -C "${destDir}"`;
+    execSync(cmd);
+    return { success: true };
+  });
+
+  ipcMain.handle('fs-calculate-size', async (event, pathStr: string) => {
+    const fs = require('fs').promises;
+    try {
+      const getLocalFolderSize = async (dirPath: string): Promise<number> => {
+        let totalSize = 0;
+        const files = await fs.readdir(dirPath, { withFileTypes: true });
+        for (const file of files) {
+          const fullPath = require('path').join(dirPath, file.name);
+          if (file.isDirectory()) {
+            totalSize += await getLocalFolderSize(fullPath);
+          } else {
+            try {
+              const stat = await fs.stat(fullPath);
+              totalSize += stat.size;
+            } catch (e) {}
+          }
+        }
+        return totalSize;
+      };
+
+      const stat = await fs.stat(pathStr);
+      if (stat.isFile()) {
+        return stat.size;
+      }
+      return await getLocalFolderSize(pathStr);
+    } catch (err: any) {
+      log.error(`Failed to calculate size for ${pathStr}`, err);
+      return 0;
+    }
+  });
+
+  // ─── SSH Additional Filesystem Operations ───
+  ipcMain.handle('ssh-copy', async (event, sessionId: string, from: string, to: string) => {
+    const client = activeSessions.get(sessionId);
+    if (!client) throw new Error('Session not found or disconnected');
+    const qFrom = `'${from.replace(/'/g, "'\\''")}'`;
+    const qTo = `'${to.replace(/'/g, "'\\''")}'`;
+    const r = await client.exec(`cp -r ${qFrom} ${qTo}`);
+    if (r.exitCode !== 0) {
+      throw new Error(`SSH copy failed: ${r.stderr}`);
+    }
+    return { success: true };
+  });
+
+  ipcMain.handle('ssh-create-file', async (event, sessionId: string, pathStr: string) => {
+    const client = activeSessions.get(sessionId);
+    if (!client) throw new Error('Session not found or disconnected');
+    const qPath = `'${pathStr.replace(/'/g, "'\\''")}'`;
+    const r = await client.exec(`touch ${qPath}`);
+    if (r.exitCode !== 0) {
+      throw new Error(`SSH touch failed: ${r.stderr}`);
+    }
+    return { success: true };
+  });
+
+  ipcMain.handle('ssh-compress', async (event, sessionId: string, dirPath: string, tarPath: string) => {
+    const client = activeSessions.get(sessionId);
+    if (!client) throw new Error('Session not found or disconnected');
+    const path = require('path').posix;
+    const parentDir = path.dirname(dirPath);
+    const baseName = path.basename(dirPath);
+    const qTar = `'${tarPath.replace(/'/g, "'\\''")}'`;
+    const qParent = `'${parentDir.replace(/'/g, "'\\''")}'`;
+    const qBase = `'${baseName.replace(/'/g, "'\\''")}'`;
+    const r = await client.exec(`tar -czf ${qTar} -C ${qParent} ${qBase}`);
+    if (r.exitCode !== 0) {
+      throw new Error(`SSH compress failed: ${r.stderr}`);
+    }
+    return { success: true };
+  });
+
+  ipcMain.handle('ssh-extract', async (event, sessionId: string, archivePath: string, destDir: string) => {
+    const client = activeSessions.get(sessionId);
+    if (!client) throw new Error('Session not found or disconnected');
+    const qArchive = `'${archivePath.replace(/'/g, "'\\''")}'`;
+    const qDest = `'${destDir.replace(/'/g, "'\\''")}'`;
+    const r = await client.exec(`mkdir -p ${qDest} && tar -xzf ${qArchive} -C ${qDest}`);
+    if (r.exitCode !== 0) {
+      throw new Error(`SSH extract failed: ${r.stderr}`);
+    }
+    return { success: true };
+  });
+
+  ipcMain.handle('ssh-calculate-size', async (event, sessionId: string, pathStr: string) => {
+    const client = activeSessions.get(sessionId);
+    if (!client) throw new Error('Session not found or disconnected');
+    const qPath = `'${pathStr.replace(/'/g, "'\\''")}'`;
+    const r = await client.exec(`du -sb ${qPath} 2>/dev/null || du -s ${qPath} 2>/dev/null`);
+    if (r.exitCode === 0 && r.stdout) {
+      const parts = r.stdout.split(/\s+/);
+      const size = parseInt(parts[0], 10);
+      if (!isNaN(size)) {
+        return size;
+      }
+    }
+    return 0;
+  });
+
+  ipcMain.handle('ssh-upload', async (event, sessionId: string, localPath: string, remoteDir: string) => {
+    const client = activeSessions.get(sessionId);
+    if (!client) throw new Error('Session not found or disconnected');
+    await client.upload(localPath, remoteDir);
+    return { success: true };
+  });
+
+  ipcMain.handle('ssh-download', async (event, sessionId: string, remotePath: string, localDir: string) => {
+    const client = activeSessions.get(sessionId);
+    if (!client) throw new Error('Session not found or disconnected');
+    await client.download(remotePath, localDir);
+    return { success: true };
+  });
+
+  ipcMain.handle('ssh-upload-folder', async (event, sessionId: string, localFolder: string, remoteDir: string) => {
+    const client = activeSessions.get(sessionId);
+    if (!client) throw new Error('Session not found or disconnected');
+    await client.uploadFolder(localFolder, remoteDir);
+    return { success: true };
+  });
+
+  ipcMain.handle('ssh-download-folder', async (event, sessionId: string, remoteFolder: string, localDir: string) => {
+    const client = activeSessions.get(sessionId);
+    if (!client) throw new Error('Session not found or disconnected');
+    await client.downloadFolder(remoteFolder, localDir);
     return { success: true };
   });
 }

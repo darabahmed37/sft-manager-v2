@@ -19,6 +19,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     readFile: (filePath: string) => ipcRenderer.invoke('fs-read-file', filePath),
     listDirectory: (pathStr: string) => ipcRenderer.invoke('fs-list-directory', pathStr),
     getHomeDir: () => ipcRenderer.invoke('fs-get-home-dir'),
+    mkdir: (pathStr: string) => ipcRenderer.invoke('fs-mkdir', pathStr),
+    delete: (pathStr: string, recursive: boolean) => ipcRenderer.invoke('fs-delete', pathStr, recursive),
+    rename: (from: string, to: string) => ipcRenderer.invoke('fs-rename', from, to),
+    copy: (from: string, to: string) => ipcRenderer.invoke('fs-copy', from, to),
+    createFile: (filePath: string) => ipcRenderer.invoke('fs-create-file', filePath),
+    compress: (dirPath: string, tarPath: string) => ipcRenderer.invoke('fs-compress', dirPath, tarPath),
+    extract: (archivePath: string, destDir: string) => ipcRenderer.invoke('fs-extract', archivePath, destDir),
+    calculateSize: (pathStr: string) => ipcRenderer.invoke('fs-calculate-size', pathStr),
   },
   db: {
     getConnections: () => ipcRenderer.invoke('db-get-connections'),
@@ -80,11 +88,29 @@ contextBridge.exposeInMainWorld('electronAPI', {
     delete: (sessionId: string, pathStr: string, recursive: boolean) => ipcRenderer.invoke('ssh-delete', sessionId, pathStr, recursive),
     rename: (sessionId: string, from: string, to: string) => ipcRenderer.invoke('ssh-rename', sessionId, from, to),
     mkdir: (sessionId: string, pathStr: string) => ipcRenderer.invoke('ssh-mkdir', sessionId, pathStr),
+    copy: (sessionId: string, from: string, to: string) => ipcRenderer.invoke('ssh-copy', sessionId, from, to),
+    createFile: (sessionId: string, pathStr: string) => ipcRenderer.invoke('ssh-create-file', sessionId, pathStr),
+    compress: (sessionId: string, dirPath: string, tarPath: string) => ipcRenderer.invoke('ssh-compress', sessionId, dirPath, tarPath),
+    extract: (sessionId: string, archivePath: string, destDir: string) => ipcRenderer.invoke('ssh-extract', sessionId, archivePath, destDir),
+    calculateSize: (sessionId: string, pathStr: string) => ipcRenderer.invoke('ssh-calculate-size', sessionId, pathStr),
+    upload: (sessionId: string, localPath: string, remoteDir: string) => ipcRenderer.invoke('ssh-upload', sessionId, localPath, remoteDir),
+    download: (sessionId: string, remotePath: string, localDir: string) => ipcRenderer.invoke('ssh-download', sessionId, remotePath, localDir),
+    uploadFolder: (sessionId: string, localFolder: string, remoteDir: string) => ipcRenderer.invoke('ssh-upload-folder', sessionId, localFolder, remoteDir),
+    downloadFolder: (sessionId: string, remoteFolder: string, localDir: string) => ipcRenderer.invoke('ssh-download-folder', sessionId, remoteFolder, localDir),
     onProgress: (callback: (event: any, data: { connectionId: number; message: string }) => void) => {
       ipcRenderer.on('ssh-connect-progress', callback);
       return () => {
         ipcRenderer.removeListener('ssh-connect-progress', callback);
       };
+    },
+    onHostKeyVerify: (callback: (event: any, data: any) => void) => {
+      ipcRenderer.on('ssh-host-key-verify', callback);
+      return () => {
+        ipcRenderer.removeListener('ssh-host-key-verify', callback);
+      };
+    },
+    respondHostKeyVerify: (response: { trust: boolean; save: boolean }) => {
+      ipcRenderer.send('ssh-host-key-verify-response', response);
     },
   },
   terminal: {

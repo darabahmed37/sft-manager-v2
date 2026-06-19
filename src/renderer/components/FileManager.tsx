@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { PropertiesModal } from './PropertiesModal';
 
 interface FileManagerProps {
   connectionId?: number;
@@ -40,6 +41,28 @@ export const FileManager: React.FC<FileManagerProps> = ({
   const [remoteTabs, setRemoteTabs] = useState<{ path: string; isPinned: boolean }[]>([]);
   const [activeRemoteTabIdx, setActiveRemoteTabIdx] = useState(0);
   const [tabContextMenu, setTabContextMenu] = useState<{ x: number; y: number; tabIdx: number } | null>(null);
+
+  // Clipboard state
+  const [clipboard, setClipboard] = useState<{
+    type: 'copy' | 'cut';
+    pane: 'local' | 'remote';
+    dir: string;
+    items: { name: string; isDirectory: boolean }[];
+  } | null>(null);
+
+  // Explorer Item/Space Context Menu state
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    pane: 'local' | 'remote';
+    item: any | null; // null for blank space click
+  } | null>(null);
+
+  // Properties modal trigger state
+  const [propertiesFile, setPropertiesFile] = useState<{
+    pane: 'local' | 'remote';
+    file: any;
+  } | null>(null);
 
   // Bookmarks state
   const [localBookmarks, setLocalBookmarks] = useState<any[]>([]);
@@ -523,10 +546,270 @@ export const FileManager: React.FC<FileManagerProps> = ({
   };
 
   useEffect(() => {
-    const hideMenu = () => setTabContextMenu(null);
-    document.addEventListener('click', hideMenu);
-    return () => document.removeEventListener('click', hideMenu);
+    const hideMenus = () => {
+      setTabContextMenu(null);
+      setContextMenu(null);
+    };
+    document.addEventListener('click', hideMenus);
+    return () => document.removeEventListener('click', hideMenus);
   }, []);
+
+  const handleItemContextMenu = (e: React.MouseEvent, pane: 'local' | 'remote', item: any) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      pane,
+      item,
+    });
+  };
+
+  const handleBlankContextMenu = (e: React.MouseEvent, pane: 'local' | 'remote') => {
+    e.preventDefault();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      pane,
+      item: null,
+    });
+  };
+
+  const handleRefresh = (pane: 'local' | 'remote') => {
+    if (pane === 'local') {
+      loadLocalDirectory(localCurrentDir);
+    } else {
+      loadRemoteDirectory(remoteCurrentDir);
+    }
+  };
+
+  const handleNewFolder = async (pane: 'local' | 'remote') => {
+    const name = prompt('Enter new folder name:');
+    if (!name || !name.trim()) return;
+    try {
+      if (pane === 'local') {
+        const target = joinLocalPath(localCurrentDir, name.trim());
+        await window.electronAPI.fs.mkdir(target);
+        loadLocalDirectory(localCurrentDir);
+      } else {
+        const target = joinRemotePath(remoteCurrentDir, name.trim());
+        await window.electronAPI.ssh.mkdir(sessionId, target);
+        loadRemoteDirectory(remoteCurrentDir);
+      }
+    } catch (err: any) {
+      setErrorMsg(`New folder failed: ${err.message}`);
+    }
+  };
+
+  const handleNewFile = async (pane: 'local' | 'remote') => {
+    const name = prompt('Enter new file name:');
+    if (!name || !name.trim()) return;
+    try {
+      if (pane === 'local') {
+        const target = joinLocalPath(localCurrentDir, name.trim());
+        await window.electronAPI.fs.createFile(target);
+        loadLocalDirectory(localCurrentDir);
+      } else {
+        const target = joinRemotePath(remoteCurrentDir, name.trim());
+        await window.electronAPI.ssh.createFile(sessionId, target);
+        loadRemoteDirectory(remoteCurrentDir);
+      }
+    } catch (err: any) {
+      setErrorMsg(`New file failed: ${err.message}`);
+    }
+  };
+
+  const handleRename = async (pane: 'local' | 'remote', item: any) => {
+    const newName = prompt('Enter new name:', item.name);
+    if (!newName || !newName.trim() || newName.trim() === item.name) return;
+    try {
+      if (pane === 'local') {
+        const from = joinLocalPath(localCurrentDir, item.name);
+        const to = joinLocalPath(localCurrentDir, newName.trim());
+        await window.electronAPI.fs.rename(from, to);
+        loadLocalDirectory(localCurrentDir);
+      } else {
+        const from = joinRemotePath(remoteCurrentDir, item.name);
+        const to = joinRemotePath(remoteCurrentDir, newName.trim());
+        await window.electronAPI.ssh.rename(sessionId, from, to);
+        loadRemoteDirectory(remoteCurrentDir);
+      }
+    } catch (err: any) {
+      setErrorMsg(`Rename failed: ${err.message}`);
+    }
+  };
+
+  const handleDelete = async (pane: 'local' | 'remote', item: any) => {
+    if (!confirm(`Are you sure you want to delete "${item.name}"?`)) return;
+    try {
+      if (pane === 'local') {
+        const target = joinLocalPath(localCurrentDir, item.name);
+        await window.electronAPI.fs.delete(target, true);
+        loadLocalDirectory(localCurrentDir);
+      } else {
+        const target = joinRemotePath(remoteCurrentDir, item.name);
+        await window.electronAPI.ssh.delete(sessionId, target, true);
+        loadRemoteDirectory(remoteCurrentDir);
+      }
+    } catch (err: any) {
+      setErrorMsg(`Delete failed: ${err.message}`);
+    }
+  };
+
+  const handleCompress = async (pane: 'local' | 'remote', item: any) => {
+    const tarName = `${item.name}.tar.gz`;
+    try {
+      if (pane === 'local') {
+        setLocalLoading(true);
+        const src = joinLocalPath(localCurrentDir, item.name);
+        const dest = joinLocalPath(localCurrentDir, tarName);
+        await window.electronAPI.fs.compress(src, dest);
+        loadLocalDirectory(localCurrentDir);
+      } else {
+        setRemoteLoading(true);
+        const src = joinRemotePath(remoteCurrentDir, item.name);
+        const dest = joinRemotePath(remoteCurrentDir, tarName);
+        await window.electronAPI.ssh.compress(sessionId, src, dest);
+        loadRemoteDirectory(remoteCurrentDir);
+      }
+    } catch (err: any) {
+      setErrorMsg(`Compress failed: ${err.message}`);
+    } finally {
+      setLocalLoading(false);
+      setRemoteLoading(false);
+    }
+  };
+
+  const handleExtract = async (pane: 'local' | 'remote', item: any) => {
+    const destDirName = item.name.replace(/\.tar\.gz$/, '').replace(/\.tgz$/, '');
+    try {
+      if (pane === 'local') {
+        setLocalLoading(true);
+        const src = joinLocalPath(localCurrentDir, item.name);
+        const dest = joinLocalPath(localCurrentDir, destDirName);
+        await window.electronAPI.fs.extract(src, dest);
+        loadLocalDirectory(localCurrentDir);
+      } else {
+        setRemoteLoading(true);
+        const src = joinRemotePath(remoteCurrentDir, item.name);
+        const dest = joinRemotePath(remoteCurrentDir, destDirName);
+        await window.electronAPI.ssh.extract(sessionId, src, dest);
+        loadRemoteDirectory(remoteCurrentDir);
+      }
+    } catch (err: any) {
+      setErrorMsg(`Extract failed: ${err.message}`);
+    } finally {
+      setLocalLoading(false);
+      setRemoteLoading(false);
+    }
+  };
+
+  const handleProperties = (pane: 'local' | 'remote', item: any) => {
+    const fullPath = pane === 'local' 
+      ? joinLocalPath(localCurrentDir, item.name) 
+      : joinRemotePath(remoteCurrentDir, item.name);
+    setPropertiesFile({
+      pane,
+      file: {
+        name: item.name,
+        path: fullPath,
+        isDirectory: item.isDirectory,
+        size: item.size,
+        modified: pane === 'local' ? item.modified : item.date,
+        owner: item.owner,
+        permissions: item.permissions
+      }
+    });
+  };
+
+  const handleCopy = (pane: 'local' | 'remote', item: any) => {
+    setClipboard({
+      type: 'copy',
+      pane,
+      dir: pane === 'local' ? localCurrentDir : remoteCurrentDir,
+      items: [{ name: item.name, isDirectory: item.isDirectory }]
+    });
+  };
+
+  const handleCut = (pane: 'local' | 'remote', item: any) => {
+    setClipboard({
+      type: 'cut',
+      pane,
+      dir: pane === 'local' ? localCurrentDir : remoteCurrentDir,
+      items: [{ name: item.name, isDirectory: item.isDirectory }]
+    });
+  };
+
+  const handlePaste = async (pane: 'local' | 'remote') => {
+    if (!clipboard) return;
+    setRemoteLoading(true);
+    setLocalLoading(true);
+    try {
+      const targetPane = pane;
+      const sourcePane = clipboard.pane;
+
+      if (sourcePane === 'local' && targetPane === 'local') {
+        for (const clItem of clipboard.items) {
+          const src = joinLocalPath(clipboard.dir, clItem.name);
+          const dest = joinLocalPath(localCurrentDir, clItem.name);
+          if (clipboard.type === 'copy') {
+            await window.electronAPI.fs.copy(src, dest);
+          } else {
+            await window.electronAPI.fs.rename(src, dest);
+          }
+        }
+      } else if (sourcePane === 'remote' && targetPane === 'remote') {
+        for (const clItem of clipboard.items) {
+          const src = joinRemotePath(clipboard.dir, clItem.name);
+          const dest = joinRemotePath(remoteCurrentDir, clItem.name);
+          if (clipboard.type === 'copy') {
+            await window.electronAPI.ssh.copy(sessionId, src, dest);
+          } else {
+            await window.electronAPI.ssh.rename(sessionId, src, dest);
+          }
+        }
+      } else if (sourcePane === 'local' && targetPane === 'remote') {
+        for (const clItem of clipboard.items) {
+          const src = joinLocalPath(clipboard.dir, clItem.name);
+          if (clItem.isDirectory) {
+            await window.electronAPI.ssh.uploadFolder(sessionId, src, remoteCurrentDir);
+          } else {
+            await window.electronAPI.ssh.upload(sessionId, src, remoteCurrentDir);
+          }
+        }
+      } else if (sourcePane === 'remote' && targetPane === 'local') {
+        for (const clItem of clipboard.items) {
+          const src = joinRemotePath(clipboard.dir, clItem.name);
+          if (clItem.isDirectory) {
+            await window.electronAPI.ssh.downloadFolder(sessionId, src, localCurrentDir);
+          } else {
+            await window.electronAPI.ssh.download(sessionId, src, localCurrentDir);
+          }
+        }
+      }
+
+      if (clipboard.type === 'cut') {
+        if (sourcePane === 'local' && targetPane === 'remote') {
+          for (const clItem of clipboard.items) {
+            const src = joinLocalPath(clipboard.dir, clItem.name);
+            await window.electronAPI.fs.delete(src, true);
+          }
+        } else if (sourcePane === 'remote' && targetPane === 'local') {
+          for (const clItem of clipboard.items) {
+            const src = joinRemotePath(clipboard.dir, clItem.name);
+            await window.electronAPI.ssh.delete(sessionId, src, true);
+          }
+        }
+        setClipboard(null);
+      }
+    } catch (err: any) {
+      console.error('Paste operation failed', err);
+      setErrorMsg(`Paste failed: ${err.message}`);
+    } finally {
+      await loadLocalDirectory(localCurrentDir);
+      await loadRemoteDirectory(remoteCurrentDir);
+    }
+  };
 
   const toggleLocalSort = (field: 'name' | 'size' | 'modified') => {
     let nextAsc = true;
@@ -792,7 +1075,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
             </div>
 
             {/* Local Files View */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto" onContextMenu={(e) => handleBlankContextMenu(e, 'local')}>
               {localLoading ? (
                 <div className="h-full flex items-center justify-center text-xs text-[var(--text-muted)] font-mono">Loading...</div>
               ) : localView === 'list' ? (
@@ -844,6 +1127,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
                         <tr 
                           key={i} 
                           onDoubleClick={() => handleLocalDblClick(lf)}
+                          onContextMenu={(e) => handleItemContextMenu(e, 'local', lf)}
                           className="hover:bg-[var(--glow-color)]/25 active:bg-[var(--glow-color)]/50 cursor-default h-[30px] transition-colors duration-75 border-b border-[var(--border-color)]/50"
                         >
                           <td className="pl-1.5 text-center align-middle">
@@ -862,11 +1146,12 @@ export const FileManager: React.FC<FileManagerProps> = ({
                   </table>
                 </div>
               ) : (
-                <div className="p-1.5 flex flex-wrap gap-0.5 content-start items-start">
+                <div className="p-1.5 flex flex-wrap gap-0.5 content-start items-start h-full" onContextMenu={(e) => handleBlankContextMenu(e, 'local')}>
                   {sortedLocalFiles.map((lf, i) => (
                     <div 
                       key={i} 
                       onDoubleClick={() => handleLocalDblClick(lf)}
+                      onContextMenu={(e) => handleItemContextMenu(e, 'local', lf)}
                       className="w-20 p-1.5 flex flex-col items-center gap-1 cursor-default hover:bg-[var(--glow-color)]/20 rounded-[2px]"
                     >
                       {lf.isDirectory ? (
@@ -1149,7 +1434,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
           </div>
 
           {/* Remote Files list content */}
-          <div className="flex-1 overflow-auto h-full">
+          <div className="flex-1 overflow-auto h-full" onContextMenu={(e) => handleBlankContextMenu(e, 'remote')}>
             {remoteLoading ? (
               <div className="h-full flex items-center justify-center text-xs text-[var(--text-muted)] font-mono">Loading...</div>
             ) : remoteView === 'list' ? (
@@ -1222,6 +1507,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
                     <tr 
                       key={i} 
                       onDoubleClick={() => handleRemoteDblClick(rf)}
+                      onContextMenu={(e) => handleItemContextMenu(e, 'remote', rf)}
                       className="h-[30px] cursor-default transition-colors duration-75 border-b border-[var(--border-color)]/50 hover:bg-[var(--glow-color)]/25 active:bg-[var(--glow-color)]/50"
                     >
                       <td className="pl-2 align-middle">
@@ -1250,11 +1536,12 @@ export const FileManager: React.FC<FileManagerProps> = ({
                 </tbody>
               </table>
             ) : (
-              <div className="p-2 flex flex-wrap gap-0.5 content-start items-start">
+              <div className="p-2 flex flex-wrap gap-0.5 content-start items-start h-full" onContextMenu={(e) => handleBlankContextMenu(e, 'remote')}>
                 {sortedRemoteFiles.map((rf, i) => (
                   <div 
                     key={i} 
                     onDoubleClick={() => handleRemoteDblClick(rf)}
+                    onContextMenu={(e) => handleItemContextMenu(e, 'remote', rf)}
                     className="w-[88px] p-2 flex flex-col items-center gap-1 cursor-default rounded-[2px] border border-transparent hover:bg-[var(--glow-color)]/20 hover:border-[var(--color-primary)]/40"
                   >
                     {rf.isDirectory ? (
@@ -1304,21 +1591,165 @@ export const FileManager: React.FC<FileManagerProps> = ({
       {tabContextMenu && (
         <div 
           style={{ top: `${tabContextMenu.y}px`, left: `${tabContextMenu.x}px` }}
-          className="fixed bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-[3px] shadow-lg py-1 z-[100] w-36 text-xs text-[var(--text-main)] font-sans"
+          className="fixed bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-[3px] shadow-lg py-1.5 z-[100] w-36 text-xs text-[var(--text-main)] font-sans"
         >
           <button 
             onClick={() => handleTogglePinTab(tabContextMenu.tabIdx)}
-            className="w-full text-left px-3 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
+            className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
           >
             {remoteTabs[tabContextMenu.tabIdx]?.isPinned ? '📌 Unpin Tab' : '📌 Pin Tab'}
           </button>
           <button 
             onClick={() => handleDuplicateTab(tabContextMenu.tabIdx)}
-            className="w-full text-left px-3 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs border-t border-[var(--border-color)]/50 text-left"
+            className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs border-t border-[var(--border-color)]/50 text-left"
           >
             📋 Duplicate Tab
           </button>
         </div>
+      )}
+
+      {/* Explorer Right-Click Context Menu */}
+      {contextMenu && (
+        <div 
+          style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }}
+          className="fixed bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-[3px] shadow-[0_4px_16px_rgba(0,0,0,0.35)] py-1.5 z-[100] w-48 text-xs text-[var(--text-main)] font-sans"
+        >
+          {contextMenu.item === null ? (
+            // Blank space menu
+            <>
+              <button 
+                onClick={() => handleRefresh(contextMenu.pane)}
+                className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
+              >
+                🔄 Refresh Panel
+              </button>
+              <button 
+                onClick={() => handleNewFolder(contextMenu.pane)}
+                className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
+              >
+                📁 New Folder
+              </button>
+              <button 
+                onClick={() => handleNewFile(contextMenu.pane)}
+                className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
+              >
+                📄 New File
+              </button>
+              {clipboard && (
+                <button 
+                  onClick={() => handlePaste(contextMenu.pane)}
+                  className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs border-t border-[var(--border-color)]/40 text-left"
+                >
+                  📋 Paste ({clipboard.type === 'copy' ? 'Copy' : 'Cut'} items)
+                </button>
+              )}
+            </>
+          ) : (
+            // Item menu
+            <>
+              <button 
+                onClick={async () => {
+                  const item = contextMenu.item;
+                  setLocalLoading(true);
+                  setRemoteLoading(true);
+                  try {
+                    if (contextMenu.pane === 'local') {
+                      // Upload
+                      const src = joinLocalPath(localCurrentDir, item.name);
+                      if (item.isDirectory) {
+                        await window.electronAPI.ssh.uploadFolder(sessionId, src, remoteCurrentDir);
+                      } else {
+                        await window.electronAPI.ssh.upload(sessionId, src, remoteCurrentDir);
+                      }
+                    } else {
+                      // Download
+                      const src = joinRemotePath(remoteCurrentDir, item.name);
+                      if (item.isDirectory) {
+                        await window.electronAPI.ssh.downloadFolder(sessionId, src, localCurrentDir);
+                      } else {
+                        await window.electronAPI.ssh.download(sessionId, src, localCurrentDir);
+                      }
+                    }
+                  } catch (err: any) {
+                    setErrorMsg(`Transfer failed: ${err.message}`);
+                  } finally {
+                    await loadLocalDirectory(localCurrentDir);
+                    await loadRemoteDirectory(remoteCurrentDir);
+                  }
+                }}
+                className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
+              >
+                {contextMenu.pane === 'local' ? '📤 Upload to Remote' : '📥 Download to Local'}
+              </button>
+              <div className="border-t border-[var(--border-color)]/40 my-1"></div>
+              <button 
+                onClick={() => handleCopy(contextMenu.pane, contextMenu.item)}
+                className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
+              >
+                📋 Copy
+              </button>
+              <button 
+                onClick={() => handleCut(contextMenu.pane, contextMenu.item)}
+                className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
+              >
+                ✂️ Cut
+              </button>
+              {clipboard && (
+                <button 
+                  onClick={() => handlePaste(contextMenu.pane)}
+                  className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
+                >
+                  📋 Paste
+                </button>
+              )}
+              <div className="border-t border-[var(--border-color)]/40 my-1"></div>
+              <button 
+                onClick={() => handleRename(contextMenu.pane, contextMenu.item)}
+                className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
+              >
+                ✏️ Rename
+              </button>
+              <button 
+                onClick={() => handleDelete(contextMenu.pane, contextMenu.item)}
+                className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left text-red-400"
+              >
+                ❌ Delete
+              </button>
+              <div className="border-t border-[var(--border-color)]/40 my-1"></div>
+              <button 
+                onClick={() => handleCompress(contextMenu.pane, contextMenu.item)}
+                className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
+              >
+                📦 Compress to tar.gz
+              </button>
+              {(contextMenu.item.name.endsWith('.tar.gz') || contextMenu.item.name.endsWith('.tgz')) && (
+                <button 
+                  onClick={() => handleExtract(contextMenu.pane, contextMenu.item)}
+                  className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
+                >
+                  📂 Extract Archive
+                </button>
+              )}
+              <div className="border-t border-[var(--border-color)]/40 my-1"></div>
+              <button 
+                onClick={() => handleProperties(contextMenu.pane, contextMenu.item)}
+                className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
+              >
+                ℹ️ Properties
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Properties Dialog Modal */}
+      {propertiesFile && (
+        <PropertiesModal
+          pane={propertiesFile.pane}
+          sessionId={sessionId}
+          file={propertiesFile.file}
+          onClose={() => setPropertiesFile(null)}
+        />
       )}
     </div>
   );
