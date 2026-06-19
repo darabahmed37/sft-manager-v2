@@ -1,4 +1,5 @@
 import { ipcMain, BrowserWindow } from 'electron';
+import * as path from 'path';
 import { ConnectionDao } from '../dao/ConnectionDao';
 import { StoredCredentialDao } from '../dao/StoredCredentialDao';
 import { SshClient } from '../ssh/SshClient';
@@ -7,6 +8,75 @@ import { Logger } from '../log/Logger';
 
 const log = Logger.getLogger('ipcHandlers');
 const activeSessions = new Map<string, SshClient>();
+
+// ─── Terminal Window Management ───────────────────────────────────────────────
+
+const activeShells = new Map<string, any>(); // shellId → ssh2 shell stream
+let terminalWindow: BrowserWindow | null = null;
+let shellCounter = 0;
+
+function getOrCreateTerminalWindow(mainWindow: BrowserWindow, sessionId: string, username: string, host: string): BrowserWindow {
+  if (terminalWindow && !terminalWindow.isDestroyed()) {
+    terminalWindow.focus();
+    // Window already open — signal it to open a new tab
+    terminalWindow.webContents.send('terminal-open-tab', sessionId, username, host);
+    return terminalWindow;
+  }
+
+  const win = new BrowserWindow({
+    width: 900,
+    height: 620,
+    minWidth: 500,
+    minHeight: 360,
+    frame: false,
+    titleBarStyle: 'hidden',
+    resizable: true,
+    backgroundColor: '#000000',
+    title: 'SSH Terminal',
+    // Child of mainWindow so closing the terminal does NOT quit the app,
+    // but closing the main app DOES auto-close the terminal (triggering shell cleanup).
+    parent: mainWindow,
+    webPreferences: {
+      preload: path.join(__dirname, '../../preload/preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+    show: false,
+  });
+
+  // Pass the first session via URL params so the renderer opens the initial shell
+  const params = new URLSearchParams({ sessionId, username, host });
+
+  if (!mainWindow.webContents.getURL().startsWith('http')) {
+    win.loadFile(path.join(__dirname, '../../../terminal.html'), { search: params.toString() });
+  } else {
+    win.loadURL(`http://localhost:5173/terminal.html?${params.toString()}`);
+  }
+
+  win.on('maximize', () => {
+    win.webContents.send('window-maximized-state', true);
+  });
+  win.on('unmaximize', () => {
+    win.webContents.send('window-maximized-state', false);
+  });
+
+  win.once('ready-to-show', () => win.show());
+
+  // When the window is actually closed, kill every active shell immediately.
+  // This is the hard rule: no leaked connections.
+  win.on('closed', () => {
+    log.info(`[Terminal] Window closed — terminating ${activeShells.size} active shell(s)`);
+    for (const [shellId, stream] of activeShells.entries()) {
+      try { stream.end(); } catch (_) {}
+      log.info(`[Terminal] Shell ${shellId} closed on window exit`);
+    }
+    activeShells.clear();
+    terminalWindow = null;
+  });
+
+  terminalWindow = win;
+  return win;
+}
 
 async function buildHopChain(connectionId: number): Promise<any[]> {
   const chain: any[] = [];
@@ -68,24 +138,34 @@ async function buildHopChain(connectionId: number): Promise<any[]> {
 
 export function registerIpcHandlers(mainWindow: BrowserWindow) {
   // ─── Window Controls ───
-  ipcMain.on('window-minimize', () => {
-    mainWindow.minimize();
+  ipcMain.on('window-minimize', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    win?.minimize();
   });
 
-  ipcMain.on('window-maximize', () => {
-    if (mainWindow.isMaximized()) {
-      mainWindow.unmaximize();
-    } else {
-      mainWindow.maximize();
+  ipcMain.on('window-maximize', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win) {
+      if (win.isMaximized()) {
+        win.unmaximize();
+      } else {
+        win.maximize();
+      }
     }
   });
 
-  ipcMain.on('window-close', () => {
-    mainWindow.close();
+  ipcMain.on('window-close', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    win?.close();
   });
 
   ipcMain.handle('window-get-platform', () => {
     return process.platform;
+  });
+
+  ipcMain.handle('window-is-maximized', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    return win ? win.isMaximized() : false;
   });
 
   ipcMain.handle('dialog-open-file', async () => {
@@ -358,6 +438,108 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
     const client = activeSessions.get(sessionId);
     if (!client) throw new Error('Session not found or disconnected');
     return await client.mkdir(pathStr);
+  });
+
+  // ─── Terminal: Open New Window ────────────────────────────────────────────
+
+  ipcMain.on('terminal-open-window', (event, sessionId: string, username: string, host: string) => {
+    getOrCreateTerminalWindow(mainWindow, sessionId, username, host);
+  });
+
+  // ─── Terminal: Open SSH Shell Channel ────────────────────────────────────
+
+  ipcMain.handle('terminal-open-shell', async (event, sessionId: string, tabId: string) => {
+    const client = activeSessions.get(sessionId);
+    if (!client) return { success: false, error: 'Session not found or disconnected' };
+
+    const shellId = `shell-${++shellCounter}-${Date.now()}`;
+
+    try {
+      const sshClient = (client as any);
+      // Access underlying ssh2 client from state
+      const state = sshClient['state'];
+      if (!state) return { success: false, error: 'Internal state unavailable' };
+
+      const targetClient = state.targetClient;
+
+      const stream = await new Promise<any>((resolve, reject) => {
+        targetClient.shell({ term: 'xterm-256color', rows: 24, cols: 80 }, (err: any, s: any) => {
+          if (err) reject(err);
+          else resolve(s);
+        });
+      });
+
+      activeShells.set(shellId, stream);
+
+      // Send raw Buffer — no UTF-8 conversion overhead.
+      // Electron serializes Buffer as Uint8Array; xterm.write() accepts Uint8Array natively.
+      stream.on('data', (data: Buffer) => {
+        const win = terminalWindow;
+        if (win && !win.isDestroyed()) {
+          win.webContents.send('terminal-shell-data', shellId, data);
+        }
+      });
+
+      stream.stderr?.on('data', (data: Buffer) => {
+        const win = terminalWindow;
+        if (win && !win.isDestroyed()) {
+          win.webContents.send('terminal-shell-data', shellId, data);
+        }
+      });
+
+      stream.on('close', () => {
+        activeShells.delete(shellId);
+        const win = terminalWindow;
+        if (win && !win.isDestroyed()) {
+          win.webContents.send('terminal-shell-close', shellId);
+        }
+      });
+
+      stream.on('error', (err: any) => {
+        log.error(`Shell error for ${shellId}: ${err.message}`);
+        const win = terminalWindow;
+        if (win && !win.isDestroyed()) {
+          win.webContents.send('terminal-shell-data', shellId, `\r\n\x1b[31mShell error: ${err.message}\x1b[0m\r\n`);
+        }
+      });
+
+
+      log.info(`[Terminal] Shell opened: shellId=${shellId} sessionId=${sessionId}`);
+      return { success: true, shellId };
+    } catch (err: any) {
+      log.error(`[Terminal] Failed to open shell for session ${sessionId}:`, err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  // ─── Terminal: Write to Shell ─────────────────────────────────────────────
+
+  ipcMain.on('terminal-shell-write', (event, shellId: string, data: string) => {
+    const stream = activeShells.get(shellId);
+    if (stream) {
+      try { stream.write(data); } catch (err: any) {
+        log.warn(`Shell write error for ${shellId}: ${err.message}`);
+      }
+    }
+  });
+
+  // ─── Terminal: Resize Shell ───────────────────────────────────────────────
+
+  ipcMain.on('terminal-shell-resize', (event, shellId: string, cols: number, rows: number) => {
+    const stream = activeShells.get(shellId);
+    if (stream && stream.setWindow) {
+      try { stream.setWindow(rows, cols, 0, 0); } catch (_) {}
+    }
+  });
+
+  // ─── Terminal: Close Shell ────────────────────────────────────────────────
+
+  ipcMain.on('terminal-shell-close', (event, shellId: string) => {
+    const stream = activeShells.get(shellId);
+    if (stream) {
+      try { stream.end(); } catch (_) {}
+      activeShells.delete(shellId);
+    }
   });
 }
 

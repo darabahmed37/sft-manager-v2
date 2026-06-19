@@ -39,18 +39,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const totalCount = connections.length;
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-[#141414] select-none text-[13px] text-neutral-300 font-sans">
+    <div className="flex-1 flex flex-col overflow-hidden bg-[var(--bg-app)] select-none text-[13px] text-[var(--text-main)] font-sans theme-transition">
       
       {/* Search Toolbar */}
-      <div className="h-[34px] bg-[#1e1e1e] border-b border-[#252525] flex items-center px-4.5 gap-2 shrink-0 select-none">
-        <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Connections</span>
+      <div className="h-[34px] bg-[var(--bg-panel)] border-b border-[var(--border-color)] flex items-center px-4.5 gap-2 shrink-0 select-none">
+        <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest">Connections</span>
         
         <div className="flex-1"></div>
         
         {/* Search Input Box */}
         <div className="relative">
           <svg 
-            className="absolute left-2 top-1/2 transform -translate-y-1/2 text-neutral-600" 
+            className="absolute left-2 top-1/2 transform -translate-y-1/2 text-[var(--text-subtle)]" 
             width="12" 
             height="12" 
             viewBox="0 0 12 12" 
@@ -66,21 +66,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search connections..." 
-            className="bg-[#2a2a2a] border border-[#3a3a3a] hover:border-neutral-700 focus:border-[#29ABEE] rounded-[3px] py-1 pl-6 pr-2.5 text-xs text-neutral-200 outline-none w-[200px] transition-colors"
+            className="bg-[var(--input-bg)] border border-[var(--input-border)] hover:border-[var(--text-subtle)] focus:border-[var(--input-focus-border)] rounded-[3px] py-1 pl-6 pr-2.5 text-xs text-[var(--text-main)] placeholder-[var(--text-subtle)] outline-none w-[200px] transition-colors"
           />
         </div>
 
         {/* Action Button */}
         <button 
           onClick={onNewConnection}
-          className="bg-[#29ABEE] hover:bg-[#1a9ad9] active:bg-[#1685bc] border-none rounded-[3px] px-3.5 h-6 text-white text-xs font-semibold flex items-center gap-1 cursor-pointer shrink-0 transition-colors outline-none"
+          className="bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] border-none rounded-[3px] px-3.5 h-6 text-white text-xs font-semibold flex items-center gap-1 cursor-pointer shrink-0 transition-all outline-none"
         >
           <span className="text-base font-normal mt-[-2px] leading-none">+</span>
           New Connection
         </button>
       </div>
 
-      {/* Connection Cards Grid Grid */}
+      {/* Connection Cards Grid */}
       <div className="flex-1 overflow-y-auto p-4.5 flex flex-wrap gap-3 content-start items-start">
         {filteredConnections.length > 0 ? (
           filteredConnections.map((conn) => (
@@ -96,19 +96,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
             />
           ))
         ) : (
-          <div className="flex-1 flex items-center justify-center py-20 text-neutral-600 font-medium">
+          <div className="flex-1 flex items-center justify-center py-20 text-[var(--text-subtle)] font-medium">
             {searchQuery ? 'No matching connections found' : 'No connection profiles configured yet'}
           </div>
         )}
       </div>
 
       {/* Footer bar */}
-      <div className="h-5 bg-[#252526] border-t border-[#1a1a1a] flex items-center px-4 justify-between shrink-0 text-[10.5px] text-neutral-600 font-medium">
+      <div className="h-5 bg-[var(--bg-panel-header)] border-t border-[var(--border-color)] flex items-center px-4 justify-between shrink-0 text-[10.5px] text-[var(--text-muted)] font-medium">
         <span>
           {onlineCount} of {totalCount} connection{totalCount !== 1 ? 's' : ''} online
         </span>
         <div className="flex items-center gap-4">
-          <button className="hover:text-neutral-400 cursor-pointer outline-none">
+          <button className="hover:text-[var(--text-main)] cursor-pointer outline-none transition-colors">
             ⚙ Settings
           </button>
           <span>Darab Ahmed</span>

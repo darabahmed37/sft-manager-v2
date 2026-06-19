@@ -31,6 +31,21 @@ function App() {
   const [isWizardOpen, setIsWizardOpen] = useState<boolean>(false);
   const [editingConnectionId, setEditingConnectionId] = useState<number | null>(null);
 
+  // Global Dark/Light Theme state
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    const saved = localStorage.getItem('theme');
+    return (saved as 'dark' | 'light') || 'dark';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('theme', theme);
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
+
   const refreshConnections = async () => {
     try {
       const conns = await window.electronAPI.db.getConnections();
@@ -228,26 +243,26 @@ function App() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-[#141414] overflow-hidden">
+    <div className="h-screen flex flex-col bg-[var(--bg-app)] text-[var(--text-main)] overflow-hidden theme-transition">
       {/* Title Bar */}
-      <TitleBar title={title} />
-
-      {/* Menu Bar */}
-      <div className="h-[22px] bg-[#1e1e1e] border-b border-[#252525] flex items-center pl-1 shrink-0 text-xs text-[#bbb] select-none">
-        <div className="px-2.5 h-full flex items-center cursor-default hover:bg-neutral-800 hover:text-white transition-colors">File</div>
-        <div className="px-2.5 h-full flex items-center cursor-default hover:bg-neutral-800 hover:text-white transition-colors">Edit</div>
-        <div className="px-2.5 h-full flex items-center cursor-default hover:bg-neutral-800 hover:text-white transition-colors">View</div>
-        <div className="px-2.5 h-full flex items-center cursor-default hover:bg-neutral-800 hover:text-white transition-colors">Help</div>
-      </div>
+      <TitleBar 
+        title={title} 
+        theme={theme} 
+        onToggleTheme={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} 
+      />
 
       {/* Session Tab Strip */}
-      <div className="h-[30px] bg-[#252526] border-b border-[#141414] flex items-end shrink-0 overflow-hidden select-none">
+      <div className="h-[30px] bg-[var(--bg-app)] border-b border-[var(--border-color)] flex items-end shrink-0 overflow-hidden select-none">
         {/* Connections home tab */}
         <div 
           onClick={() => setActiveTabId('connections')}
-          className={`h-7 px-3.5 flex items-center gap-1.5 text-xs cursor-pointer border-r border-[#1a1a1a] shrink-0 border-t ${activeTabId === 'connections' ? 'bg-[#1e1e1e] text-[#ccc] border-t-[#29ABEE] border-b border-b-[#1e1e1e]' : 'bg-[#252526] text-[#777] border-t-transparent border-b border-b-[#141414] hover:bg-[#1f1f20] hover:text-[#bbb]'}`}
+          className={`h-7 px-3.5 flex items-center gap-1.5 text-xs cursor-pointer border-r border-[var(--border-color)] shrink-0 border-t ${
+            activeTabId === 'connections' 
+              ? 'bg-[var(--bg-panel)] text-[var(--active-tab-text)] border-t-[2px] border-t-[var(--color-primary)] border-b border-b-[var(--bg-panel)] font-medium' 
+              : 'bg-[var(--bg-panel-header)] text-[var(--text-muted)] border-t-transparent border-b border-b-[var(--border-color)] hover:bg-[var(--bg-panel)] hover:text-[var(--text-main)]'
+          }`}
         >
-          <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4">
+          <svg className="w-3 h-3 text-[var(--text-muted)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4">
             <rect x="1" y="2" width="10" height="8" rx="1"/>
             <line x1="1" y1="4.5" x2="11" y2="4.5"/>
             <line x1="3.5" y1="6.5" x2="5.5" y2="6.5"/>
@@ -264,7 +279,11 @@ function App() {
             <div 
               key={tab.id}
               onClick={() => setActiveTabId(tab.id)}
-              className={`h-7 px-3 flex items-center gap-1.5 text-xs cursor-pointer border-r border-[#1a1a1a] shrink-0 border-t ${isActive ? 'bg-[#1e1e1e] text-[#ccc] border-t-[#29ABEE] border-b border-b-[#1e1e1e]' : 'bg-[#252526] text-[#777] border-t-transparent border-b border-b-[#141414] hover:bg-[#1f1f20] hover:text-[#bbb]'}`}
+              className={`h-7 px-3 flex items-center gap-1.5 text-xs cursor-pointer border-r border-[var(--border-color)] shrink-0 border-t ${
+                isActive 
+                  ? 'bg-[var(--bg-panel)] text-[var(--active-tab-text)] border-t-[2px] border-t-[var(--color-primary)] border-b border-b-[var(--bg-panel)] font-medium' 
+                  : 'bg-[var(--bg-panel-header)] text-[var(--text-muted)] border-t-transparent border-b border-b-[var(--border-color)] hover:bg-[var(--bg-panel)] hover:text-[var(--text-main)]'
+              }`}
             >
               <div 
                 className="w-1.5 h-1.5 rounded-full shrink-0 transition-colors duration-300"
@@ -279,7 +298,7 @@ function App() {
                   e.stopPropagation();
                   handleCloseTab(tab.id);
                 }}
-                className="ml-1 text-neutral-600 hover:text-white font-semibold text-[15px] leading-none mt-[-1px] outline-none cursor-pointer"
+                className="ml-1 text-[var(--text-subtle)] hover:text-[var(--text-main)] font-semibold text-[15px] leading-none mt-[-1px] outline-none cursor-pointer"
               >
                 ×
               </button>
@@ -293,12 +312,12 @@ function App() {
             setEditingConnectionId(null);
             setIsWizardOpen(true);
           }}
-          className="h-7 w-[30px] flex items-center justify-center cursor-pointer text-neutral-600 hover:text-neutral-400 text-[17px] mt-[-1px] shrink-0 border-b border-[#141414]"
+          className="h-7 w-[30px] flex items-center justify-center cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] text-[17px] mt-[-1px] shrink-0 border-b border-[var(--border-color)]"
           title="New Connection"
         >
           +
         </div>
-        <div className="flex-1 border-b border-b-[#141414]"></div>
+        <div className="flex-1 border-b border-b-[var(--border-color)]"></div>
       </div>
 
       {/* Main Content Area */}

@@ -6,6 +6,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     maximize: () => ipcRenderer.send('window-maximize'),
     close: () => ipcRenderer.send('window-close'),
     getPlatform: () => ipcRenderer.invoke('window-get-platform'),
+    isMaximized: () => ipcRenderer.invoke('window-is-maximized'),
+    onMaximizedState: (callback: (event: any, isMaximized: boolean) => void) => {
+      ipcRenderer.on('window-maximized-state', callback);
+      return () => {
+        ipcRenderer.removeListener('window-maximized-state', callback);
+      };
+    },
     openFile: () => ipcRenderer.invoke('dialog-open-file'),
   },
   fs: {
@@ -78,6 +85,30 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return () => {
         ipcRenderer.removeListener('ssh-connect-progress', callback);
       };
+    },
+  },
+  terminal: {
+    openWindow: (sessionId: string, username: string, host: string) =>
+      ipcRenderer.send('terminal-open-window', sessionId, username, host),
+    openShell: (sessionId: string, tabId: string) =>
+      ipcRenderer.invoke('terminal-open-shell', sessionId, tabId),
+    writeShell: (shellId: string, data: string) =>
+      ipcRenderer.send('terminal-shell-write', shellId, data),
+    resizeShell: (shellId: string, cols: number, rows: number) =>
+      ipcRenderer.send('terminal-shell-resize', shellId, cols, rows),
+    closeShell: (shellId: string) =>
+      ipcRenderer.send('terminal-shell-close', shellId),
+    onShellData: (callback: (event: any, shellId: string, data: string) => void) => {
+      ipcRenderer.on('terminal-shell-data', callback);
+      return () => ipcRenderer.removeListener('terminal-shell-data', callback);
+    },
+    onShellClose: (callback: (event: any, shellId: string) => void) => {
+      ipcRenderer.on('terminal-shell-close', callback);
+      return () => ipcRenderer.removeListener('terminal-shell-close', callback);
+    },
+    onOpenTab: (callback: (event: any, sessionId: string, username: string, host: string) => void) => {
+      ipcRenderer.on('terminal-open-tab', callback);
+      return () => ipcRenderer.removeListener('terminal-open-tab', callback);
     },
   },
 });

@@ -93,6 +93,11 @@ export class SshConnector {
       };
 
       client.on('ready', () => {
+        try {
+          client.setNoDelay(true);
+        } catch (err: any) {
+          log.warn(`Failed to set setNoDelay: ${err.message}`);
+        }
         handleSettled(() => resolve(client));
       });
 

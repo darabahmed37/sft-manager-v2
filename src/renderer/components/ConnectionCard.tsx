@@ -39,7 +39,7 @@ export const ConnectionCard: React.FC<ConnectionCardProps> = ({
   const [menuOpen, setMenuOpen] = useState(false);
 
   // Status mapping
-  const statusColor = isActive ? '#28c840' : connection.connectionTypeId === 2 ? '#febc2e' : '#555';
+  const statusColor = isActive ? '#10b981' : connection.connectionTypeId === 2 ? '#febc2e' : '#64748b';
   const statusLabel = isActive ? 'Online' : connection.connectionTypeId === 2 ? 'Warning' : 'Offline';
 
   const userHost = `${connection.credentialUsername || 'root'}@${connection.host}:${connection.port}`;
@@ -49,7 +49,7 @@ export const ConnectionCard: React.FC<ConnectionCardProps> = ({
     : 'Never connected';
 
   return (
-    <div className="w-[calc(50%-6px)] bg-[#1e1e1e] border border-neutral-800/80 rounded-[3px] flex overflow-visible cursor-default transition-all duration-200 hover:border-neutral-700 select-none">
+    <div className="w-[calc(50%-6px)] bg-[var(--card-bg)] border border-[var(--card-border)] rounded-[3px] flex overflow-visible cursor-default transition-all duration-200 hover:border-[var(--card-hover-border)] hover:shadow-sm select-none">
       
       {/* Dynamic Status Stripe */}
       <div 
@@ -62,12 +62,12 @@ export const ConnectionCard: React.FC<ConnectionCardProps> = ({
         
         {/* Header Title & Dots */}
         <div className="flex items-start justify-between mb-1.5">
-          <div className="text-neutral-200 font-semibold truncate text-[13.5px] max-w-[85%]">{connection.name}</div>
+          <div className="text-[var(--text-main)] font-semibold truncate text-[13.5px] max-w-[85%]">{connection.name}</div>
           
           <div className="relative">
             <button 
               onClick={() => setMenuOpen(!menuOpen)}
-              className="text-neutral-600 hover:text-neutral-300 font-bold px-1.5 text-base leading-none shrink-0 outline-none cursor-pointer"
+              className="text-[var(--text-muted)] hover:text-[var(--text-main)] font-bold px-1.5 text-base leading-none shrink-0 outline-none cursor-pointer"
             >
               ⋮
             </button>
@@ -77,22 +77,22 @@ export const ConnectionCard: React.FC<ConnectionCardProps> = ({
                   className="fixed inset-0 z-10" 
                   onClick={() => setMenuOpen(false)}
                 ></div>
-                <div className="absolute right-0 top-6 bg-[#252526] border border-[#3a3a3a] shadow-xl rounded-[3px] py-1 w-36 z-20 text-xs text-neutral-300">
+                <div className="absolute right-0 top-6 bg-[var(--bg-panel-header)] border border-[var(--border-color)] shadow-xl rounded-[3px] py-1 w-36 z-20 text-xs text-[var(--text-main)]">
                   <button 
                     onClick={() => { setMenuOpen(false); onEdit(connection.id); }}
-                    className="w-full text-left px-3.5 py-1.5 hover:bg-neutral-800 hover:text-white cursor-pointer"
+                    className="w-full text-left px-3.5 py-1.5 hover:bg-[var(--bg-panel)] hover:text-[var(--text-main)] cursor-pointer"
                   >
                     Edit Profile
                   </button>
                   <button 
                     onClick={() => { setMenuOpen(false); onDuplicate(connection.id); }}
-                    className="w-full text-left px-3.5 py-1.5 hover:bg-neutral-800 hover:text-white cursor-pointer"
+                    className="w-full text-left px-3.5 py-1.5 hover:bg-[var(--bg-panel)] hover:text-[var(--text-main)] cursor-pointer"
                   >
                     Duplicate
                   </button>
                   <button 
                     onClick={() => { setMenuOpen(false); onDelete(connection.id); }}
-                    className="w-full text-left px-3.5 py-1.5 hover:bg-neutral-800 hover:text-rose-400 cursor-pointer text-rose-500 font-medium"
+                    className="w-full text-left px-3.5 py-1.5 hover:bg-[var(--bg-panel)] hover:text-rose-400 cursor-pointer text-rose-500 font-medium"
                   >
                     Delete
                   </button>
@@ -103,11 +103,11 @@ export const ConnectionCard: React.FC<ConnectionCardProps> = ({
         </div>
 
         {/* User / Host monospace specs */}
-        <div className="text-[11px] font-mono text-neutral-500 mb-1.5 truncate">{userHost}</div>
+        <div className="text-[11px] font-mono text-[var(--text-muted)] mb-1.5 truncate">{userHost}</div>
 
         {/* Tunnel display */}
         {connection.tunnelName && (
-          <div className="text-[11px] text-[#29ABEE] mb-1.5 flex items-center gap-1">
+          <div className="text-[11px] text-[var(--active-tab-text)] mb-1.5 flex items-center gap-1">
             <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4">
               <circle cx="2" cy="6" r="1.5"/>
               <circle cx="10" cy="6" r="1.5"/>
@@ -120,10 +120,10 @@ export const ConnectionCard: React.FC<ConnectionCardProps> = ({
 
         {/* Auth Method Badge & Timestamp */}
         <div className="flex items-center gap-2.5 mt-2">
-          <span className="text-[10px] bg-[#2a2a2a] border border-[#3a3a3a] rounded-[2px] px-2.5 py-0.5 text-neutral-400 font-medium select-none">
+          <span className="text-[10px] bg-[var(--bg-panel-header)] border border-[var(--border-color)] rounded-[2px] px-2.5 py-0.5 text-[var(--text-muted)] font-medium select-none">
             {authLabel}
           </span>
-          <span className="text-[11px] text-neutral-600">
+          <span className="text-[11px] text-[var(--text-subtle)]">
             {lastConn}
           </span>
         </div>
@@ -133,26 +133,26 @@ export const ConnectionCard: React.FC<ConnectionCardProps> = ({
           {isActive ? (
             <button 
               onClick={() => onDisconnect(connection.id)}
-              className="bg-neutral-800 hover:bg-neutral-700 active:bg-neutral-900 border border-neutral-700/60 hover:border-neutral-600 text-neutral-300 text-xs px-4 py-1 rounded-[3px] cursor-pointer font-medium select-none transition-colors outline-none"
+              className="bg-[var(--bg-panel-header)] hover:bg-[var(--bg-app)] active:bg-[var(--bg-panel-header)] border border-[var(--border-color)] text-[var(--text-main)] text-xs px-4 py-1 rounded-[3px] cursor-pointer font-medium select-none transition-all outline-none"
             >
               Disconnect
             </button>
           ) : (
             <button 
               onClick={() => onConnect(connection.id)}
-              className="bg-[#29ABEE] hover:bg-[#1a9ad9] active:bg-[#1685bc] text-white text-xs px-4 py-1 rounded-[3px] cursor-pointer font-semibold select-none transition-colors outline-none"
+              className="bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white text-xs px-4 py-1 rounded-[3px] cursor-pointer font-semibold select-none transition-all outline-none"
             >
               Connect
             </button>
           )}
 
           {/* Status Indicator */}
-          <span className="flex items-center gap-1.5 text-[11px] text-neutral-500 font-medium select-none">
+          <span className="flex items-center gap-1.5 text-[11px] text-[var(--text-muted)] font-medium select-none">
             <div 
               className="w-1.5 h-1.5 rounded-full shrink-0 transition-colors duration-300"
               style={{ 
                 backgroundColor: statusColor,
-                boxShadow: isActive ? '0 0 4px #28c840' : 'none',
+                boxShadow: isActive ? '0 0 4px #10b981' : 'none',
               }}
             ></div>
             {statusLabel}

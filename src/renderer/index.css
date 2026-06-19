@@ -1,14 +1,98 @@
 @import "tailwindcss";
 
+:root {
+  --bg-app: #f8fafc;
+  --bg-panel: #ffffff;
+  --bg-panel-header: #f1f5f9;
+  --border-color: #e2e8f0;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --text-subtle: #94a3b8;
+  --active-tab-bg: #ffffff;
+  --inactive-tab-bg: #f8fafc;
+  --active-tab-text: #4f46e5;
+  --card-bg: #ffffff;
+  --card-border: #e2e8f0;
+  --card-hover-border: #cbd5e1;
+  --input-bg: #ffffff;
+  --input-border: #cbd5e1;
+  --input-focus-border: #4f46e5;
+  --scroll-thumb: #cbd5e1;
+  --scroll-thumb-hover: #94a3b8;
+  --color-primary: #4f46e5;
+  --color-primary-hover: #3730a3;
+  --glow-color: rgba(79, 70, 229, 0.15);
+}
+
+.dark {
+  --bg-app: #080a0f;
+  --bg-panel: #0f121d;
+  --bg-panel-header: #151a29;
+  --border-color: #1e2433;
+  --text-main: #f1f5f9;
+  --text-muted: #94a3b8;
+  --text-subtle: #64748b;
+  --active-tab-bg: #0f121d;
+  --inactive-tab-bg: #151a29;
+  --active-tab-text: #818cf8;
+  --card-bg: #121624;
+  --card-border: #1e2433;
+  --card-hover-border: #2b3348;
+  --input-bg: #161c2b;
+  --input-border: #222a3d;
+  --input-focus-border: #818cf8;
+  --scroll-thumb: #222a3d;
+  --scroll-thumb-hover: #323d58;
+  --color-primary: #6366f1;
+  --color-primary-hover: #4f46e5;
+  --glow-color: rgba(99, 102, 241, 0.25);
+}
+
 @layer base {
   html, body {
     margin: 0;
     padding: 0;
     width: 100%;
     height: 100%;
-    background-color: #141414;
-    color: #cccccc;
+    background-color: var(--bg-app);
+    color: var(--text-main);
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     overflow: hidden;
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
+}
+
+/* Custom global scrollbar styles */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--scroll-thumb);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scroll-thumb-hover);
+}
+
+/* Helper transitions */
+.theme-transition {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease forwards;
+}
+
+.writing-mode-vertical {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
 }

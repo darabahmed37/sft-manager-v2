@@ -295,17 +295,17 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 select-none text-[13px] text-neutral-300 font-sans">
-      <div className="w-[520px] bg-[#1e1e1e] border border-[#3a3a3a] rounded-[4px] flex flex-col shadow-[0_24px_60px_rgba(0,0,0,0.8)] max-h-[85vh]">
+    <div className="fixed inset-0 bg-black/65 backdrop-blur-xs flex items-center justify-center z-50 select-none text-[13px] text-[var(--text-main)] font-sans">
+      <div className="w-[520px] bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-[4px] flex flex-col shadow-[0_24px_60px_rgba(0,0,0,0.4)] max-h-[85vh]">
         
         {/* Modal Title Bar */}
-        <div className="h-8 bg-[#252526] border-b border-[#1a1a1a] flex items-center px-4 rounded-t-[4px] shrink-0">
-          <span className="text-xs font-semibold text-neutral-200">
+        <div className="h-8 bg-[var(--bg-panel-header)] border-b border-[var(--border-color)] flex items-center px-4 rounded-t-[4px] shrink-0">
+          <span className="text-xs font-semibold text-[var(--text-main)]">
             {connectionId !== null ? 'Edit Connection' : 'New Connection'} — {stepTitles[step - 1]}
           </span>
           <button 
             onClick={onClose}
-            className="ml-auto text-neutral-500 hover:text-neutral-300 transition-colors outline-none cursor-pointer"
+            className="ml-auto text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors outline-none cursor-pointer"
           >
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8">
               <line x1="1.5" y1="1.5" x2="10.5" y2="10.5" />
@@ -315,7 +315,7 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
         </div>
 
         {/* Step Indicator Tabs */}
-        <div className="h-[30px] bg-[#252526] border-b border-[#1a1a1a] flex items-end px-2 shrink-0 overflow-x-auto">
+        <div className="h-[30px] bg-[var(--bg-panel-header)] border-b border-[var(--border-color)] flex items-end px-2 shrink-0 overflow-x-auto">
           {stepTitles.map((title, idx) => {
             const num = idx + 1;
             const isActive = step === num;
@@ -323,17 +323,17 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
             return (
               <div 
                 key={num}
-                className={`h-7 px-3.5 flex items-center gap-1.5 text-[11px] font-medium border-r border-[#1a1a1a] transition-all rounded-t-[2px] ${
+                className={`h-7 px-3.5 flex items-center gap-1.5 text-[11px] font-medium border-r border-[var(--border-color)] transition-all rounded-t-[2px] ${
                   isActive 
-                    ? 'bg-[#1e1e1e] text-neutral-100 border-t border-t-[#29ABEE]' 
+                    ? 'bg-[var(--bg-panel)] text-[var(--active-tab-text)] border-t-[2px] border-t-[var(--color-primary)] font-semibold' 
                     : isCompleted 
-                    ? 'text-emerald-500 bg-neutral-800/10 cursor-pointer' 
-                    : 'text-neutral-500 cursor-not-allowed'
+                    ? 'text-emerald-500 bg-emerald-500/5 cursor-pointer font-medium' 
+                    : 'text-[var(--text-subtle)] cursor-not-allowed'
                 }`}
                 onClick={() => isCompleted && setStep(num)}
               >
                 <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] ${
-                  isActive ? 'bg-[#29ABEE] text-white' : isCompleted ? 'bg-emerald-500/20 text-emerald-400' : 'bg-neutral-800 text-neutral-600'
+                  isActive ? 'bg-[var(--color-primary)] text-white' : isCompleted ? 'bg-emerald-500/20 text-emerald-500' : 'bg-[var(--bg-panel-header)] text-[var(--text-subtle)] border border-[var(--border-color)]'
                 }`}>
                   {isCompleted ? '✓' : num}
                 </div>
@@ -350,47 +350,47 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
           {step === 1 && (
             <div className="space-y-4 animate-fade-in">
               <div>
-                <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Connection Name</label>
+                <label className="block text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">Connection Name</label>
                 <input 
                   type="text" 
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. Production Web Server" 
-                  className="w-full h-8 bg-[#2d2d2d] border border-[#3c3c3c] rounded-[3px] px-3 text-neutral-200 outline-none focus:border-[#29ABEE] transition-colors"
+                  className="w-full h-8 bg-[var(--input-bg)] border border-[var(--input-border)] hover:border-[var(--text-subtle)] focus:border-[var(--input-focus-border)] rounded-[3px] px-3 text-[var(--text-main)] placeholder-[var(--text-subtle)] outline-none transition-colors text-xs"
                 />
               </div>
               
               <div className="flex gap-4">
                 <div className="flex-1">
-                  <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">SSH Host</label>
+                  <label className="block text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">SSH Host</label>
                   <input 
                     type="text" 
                     value={host}
                     onChange={(e) => setHost(e.target.value)}
                     placeholder="domain.com or 192.168.1.100" 
-                    className="w-full h-8 bg-[#2d2d2d] border border-[#3c3c3c] rounded-[3px] px-3 text-neutral-200 outline-none focus:border-[#29ABEE] transition-colors"
+                    className="w-full h-8 bg-[var(--input-bg)] border border-[var(--input-border)] hover:border-[var(--text-subtle)] focus:border-[var(--input-focus-border)] rounded-[3px] px-3 text-[var(--text-main)] placeholder-[var(--text-subtle)] outline-none transition-colors text-xs"
                   />
                 </div>
                 <div className="w-[100px]">
-                  <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Port</label>
+                  <label className="block text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">Port</label>
                   <input 
                     type="number" 
                     value={port}
                     onChange={(e) => setPort(Number(e.target.value))}
                     placeholder="22" 
-                    className="w-full h-8 bg-[#2d2d2d] border border-[#3c3c3c] rounded-[3px] px-3 text-neutral-200 outline-none focus:border-[#29ABEE] transition-colors"
+                    className="w-full h-8 bg-[var(--input-bg)] border border-[var(--input-border)] hover:border-[var(--text-subtle)] focus:border-[var(--input-focus-border)] rounded-[3px] px-3 text-[var(--text-main)] placeholder-[var(--text-subtle)] outline-none transition-colors text-xs"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Username</label>
+                <label className="block text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">Username</label>
                 <input 
                   type="text" 
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="e.g. root or ubuntu" 
-                  className="w-full h-8 bg-[#2d2d2d] border border-[#3c3c3c] rounded-[3px] px-3 text-neutral-200 outline-none focus:border-[#29ABEE] transition-colors"
+                  className="w-full h-8 bg-[var(--input-bg)] border border-[var(--input-border)] hover:border-[var(--text-subtle)] focus:border-[var(--input-focus-border)] rounded-[3px] px-3 text-[var(--text-main)] placeholder-[var(--text-subtle)] outline-none transition-colors text-xs"
                 />
               </div>
             </div>
@@ -399,53 +399,53 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
           {/* STEP 2: AUTHENTICATION */}
           {step === 2 && (
             <div className="space-y-4 animate-fade-in">
-              <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Authentication Method</label>
+              <label className="block text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">Authentication Method</label>
               
               <div className="space-y-2">
                 {/* Method Option: Key */}
                 <div className={`p-4 border rounded-[4px] transition-all cursor-pointer ${
-                  authMethod === 'KEY' ? 'border-[#29ABEE] bg-[#29ABEE]/5' : 'border-[#3c3c3c] bg-transparent hover:bg-neutral-800/10'
+                  authMethod === 'KEY' ? 'border-[var(--color-primary)] bg-[var(--glow-color)]/20' : 'border-[var(--border-color)] bg-transparent hover:bg-[var(--bg-panel-header)]'
                 }`} onClick={() => setAuthMethod('KEY')}>
                   <div className="flex items-center gap-3.5 mb-3">
                     <input 
                       type="radio" 
                       checked={authMethod === 'KEY'} 
                       onChange={() => setAuthMethod('KEY')}
-                      className="accent-[#29ABEE]"
+                      className="accent-[var(--color-primary)]"
                     />
                     <div>
-                      <div className="font-semibold text-neutral-200">SSH Private Key</div>
-                      <div className="text-[11px] text-neutral-500 mt-0.5">Public/private key pair file authentication</div>
+                      <div className="font-semibold text-[var(--text-main)]">SSH Private Key</div>
+                      <div className="text-[11px] text-[var(--text-muted)] mt-0.5">Public/private key pair file authentication</div>
                     </div>
                   </div>
                   {authMethod === 'KEY' && (
-                    <div className="space-y-3.5 mt-3 pt-3 border-t border-neutral-800/50" onClick={(e) => e.stopPropagation()}>
+                    <div className="space-y-3.5 mt-3 pt-3 border-t border-[var(--border-color)]" onClick={(e) => e.stopPropagation()}>
                       <div>
-                        <label className="block text-[10px] text-neutral-500 uppercase tracking-wider mb-1">Private Key File</label>
+                        <label className="block text-[10px] text-[var(--text-muted)] uppercase tracking-wider mb-1">Private Key File</label>
                         <div className="flex gap-2">
                           <input 
                             type="text" 
                             value={privateKeyPath}
                             onChange={(e) => setPrivateKeyPath(e.target.value)}
                             placeholder="C:\Users\name\.ssh\id_rsa"
-                            className="flex-1 h-8 bg-[#252525] border border-[#3c3c3c] rounded-[3px] px-3 text-neutral-300 outline-none focus:border-[#29ABEE] text-xs"
+                            className="flex-1 h-8 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-[3px] px-3 text-[var(--text-main)] outline-none focus:border-[var(--input-focus-border)] text-xs"
                           />
                           <button 
                             onClick={handleBrowseKeyFile}
-                            className="h-8 border border-neutral-700 bg-neutral-800 hover:bg-neutral-700 hover:text-white px-4 rounded-[3px] text-xs font-semibold cursor-pointer outline-none transition-colors"
+                            className="h-8 border border-[var(--border-color)] bg-[var(--bg-panel-header)] hover:bg-[var(--bg-app)] hover:text-[var(--text-main)] px-4 rounded-[3px] text-xs font-semibold cursor-pointer outline-none transition-colors"
                           >
                             Browse...
                           </button>
                         </div>
                       </div>
                       <div>
-                        <label className="block text-[10px] text-neutral-500 uppercase tracking-wider mb-1">Passphrase</label>
+                        <label className="block text-[10px] text-[var(--text-muted)] uppercase tracking-wider mb-1">Passphrase</label>
                         <input 
                           type="password" 
                           value={passphrase}
                           onChange={(e) => setPassphrase(e.target.value)}
                           placeholder="Optional"
-                          className="w-full h-8 bg-[#252525] border border-[#3c3c3c] rounded-[3px] px-3 text-neutral-300 outline-none focus:border-[#29ABEE] text-xs"
+                          className="w-full h-8 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-[3px] px-3 text-[var(--text-main)] outline-none focus:border-[var(--input-focus-border)] text-xs"
                         />
                       </div>
                     </div>
@@ -454,29 +454,29 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
 
                 {/* Method Option: Password */}
                 <div className={`p-4 border rounded-[4px] transition-all cursor-pointer ${
-                  authMethod === 'PASSWORD' ? 'border-[#29ABEE] bg-[#29ABEE]/5' : 'border-[#3c3c3c] bg-transparent hover:bg-neutral-800/10'
+                  authMethod === 'PASSWORD' ? 'border-[var(--color-primary)] bg-[var(--glow-color)]/20' : 'border-[var(--border-color)] bg-transparent hover:bg-[var(--bg-panel-header)]'
                 }`} onClick={() => setAuthMethod('PASSWORD')}>
                   <div className="flex items-center gap-3.5">
                     <input 
                       type="radio" 
                       checked={authMethod === 'PASSWORD'} 
                       onChange={() => setAuthMethod('PASSWORD')}
-                      className="accent-[#29ABEE]"
+                      className="accent-[var(--color-primary)]"
                     />
                     <div>
-                      <div className="font-semibold text-neutral-200">Password</div>
-                      <div className="text-[11px] text-neutral-500 mt-0.5">SSH username + secret password</div>
+                      <div className="font-semibold text-[var(--text-main)]">Password</div>
+                      <div className="text-[11px] text-[var(--text-muted)] mt-0.5">SSH username + secret password</div>
                     </div>
                   </div>
                   {authMethod === 'PASSWORD' && (
-                    <div className="mt-3.5 pt-3.5 border-t border-neutral-800/50" onClick={(e) => e.stopPropagation()}>
-                      <label className="block text-[10px] text-neutral-500 uppercase tracking-wider mb-1">Password</label>
+                    <div className="mt-3.5 pt-3.5 border-t border-[var(--border-color)]" onClick={(e) => e.stopPropagation()}>
+                      <label className="block text-[10px] text-[var(--text-muted)] uppercase tracking-wider mb-1">Password</label>
                       <input 
                         type="password" 
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="Enter SSH password"
-                        className="w-full h-8 bg-[#252525] border border-[#3c3c3c] rounded-[3px] px-3 text-neutral-300 outline-none focus:border-[#29ABEE] text-xs"
+                        className="w-full h-8 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-[3px] px-3 text-[var(--text-main)] outline-none focus:border-[var(--input-focus-border)] text-xs"
                       />
                     </div>
                   )}
@@ -484,40 +484,40 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
 
                 {/* Method Option: Keyboard Interactive */}
                 <div className={`p-4 border rounded-[4px] transition-all cursor-pointer ${
-                  authMethod === 'KEYBOARD_INTERACTIVE' ? 'border-[#29ABEE] bg-[#29ABEE]/5' : 'border-[#3c3c3c] bg-transparent hover:bg-neutral-800/10'
+                  authMethod === 'KEYBOARD_INTERACTIVE' ? 'border-[var(--color-primary)] bg-[var(--glow-color)]/20' : 'border-[var(--border-color)] bg-transparent hover:bg-[var(--bg-panel-header)]'
                 }`} onClick={() => setAuthMethod('KEYBOARD_INTERACTIVE')}>
                   <div className="flex items-center gap-3.5">
                     <input 
                       type="radio" 
                       checked={authMethod === 'KEYBOARD_INTERACTIVE'} 
                       onChange={() => setAuthMethod('KEYBOARD_INTERACTIVE')}
-                      className="accent-[#29ABEE]"
+                      className="accent-[var(--color-primary)]"
                     />
                     <div>
-                      <div className="font-semibold text-neutral-200">Keyboard Interactive</div>
-                      <div className="text-[11px] text-neutral-500 mt-0.5">2FA / TOTP challenge authentication</div>
+                      <div className="font-semibold text-[var(--text-main)]">Keyboard Interactive</div>
+                      <div className="text-[11px] text-[var(--text-muted)] mt-0.5">2FA / TOTP challenge authentication</div>
                     </div>
                   </div>
                   {authMethod === 'KEYBOARD_INTERACTIVE' && (
-                    <div className="space-y-3 mt-3.5 pt-3.5 border-t border-neutral-800/50" onClick={(e) => e.stopPropagation()}>
+                    <div className="space-y-3 mt-3.5 pt-3.5 border-t border-[var(--border-color)]" onClick={(e) => e.stopPropagation()}>
                       <div>
-                        <label className="block text-[10px] text-neutral-500 uppercase tracking-wider mb-1">TOTP Secret (Base32)</label>
+                        <label className="block text-[10px] text-[var(--text-muted)] uppercase tracking-wider mb-1">TOTP Secret (Base32)</label>
                         <input 
                           type="password" 
                           value={totpSecret}
                           onChange={(e) => setTotpSecret(e.target.value)}
                           placeholder="Optional token secret for automated response"
-                          className="w-full h-8 bg-[#252525] border border-[#3c3c3c] rounded-[3px] px-3 text-neutral-300 outline-none focus:border-[#29ABEE] text-xs"
+                          className="w-full h-8 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-[3px] px-3 text-[var(--text-main)] outline-none focus:border-[var(--input-focus-border)] text-xs"
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] text-neutral-500 uppercase tracking-wider mb-1">Password</label>
+                        <label className="block text-[10px] text-[var(--text-muted)] uppercase tracking-wider mb-1">Password</label>
                         <input 
                           type="password" 
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           placeholder="Password prompt fallback"
-                          className="w-full h-8 bg-[#252525] border border-[#3c3c3c] rounded-[3px] px-3 text-neutral-300 outline-none focus:border-[#29ABEE] text-xs"
+                          className="w-full h-8 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-[3px] px-3 text-[var(--text-main)] outline-none focus:border-[var(--input-focus-border)] text-xs"
                         />
                       </div>
                     </div>
@@ -531,11 +531,11 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
           {step === 3 && (
             <div className="space-y-4 animate-fade-in">
               <div>
-                <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Connection Type</label>
+                <label className="block text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">Connection Type</label>
                 <select 
                   value={connectionTypeId} 
                   onChange={(e) => setConnectionTypeId(Number(e.target.value))}
-                  className="w-full h-8 bg-[#2d2d2d] border border-[#3c3c3c] rounded-[3px] px-2 text-neutral-200 outline-none focus:border-[#29ABEE] text-xs"
+                  className="w-full h-8 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-[3px] px-2 text-[var(--text-main)] outline-none focus:border-[var(--input-focus-border)] text-xs"
                 >
                   <option value={1}>Direct SSH/SFTP Connection</option>
                   <option value={2}>Bastion Jump Proxy (Can act as gateway)</option>
@@ -544,11 +544,11 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
 
               {connectionTypeId === 1 && (
                 <div>
-                  <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Tunnel via Jump Host</label>
+                  <label className="block text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">Tunnel via Jump Host</label>
                   <select 
                     value={tunnelViaConnectionId || ''} 
                     onChange={(e) => setTunnelViaConnectionId(e.target.value ? Number(e.target.value) : null)}
-                    className="w-full h-8 bg-[#2d2d2d] border border-[#3c3c3c] rounded-[3px] px-2 text-neutral-200 outline-none focus:border-[#29ABEE] text-xs"
+                    className="w-full h-8 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-[3px] px-2 text-[var(--text-main)] outline-none focus:border-[var(--input-focus-border)] text-xs"
                   >
                     <option value="">None (Direct Connection)</option>
                     {bastionProfiles.map((b) => (
@@ -557,7 +557,7 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
                       </option>
                     ))}
                   </select>
-                  <p className="text-[10.5px] text-neutral-500 mt-1.5 leading-relaxed">
+                  <p className="text-[10.5px] text-[var(--text-muted)] mt-1.5 leading-relaxed">
                     If selected, the connection will tunnel through this gateway using netcat/TCP duplex relay streams dynamically.
                   </p>
                 </div>
@@ -569,35 +569,35 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
           {step === 4 && (
             <div className="space-y-4 animate-fade-in">
               <div>
-                <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Default Remote Path</label>
+                <label className="block text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">Default Remote Path</label>
                 <input 
                   type="text" 
                   value={workingDir}
                   onChange={(e) => setWorkingDir(e.target.value)}
                   placeholder="~ (Home directory)" 
-                  className="w-full h-8 bg-[#2d2d2d] border border-[#3c3c3c] rounded-[3px] px-3 text-neutral-200 outline-none focus:border-[#29ABEE] transition-colors"
+                  className="w-full h-8 bg-[var(--input-bg)] border border-[var(--input-border)] hover:border-[var(--text-subtle)] focus:border-[var(--input-focus-border)] rounded-[3px] px-3 text-[var(--text-main)] placeholder-[var(--text-subtle)] outline-none transition-colors text-xs"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Default Local Path</label>
+                <label className="block text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">Default Local Path</label>
                 <input 
                   type="text" 
                   placeholder="~ (Home directory)" 
-                  className="w-full h-8 bg-[#2d2d2d] border border-[#3c3c3c] rounded-[3px] px-3 text-neutral-200 outline-none focus:border-[#29ABEE] transition-colors"
+                  className="w-full h-8 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-[3px] px-3 text-[var(--text-main)] placeholder-[var(--text-subtle)] outline-none transition-colors text-xs"
                   disabled
                 />
               </div>
 
-              <div className="p-3.5 bg-[#1c1c1c] border border-neutral-800/80 rounded-[4px] flex items-center justify-between">
+              <div className="p-3.5 bg-[var(--bg-panel-header)] border border-[var(--border-color)] rounded-[4px] flex items-center justify-between">
                 <div>
-                  <h4 className="text-xs font-semibold text-neutral-200">Test Connection</h4>
-                  <p className="text-[10px] text-neutral-500 mt-0.5">Verify connection parameters and credentials</p>
+                  <h4 className="text-xs font-semibold text-[var(--text-main)]">Test Connection</h4>
+                  <p className="text-[10px] text-[var(--text-muted)] mt-0.5">Verify connection parameters and credentials</p>
                 </div>
                 <button 
                   onClick={handleTestConnection}
                   disabled={testing}
-                  className="h-7 px-4 rounded-[3px] text-xs font-semibold border border-neutral-700 bg-neutral-800 hover:bg-neutral-700 active:bg-neutral-900 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed outline-none select-none transition-colors"
+                  className="h-7 px-4 rounded-[3px] text-xs font-semibold border border-[var(--border-color)] bg-[var(--bg-panel)] hover:bg-[var(--bg-panel-header)] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed outline-none select-none transition-colors"
                 >
                   {testing ? 'Testing...' : '✓ Test'}
                 </button>
@@ -618,10 +618,10 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
         </div>
 
         {/* Dialog Footer Actions */}
-        <div className="h-14 border-t border-[#252525] bg-[#1a1a1a] px-4 flex items-center justify-between shrink-0 rounded-b-[4px]">
+        <div className="h-14 border-t border-[var(--border-color)] bg-[var(--bg-panel-header)] px-4 flex items-center justify-between shrink-0 rounded-b-[4px]">
           <button 
             onClick={onClose}
-            className="border border-neutral-800 hover:border-neutral-700 bg-transparent hover:bg-neutral-900 text-neutral-500 hover:text-neutral-400 text-xs px-4 py-1.5 rounded-[3px] transition-all cursor-pointer outline-none"
+            className="border border-[var(--border-color)] bg-transparent hover:bg-[var(--bg-app)] text-[var(--text-muted)] hover:text-[var(--text-main)] text-xs px-4 py-1.5 rounded-[3px] transition-all cursor-pointer outline-none"
           >
             Cancel
           </button>
@@ -630,7 +630,7 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
             {step > 1 && (
               <button 
                 onClick={prevStep}
-                className="border border-neutral-800 bg-transparent hover:bg-neutral-800 text-neutral-300 text-xs px-4 py-1.5 rounded-[3px] mr-2 transition-all cursor-pointer outline-none"
+                className="border border-[var(--border-color)] bg-transparent hover:bg-[var(--bg-app)] text-[var(--text-main)] text-xs px-4 py-1.5 rounded-[3px] mr-2 transition-all cursor-pointer outline-none"
               >
                 ← Back
               </button>
@@ -639,14 +639,14 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
             {step < 4 ? (
               <button 
                 onClick={nextStep}
-                className="bg-[#29ABEE] hover:bg-[#1a9ad9] active:bg-[#1685bc] text-white text-xs font-semibold px-5 py-1.5 rounded-[3px] transition-all cursor-pointer outline-none"
+                className="bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white text-xs font-semibold px-5 py-1.5 rounded-[3px] transition-all cursor-pointer outline-none"
               >
                 Next →
               </button>
             ) : (
               <button 
                 onClick={handleSave}
-                className="bg-[#29ABEE] hover:bg-[#1a9ad9] active:bg-[#1685bc] text-white text-xs font-semibold px-5 py-1.5 rounded-[3px] transition-all cursor-pointer outline-none"
+                className="bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white text-xs font-semibold px-5 py-1.5 rounded-[3px] transition-all cursor-pointer outline-none"
               >
                 Save Connection
               </button>

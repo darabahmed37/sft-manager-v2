@@ -4,6 +4,8 @@ export interface ElectronAPI {
     maximize: () => void;
     close: () => void;
     getPlatform: () => Promise<string>;
+    isMaximized: () => Promise<boolean>;
+    onMaximizedState: (callback: (event: any, isMaximized: boolean) => void) => () => void;
     openFile: () => Promise<string | null>;
   };
   fs: {
