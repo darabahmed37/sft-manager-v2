@@ -8,6 +8,7 @@
     "build:main": "tsc -p tsconfig.main.json",
     "build:renderer": "tsc -p tsconfig.app.json && npx.cmd vite build",
     "build": "npm.cmd run build:main && npm.cmd run build:renderer",
+    "rebuild": "npx.cmd @electron/rebuild",
     "lint": "eslint .",
     "preview": "vite preview"
   },
