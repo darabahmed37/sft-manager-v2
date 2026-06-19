@@ -4,6 +4,7 @@ import { Dashboard } from './components/Dashboard';
 import { ConnectionLoading } from './components/ConnectionLoading';
 import { FileManager } from './components/FileManager';
 import { NewConnectionWizard } from './components/NewConnectionWizard';
+import { SettingsModal } from './components/SettingsModal';
 import type { Connection } from './components/ConnectionCard';
 
 interface Tab {
@@ -30,6 +31,7 @@ function App() {
   const [activeTabId, setActiveTabId] = useState<string>('connections');
   const [isWizardOpen, setIsWizardOpen] = useState<boolean>(false);
   const [editingConnectionId, setEditingConnectionId] = useState<number | null>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
 
   // Global Dark/Light Theme state
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
@@ -335,6 +337,7 @@ function App() {
               setEditingConnectionId(null);
               setIsWizardOpen(true);
             }}
+            onOpenSettings={() => setIsSettingsOpen(true)}
           />
         ) : (
           (() => {
@@ -415,6 +418,14 @@ function App() {
             setIsWizardOpen(false);
             refreshConnections();
           }}
+        />
+      )}
+
+      {/* Application Settings Modal Overlay */}
+      {isSettingsOpen && (
+        <SettingsModal
+          onClose={() => setIsSettingsOpen(false)}
+          onThemeChange={(newTheme) => setTheme(newTheme)}
         />
       )}
     </div>

@@ -11,6 +11,7 @@ interface DashboardProps {
   onDelete: (id: number) => void;
   onDuplicate: (id: number) => void;
   onNewConnection: () => void;
+  onOpenSettings: () => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -22,6 +23,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onDelete,
   onDuplicate,
   onNewConnection,
+  onOpenSettings,
 }) => {
   const [searchQuery, setSearchQuery] = useState<string>('');
 
@@ -108,7 +110,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
           {onlineCount} of {totalCount} connection{totalCount !== 1 ? 's' : ''} online
         </span>
         <div className="flex items-center gap-4">
-          <button className="hover:text-[var(--text-main)] cursor-pointer outline-none transition-colors">
+          <button 
+            onClick={onOpenSettings}
+            className="hover:text-[var(--text-main)] cursor-pointer border-none bg-transparent text-[10.5px] text-[var(--text-muted)] font-medium outline-none transition-colors"
+          >
             ⚙ Settings
           </button>
           <span>Darab Ahmed</span>
