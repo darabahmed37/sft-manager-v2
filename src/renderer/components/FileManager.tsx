@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 
 interface FileManagerProps {
+  connectionId?: number;
   connectionName: string;
   username: string;
   host: string;
@@ -26,6 +27,7 @@ interface RemoteFile {
 }
 
 export const FileManager: React.FC<FileManagerProps> = ({
+  connectionId,
   connectionName,
   username,
   host,
@@ -36,6 +38,18 @@ export const FileManager: React.FC<FileManagerProps> = ({
   const [localView, setLocalView] = useState<'list' | 'grid'>('list');
   const [remoteView, setRemoteView] = useState<'list' | 'grid'>('list');
   const [activeRemoteTab, setActiveRemoteTab] = useState(0);
+
+  // Bookmarks state
+  const [localBookmarks, setLocalBookmarks] = useState<any[]>([]);
+  const [remoteBookmarks, setRemoteBookmarks] = useState<any[]>([]);
+  const [isLocalBookmarksOpen, setIsLocalBookmarksOpen] = useState(false);
+  const [isRemoteBookmarksOpen, setIsRemoteBookmarksOpen] = useState(false);
+
+  // Sorting state
+  const [localSortField, setLocalSortField] = useState<'name' | 'size' | 'modified'>('name');
+  const [localSortAsc, setLocalSortAsc] = useState(true);
+  const [remoteSortField, setRemoteSortField] = useState<'name' | 'size' | 'modified' | 'owner' | 'permissions'>('name');
+  const [remoteSortAsc, setRemoteSortAsc] = useState(true);
 
   // Layout states
   const [localWidth, setLocalWidth] = useState(280);
@@ -58,6 +72,73 @@ export const FileManager: React.FC<FileManagerProps> = ({
     startX: number;
     startWidth: number;
   } | null>(null);
+
+  const localColWidthsRef = React.useRef(localColWidths);
+  const remoteColWidthsRef = React.useRef(remoteColWidths);
+
+  useEffect(() => {
+    localColWidthsRef.current = localColWidths;
+  }, [localColWidths]);
+
+  useEffect(() => {
+    remoteColWidthsRef.current = remoteColWidths;
+  }, [remoteColWidths]);
+
+  const saveLayoutSettings = async (updates: any) => {
+    if (!connectionId) return;
+    try {
+      await window.electronAPI.settings.updateConnectionSettings(connectionId, updates);
+    } catch (err) {
+      console.error('Failed to update connection settings', err);
+    }
+  };
+
+  // Load layout settings and bookmarks
+  useEffect(() => {
+    const loadLayoutAndBookmarks = async () => {
+      if (!connectionId) return;
+      try {
+        const settings = await window.electronAPI.settings.getConnectionSettings(connectionId);
+        if (settings) {
+          setLocalCollapsed(settings.localPanelCollapsed);
+          setLocalSortField(settings.localSortField || 'name');
+          setLocalSortAsc(settings.localSortAsc !== undefined ? settings.localSortAsc : true);
+          setLocalSearch(settings.localFilterText || '');
+          setRemoteSortField(settings.remoteSortField || 'name');
+          setRemoteSortAsc(settings.remoteSortAsc !== undefined ? settings.remoteSortAsc : true);
+          setRemoteSearch(settings.remoteFilterText || '');
+          
+          if (settings.localColName) {
+            setLocalColWidths({
+              name: settings.localColName,
+              size: settings.localColSize || 70,
+              modified: settings.localColModified || 100,
+            });
+            setLocalWidth(settings.localColName + (settings.localColSize || 70) + (settings.localColModified || 100) + 30);
+          }
+          if (settings.remoteColName) {
+            setRemoteColWidths({
+              name: settings.remoteColName,
+              size: settings.remoteColSize || 70,
+              modified: settings.remoteColModified || 110,
+              owner: settings.remoteColOwner || 80,
+              perms: settings.remoteColRights || 80,
+            });
+          }
+        }
+
+        // Load Bookmarks
+        const lBookmarks = await window.electronAPI.settings.getBookmarks(connectionId, 'LOCAL');
+        setLocalBookmarks(lBookmarks);
+        const rBookmarks = await window.electronAPI.settings.getBookmarks(connectionId, 'REMOTE');
+        setRemoteBookmarks(rBookmarks);
+      } catch (err) {
+        console.error('Failed to load layout/bookmarks settings', err);
+      }
+    };
+
+    loadLayoutAndBookmarks();
+  }, [connectionId]);
 
   const handleSeparatorMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -110,6 +191,23 @@ export const FileManager: React.FC<FileManagerProps> = ({
       }
     };
     const handleMouseUp = () => {
+      if (activeResizeCol) {
+        if (activeResizeCol.panel === 'local') {
+          saveLayoutSettings({
+            localColName: localColWidthsRef.current.name,
+            localColSize: localColWidthsRef.current.size,
+            localColModified: localColWidthsRef.current.modified,
+          });
+        } else {
+          saveLayoutSettings({
+            remoteColName: remoteColWidthsRef.current.name,
+            remoteColSize: remoteColWidthsRef.current.size,
+            remoteColModified: remoteColWidthsRef.current.modified,
+            remoteColOwner: remoteColWidthsRef.current.owner,
+            remoteColRights: remoteColWidthsRef.current.perms,
+          });
+        }
+      }
       setActiveResizeCol(null);
     };
     document.addEventListener('mousemove', handleMouseMove);
@@ -238,9 +336,30 @@ export const FileManager: React.FC<FileManagerProps> = ({
         const rHome = await window.electronAPI.ssh.getHomeDir(sessionId);
         setRemoteHome(rHome);
 
+        let localPath = lHome;
+        let remotePath = rHome;
+
+        if (connectionId) {
+          try {
+            const lBookmarks = await window.electronAPI.settings.getBookmarks(connectionId, 'LOCAL');
+            const defaultLocal = lBookmarks.find((b: any) => b.isDefault);
+            if (defaultLocal) {
+              localPath = defaultLocal.path;
+            }
+            
+            const rBookmarks = await window.electronAPI.settings.getBookmarks(connectionId, 'REMOTE');
+            const defaultRemote = rBookmarks.find((b: any) => b.isDefault);
+            if (defaultRemote) {
+              remotePath = defaultRemote.path;
+            }
+          } catch (e) {
+            console.error('Failed to load default bookmarks', e);
+          }
+        }
+
         await Promise.all([
-          loadLocalDirectory(lHome),
-          loadRemoteDirectory(rHome),
+          loadLocalDirectory(localPath),
+          loadRemoteDirectory(remotePath),
         ]);
       } catch (err: any) {
         setErrorMsg(`Initialization failed: ${err.message}`);
@@ -251,7 +370,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
     };
 
     initDirs();
-  }, [sessionId]);
+  }, [sessionId, connectionId]);
 
   const handleLocalDblClick = (file: LocalFile) => {
     if (file.isDirectory) {
@@ -281,13 +400,75 @@ export const FileManager: React.FC<FileManagerProps> = ({
     }
   };
 
-  // Filter lists in memory based on search query
-  const filteredLocalFiles = localFiles.filter(f => 
-    f.name.toLowerCase().includes(localSearch.toLowerCase())
+  const toggleLocalSort = (field: 'name' | 'size' | 'modified') => {
+    let nextAsc = true;
+    if (localSortField === field) {
+      nextAsc = !localSortAsc;
+    }
+    setLocalSortField(field);
+    setLocalSortAsc(nextAsc);
+    saveLayoutSettings({ localSortField: field, localSortAsc: nextAsc });
+  };
+
+  const toggleRemoteSort = (field: 'name' | 'size' | 'modified' | 'owner' | 'permissions') => {
+    let nextAsc = true;
+    if (remoteSortField === field) {
+      nextAsc = !remoteSortAsc;
+    }
+    setRemoteSortField(field);
+    setRemoteSortAsc(nextAsc);
+    saveLayoutSettings({ remoteSortField: field, remoteSortAsc: nextAsc });
+  };
+
+  const sortLocalFiles = (files: LocalFile[], field: 'name' | 'size' | 'modified', asc: boolean) => {
+    return [...files].sort((a, b) => {
+      if (a.isDirectory && !b.isDirectory) return -1;
+      if (!a.isDirectory && b.isDirectory) return 1;
+
+      let comparison = 0;
+      if (field === 'name') {
+        comparison = a.name.localeCompare(b.name);
+      } else if (field === 'size') {
+        comparison = a.size - b.size;
+      } else if (field === 'modified') {
+        comparison = new Date(a.modified).getTime() - new Date(b.modified).getTime();
+      }
+      return asc ? comparison : -comparison;
+    });
+  };
+
+  const sortRemoteFiles = (files: RemoteFile[], field: 'name' | 'size' | 'modified' | 'owner' | 'permissions', asc: boolean) => {
+    return [...files].sort((a, b) => {
+      if (a.isDirectory && !b.isDirectory) return -1;
+      if (!a.isDirectory && b.isDirectory) return 1;
+
+      let comparison = 0;
+      if (field === 'name') {
+        comparison = a.name.localeCompare(b.name);
+      } else if (field === 'size') {
+        comparison = a.size - b.size;
+      } else if (field === 'modified') {
+        comparison = new Date(a.date).getTime() - new Date(b.date).getTime();
+      } else if (field === 'owner') {
+        comparison = a.owner.localeCompare(b.owner);
+      } else if (field === 'permissions') {
+        comparison = a.permissions.localeCompare(b.permissions);
+      }
+      return asc ? comparison : -comparison;
+    });
+  };
+
+  // Filter and sort lists based on parameters
+  const sortedLocalFiles = sortLocalFiles(
+    localFiles.filter(f => f.name.toLowerCase().includes(localSearch.toLowerCase())),
+    localSortField,
+    localSortAsc
   );
 
-  const filteredRemoteFiles = remoteFiles.filter(f => 
-    f.name.toLowerCase().includes(remoteSearch.toLowerCase())
+  const sortedRemoteFiles = sortRemoteFiles(
+    remoteFiles.filter(f => f.name.toLowerCase().includes(remoteSearch.toLowerCase())),
+    remoteSortField,
+    remoteSortAsc
   );
 
   return (
@@ -313,7 +494,10 @@ export const FileManager: React.FC<FileManagerProps> = ({
                 {localCurrentDir}
               </span>
               <button 
-                onClick={() => setLocalCollapsed(true)} 
+                onClick={() => {
+                  setLocalCollapsed(true);
+                  saveLayoutSettings({ localPanelCollapsed: true });
+                }} 
                 title="Collapse" 
                 className="bg-transparent border-none p-0.5 cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] flex items-center shrink-0 outline-none"
               >
@@ -351,10 +535,80 @@ export const FileManager: React.FC<FileManagerProps> = ({
                 className="w-6 h-6 bg-transparent border-none cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)] flex items-center justify-center rounded-[3px] outline-none transition-colors"
               >
                 <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M12 6.5A5.5 5.5 0 1 1 6.5 1M12 1v4h-4"/></svg>
-              </button>
-              <button title="Bookmarks" className="w-6 h-6 bg-transparent border-none cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)] flex items-center justify-center rounded-[3px] outline-none transition-colors">
-                <svg width="11" height="13" viewBox="0 0 11 14" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M1 1h9v12L5.5 9.5 1 13z"/></svg>
-              </button>
+              </button>              <div className="relative shrink-0">
+                <button 
+                  onClick={() => setIsLocalBookmarksOpen(!isLocalBookmarksOpen)} 
+                  title="Bookmarks" 
+                  className={`w-6 h-6 border-none cursor-pointer flex items-center justify-center rounded-[3px] outline-none transition-colors ${isLocalBookmarksOpen ? 'bg-[var(--glow-color)] text-[var(--active-tab-text)]' : 'bg-transparent text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)]'}`}
+                >
+                  <svg width="11" height="13" viewBox="0 0 11 14" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M1 1h9v12L5.5 9.5 1 13z" fill={localBookmarks.length > 0 ? "currentColor" : "none"}/></svg>
+                </button>
+                {isLocalBookmarksOpen && (
+                  <div className="absolute left-0 mt-1 w-64 bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-[4px] shadow-lg z-50 py-1.5 text-xs text-[var(--text-main)] font-sans">
+                    <div className="px-3 py-1.5 border-b border-[var(--border-color)] font-bold text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Local Bookmarks</div>
+                    <button 
+                      onClick={async () => {
+                        if (connectionId && localCurrentDir) {
+                          await window.electronAPI.settings.addBookmark(connectionId, 'LOCAL', localCurrentDir);
+                          const list = await window.electronAPI.settings.getBookmarks(connectionId, 'LOCAL');
+                          setLocalBookmarks(list);
+                          setIsLocalBookmarksOpen(false);
+                        }
+                      }}
+                      className="w-full text-left px-3 py-2 bg-transparent hover:bg-[var(--glow-color)]/25 border-none text-[var(--text-main)] cursor-pointer flex items-center gap-1.5 outline-none font-semibold text-xs transition-colors"
+                    >
+                      + Bookmark current directory
+                    </button>
+                    <div className="border-t border-[var(--border-color)]/50 my-1"></div>
+                    <div className="max-h-48 overflow-y-auto">
+                      {localBookmarks.length > 0 ? (
+                        localBookmarks.map((bm) => (
+                          <div key={bm.id} className="px-3 py-1.5 flex items-center justify-between hover:bg-[var(--glow-color)]/10">
+                            <span 
+                              onClick={() => {
+                                loadLocalDirectory(bm.path);
+                                setIsLocalBookmarksOpen(false);
+                              }}
+                              className="font-mono overflow-hidden text-ellipsis whitespace-nowrap cursor-pointer flex-1 pr-2 hover:text-[var(--color-primary)] text-left"
+                              title={bm.path}
+                            >
+                              {bm.path}
+                            </span>
+                            <div className="flex gap-1.5 shrink-0">
+                              <button 
+                                onClick={async () => {
+                                  if (connectionId) {
+                                    await window.electronAPI.settings.setDefaultBookmark(connectionId, 'LOCAL', bm.isDefault ? -1 : bm.id);
+                                    const list = await window.electronAPI.settings.getBookmarks(connectionId, 'LOCAL');
+                                    setLocalBookmarks(list);
+                                  }
+                                }}
+                                className={`bg-transparent border-none cursor-pointer p-0.5 outline-none text-sm leading-none ${bm.isDefault ? 'text-amber-500' : 'text-[var(--text-subtle)] hover:text-amber-500'}`}
+                                title={bm.isDefault ? "Default bookmark" : "Set as default"}
+                              >
+                                ★
+                              </button>
+                              <button 
+                                onClick={async () => {
+                                  await window.electronAPI.settings.deleteBookmark(bm.id);
+                                  const list = await window.electronAPI.settings.getBookmarks(connectionId!, 'LOCAL');
+                                  setLocalBookmarks(list);
+                                }}
+                                className="bg-transparent border-none cursor-pointer text-[var(--text-subtle)] hover:text-red-500 p-0.5 outline-none font-bold"
+                                title="Remove Bookmark"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="px-3 py-3 text-center text-[var(--text-subtle)]">No bookmarks saved.</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
               <div className="w-[1px] h-4 bg-[var(--border-color)] mx-1 shrink-0"></div>
               
               <div className="flex-1 relative">
@@ -389,7 +643,24 @@ export const FileManager: React.FC<FileManagerProps> = ({
             {/* Sort Bar */}
             <div className="h-[22px] bg-[var(--bg-panel-header)] border-b border-[var(--border-color)] flex items-center px-2 shrink-0 theme-transition">
               <span className="text-[11px] text-[var(--text-muted)]">Sort:</span>
-              <span className="text-[11px] text-[var(--text-main)] ml-1 cursor-pointer hover:text-[var(--text-main)]">Name ↕</span>
+              <button 
+                onClick={() => toggleLocalSort('name')} 
+                className="bg-transparent border-none text-[11px] text-[var(--text-main)] ml-1 cursor-pointer hover:text-[var(--text-main)] font-semibold outline-none"
+              >
+                Name {localSortField === 'name' ? (localSortAsc ? '▲' : '▼') : '↕'}
+              </button>
+              <button 
+                onClick={() => toggleLocalSort('size')} 
+                className="bg-transparent border-none text-[11px] text-[var(--text-main)] ml-2 cursor-pointer hover:text-[var(--text-main)] font-semibold outline-none"
+              >
+                Size {localSortField === 'size' ? (localSortAsc ? '▲' : '▼') : '↕'}
+              </button>
+              <button 
+                onClick={() => toggleLocalSort('modified')} 
+                className="bg-transparent border-none text-[11px] text-[var(--text-main)] ml-2 cursor-pointer hover:text-[var(--text-main)] font-semibold outline-none"
+              >
+                Modified {localSortField === 'modified' ? (localSortAsc ? '▲' : '▼') : '↕'}
+              </button>
             </div>
 
             {/* Local Files View */}
@@ -406,24 +677,33 @@ export const FileManager: React.FC<FileManagerProps> = ({
                       <col style={{ width: `${localColWidths.modified}px` }} />
                     </colgroup>
                     <thead className="sticky top-0 bg-[var(--bg-panel-header)] z-10 border-b border-[var(--border-color)]">
-                      <tr className="h-[28px] text-[12px] text-[var(--text-muted)]">
+                      <tr className="h-[28px] text-[12px] text-[var(--text-muted)] border-b border-[var(--border-color)]">
                         <th className="py-1 pl-2 text-left"></th>
-                        <th className="relative text-left px-2 font-semibold tracking-wider select-none">
-                          Name
+                        <th 
+                          onClick={() => toggleLocalSort('name')}
+                          className="relative text-left px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)]"
+                        >
+                          Name {localSortField === 'name' ? (localSortAsc ? '▲' : '▼') : ''}
                           <div 
                             onMouseDown={(e) => handleResizeStart(e, 'local', 'name', localColWidths.name)} 
                             className="absolute right-0 top-0 bottom-0 w-[5px] cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
                           />
                         </th>
-                        <th className="relative text-right px-2 font-semibold tracking-wider select-none">
-                          Size
+                        <th 
+                          onClick={() => toggleLocalSort('size')}
+                          className="relative text-right px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)]"
+                        >
+                          Size {localSortField === 'size' ? (localSortAsc ? '▲' : '▼') : ''}
                           <div 
                             onMouseDown={(e) => handleResizeStart(e, 'local', 'size', localColWidths.size)} 
                             className="absolute right-0 top-0 bottom-0 w-[5px] cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
                           />
                         </th>
-                        <th className="relative text-left px-2 font-semibold tracking-wider select-none">
-                          Modified
+                        <th 
+                          onClick={() => toggleLocalSort('modified')}
+                          className="relative text-left px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)]"
+                        >
+                          Modified {localSortField === 'modified' ? (localSortAsc ? '▲' : '▼') : ''}
                           <div 
                             onMouseDown={(e) => handleResizeStart(e, 'local', 'modified', localColWidths.modified)} 
                             className="absolute right-0 top-0 bottom-0 w-[5px] cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
@@ -432,7 +712,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredLocalFiles.map((lf, i) => (
+                      {sortedLocalFiles.map((lf, i) => (
                         <tr 
                           key={i} 
                           onDoubleClick={() => handleLocalDblClick(lf)}
@@ -455,7 +735,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
                 </div>
               ) : (
                 <div className="p-1.5 flex flex-wrap gap-0.5 content-start items-start">
-                  {filteredLocalFiles.map((lf, i) => (
+                  {sortedLocalFiles.map((lf, i) => (
                     <div 
                       key={i} 
                       onDoubleClick={() => handleLocalDblClick(lf)}
@@ -476,13 +756,16 @@ export const FileManager: React.FC<FileManagerProps> = ({
 
             {/* Local Status Bar */}
             <div className="h-5 bg-[var(--bg-panel-header)] border-t border-[var(--border-color)] flex items-center px-2 shrink-0 text-[11px] text-[var(--text-muted)] theme-transition">
-              <span>{filteredLocalFiles.length} items</span>
+              <span>{sortedLocalFiles.length} items</span>
             </div>
           </div>
         ) : (
           // Collapsed Local Strip
           <div 
-            onClick={() => setLocalCollapsed(false)} 
+            onClick={() => {
+              setLocalCollapsed(false);
+              saveLayoutSettings({ localPanelCollapsed: false });
+            }}
             className="w-5 bg-[var(--bg-panel-header)] border-r border-[var(--border-color)] cursor-pointer flex items-center justify-center shrink-0 hover:bg-[var(--bg-panel)] theme-transition"
             title="Expand local panel"
           >
@@ -556,9 +839,80 @@ export const FileManager: React.FC<FileManagerProps> = ({
             >
               <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M12 6.5A5.5 5.5 0 1 1 6.5 1M12 1v4h-4"/></svg>
             </button>
-            <button title="Bookmarks" className="w-6 h-6 bg-transparent border-none cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)] flex items-center justify-center rounded-[3px] outline-none transition-colors">
-              <svg width="11" height="13" viewBox="0 0 11 14" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M1 1h9v12L5.5 9.5 1 13z"/></svg>
-            </button>
+            <div className="relative shrink-0">
+              <button 
+                onClick={() => setIsRemoteBookmarksOpen(!isRemoteBookmarksOpen)} 
+                title="Bookmarks" 
+                className={`w-6 h-6 border-none cursor-pointer flex items-center justify-center rounded-[3px] outline-none transition-colors ${isRemoteBookmarksOpen ? 'bg-[var(--glow-color)] text-[var(--active-tab-text)]' : 'bg-transparent text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)]'}`}
+              >
+                <svg width="11" height="13" viewBox="0 0 11 14" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M1 1h9v12L5.5 9.5 1 13z" fill={remoteBookmarks.length > 0 ? "currentColor" : "none"}/></svg>
+              </button>
+              {isRemoteBookmarksOpen && (
+                <div className="absolute left-0 mt-1 w-64 bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-[4px] shadow-lg z-50 py-1.5 text-xs text-[var(--text-main)] font-sans">
+                  <div className="px-3 py-1.5 border-b border-[var(--border-color)] font-bold text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Remote Bookmarks</div>
+                  <button 
+                    onClick={async () => {
+                      if (connectionId && remoteCurrentDir) {
+                        await window.electronAPI.settings.addBookmark(connectionId, 'REMOTE', remoteCurrentDir);
+                        const list = await window.electronAPI.settings.getBookmarks(connectionId, 'REMOTE');
+                        setRemoteBookmarks(list);
+                        setIsRemoteBookmarksOpen(false);
+                      }
+                    }}
+                    className="w-full text-left px-3 py-2 bg-transparent hover:bg-[var(--glow-color)]/25 border-none text-[var(--text-main)] cursor-pointer flex items-center gap-1.5 outline-none font-semibold text-xs transition-colors"
+                  >
+                    + Bookmark current directory
+                  </button>
+                  <div className="border-t border-[var(--border-color)]/50 my-1"></div>
+                  <div className="max-h-48 overflow-y-auto">
+                    {remoteBookmarks.length > 0 ? (
+                      remoteBookmarks.map((bm) => (
+                        <div key={bm.id} className="px-3 py-1.5 flex items-center justify-between hover:bg-[var(--glow-color)]/10">
+                          <span 
+                            onClick={() => {
+                              loadRemoteDirectory(bm.path);
+                              setIsRemoteBookmarksOpen(false);
+                            }}
+                            className="font-mono overflow-hidden text-ellipsis whitespace-nowrap cursor-pointer flex-1 pr-2 hover:text-[var(--color-primary)] text-left"
+                            title={bm.path}
+                          >
+                            {bm.path}
+                          </span>
+                          <div className="flex gap-1.5 shrink-0">
+                            <button 
+                              onClick={async () => {
+                                if (connectionId) {
+                                  await window.electronAPI.settings.setDefaultBookmark(connectionId, 'REMOTE', bm.isDefault ? -1 : bm.id);
+                                  const list = await window.electronAPI.settings.getBookmarks(connectionId, 'REMOTE');
+                                  setRemoteBookmarks(list);
+                                }
+                              }}
+                              className={`bg-transparent border-none cursor-pointer p-0.5 outline-none text-sm leading-none ${bm.isDefault ? 'text-amber-500' : 'text-[var(--text-subtle)] hover:text-amber-500'}`}
+                              title={bm.isDefault ? "Default bookmark" : "Set as default"}
+                            >
+                              ★
+                            </button>
+                            <button 
+                              onClick={async () => {
+                                await window.electronAPI.settings.deleteBookmark(bm.id);
+                                const list = await window.electronAPI.settings.getBookmarks(connectionId!, 'REMOTE');
+                                setRemoteBookmarks(list);
+                              }}
+                              className="bg-transparent border-none cursor-pointer text-[var(--text-subtle)] hover:text-red-500 p-0.5 outline-none font-bold"
+                              title="Remove Bookmark"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="px-3 py-3 text-center text-[var(--text-subtle)]">No bookmarks saved.</div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
             {/* Path breadcrumbs */}
             <div className="flex-1 flex items-center gap-1 overflow-hidden px-1 font-mono text-[11px] text-[var(--text-muted)] select-text">
               {remoteCurrentDir.split('/').map((part, idx, arr) => {
@@ -613,13 +967,40 @@ export const FileManager: React.FC<FileManagerProps> = ({
             </button>
           </div>
 
-          {/* Remote Grid Sort Bar (sync column alignments in grid view) */}
-          {remoteView === 'grid' && (
-            <div className="h-[22px] bg-[var(--bg-panel-header)] border-b border-[var(--border-color)] flex items-center px-2 shrink-0 theme-transition">
-              <span className="text-[11px] text-[var(--text-muted)]">Sort:</span>
-              <span className="text-[11px] text-[var(--text-main)] ml-1 cursor-pointer hover:text-[var(--text-main)]">Name ↕</span>
-            </div>
-          )}
+          {/* Sort Bar */}
+          <div className="h-[22px] bg-[var(--bg-panel-header)] border-b border-[var(--border-color)] flex items-center px-2 shrink-0 theme-transition">
+            <span className="text-[11px] text-[var(--text-muted)]">Sort:</span>
+            <button 
+              onClick={() => toggleRemoteSort('name')} 
+              className="bg-transparent border-none text-[11px] text-[var(--text-main)] ml-1 cursor-pointer hover:text-[var(--text-main)] font-semibold outline-none"
+            >
+              Name {remoteSortField === 'name' ? (remoteSortAsc ? '▲' : '▼') : '↕'}
+            </button>
+            <button 
+              onClick={() => toggleRemoteSort('size')} 
+              className="bg-transparent border-none text-[11px] text-[var(--text-main)] ml-2 cursor-pointer hover:text-[var(--text-main)] font-semibold outline-none"
+            >
+              Size {remoteSortField === 'size' ? (remoteSortAsc ? '▲' : '▼') : '↕'}
+            </button>
+            <button 
+              onClick={() => toggleRemoteSort('modified')} 
+              className="bg-transparent border-none text-[11px] text-[var(--text-main)] ml-2 cursor-pointer hover:text-[var(--text-main)] font-semibold outline-none"
+            >
+              Modified {remoteSortField === 'modified' ? (remoteSortAsc ? '▲' : '▼') : '↕'}
+            </button>
+            <button 
+              onClick={() => toggleRemoteSort('owner')} 
+              className="bg-transparent border-none text-[11px] text-[var(--text-main)] ml-2 cursor-pointer hover:text-[var(--text-main)] font-semibold outline-none"
+            >
+              Owner {remoteSortField === 'owner' ? (remoteSortAsc ? '▲' : '▼') : '↕'}
+            </button>
+            <button 
+              onClick={() => toggleRemoteSort('permissions')} 
+              className="bg-transparent border-none text-[11px] text-[var(--text-main)] ml-2 cursor-pointer hover:text-[var(--text-main)] font-semibold outline-none"
+            >
+              Perms {remoteSortField === 'permissions' ? (remoteSortAsc ? '▲' : '▼') : '↕'}
+            </button>
+          </div>
 
           {/* Remote Files list content */}
           <div className="flex-1 overflow-auto h-full">
@@ -636,38 +1017,53 @@ export const FileManager: React.FC<FileManagerProps> = ({
                   <col style={{ width: `${remoteColWidths.perms}px` }} />
                 </colgroup>
                 <thead className="sticky top-0 bg-[var(--bg-panel-header)] z-10 border-b border-[var(--border-color)]">
-                  <tr className="h-[28px] text-[12px] text-[var(--text-muted)]">
+                  <tr className="h-[28px] text-[12px] text-[var(--text-muted)] border-b border-[var(--border-color)]">
                     <th className="py-1 pl-2 text-left"><input type="checkbox" className="w-[11px] h-[11px] accent-[var(--color-primary)] cursor-pointer"/></th>
-                    <th className="relative text-left px-2 font-semibold tracking-wider select-none">
-                      Name
+                    <th 
+                      onClick={() => toggleRemoteSort('name')}
+                      className="relative text-left px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)]"
+                    >
+                      Name {remoteSortField === 'name' ? (remoteSortAsc ? '▲' : '▼') : ''}
                       <div 
                         onMouseDown={(e) => handleResizeStart(e, 'remote', 'name', remoteColWidths.name)} 
                         className="absolute right-0 top-0 bottom-0 w-[5px] cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
                       />
                     </th>
-                    <th className="relative text-right px-2 font-semibold tracking-wider select-none">
-                      Size
+                    <th 
+                      onClick={() => toggleRemoteSort('size')}
+                      className="relative text-right px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)]"
+                    >
+                      Size {remoteSortField === 'size' ? (remoteSortAsc ? '▲' : '▼') : ''}
                       <div 
                         onMouseDown={(e) => handleResizeStart(e, 'remote', 'size', remoteColWidths.size)} 
                         className="absolute right-0 top-0 bottom-0 w-[5px] cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
                       />
                     </th>
-                    <th className="relative text-left px-2 font-semibold tracking-wider select-none">
-                      Modified
+                    <th 
+                      onClick={() => toggleRemoteSort('modified')}
+                      className="relative text-left px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)]"
+                    >
+                      Modified {remoteSortField === 'modified' ? (remoteSortAsc ? '▲' : '▼') : ''}
                       <div 
                         onMouseDown={(e) => handleResizeStart(e, 'remote', 'modified', remoteColWidths.modified)} 
                         className="absolute right-0 top-0 bottom-0 w-[5px] cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
                       />
                     </th>
-                    <th className="relative text-left px-2 font-semibold tracking-wider select-none">
-                      Owner
+                    <th 
+                      onClick={() => toggleRemoteSort('owner')}
+                      className="relative text-left px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)]"
+                    >
+                      Owner {remoteSortField === 'owner' ? (remoteSortAsc ? '▲' : '▼') : ''}
                       <div 
                         onMouseDown={(e) => handleResizeStart(e, 'remote', 'owner', remoteColWidths.owner)} 
                         className="absolute right-0 top-0 bottom-0 w-[5px] cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
                       />
                     </th>
-                    <th className="relative text-left px-2 font-semibold tracking-wider select-none">
-                      Perms
+                    <th 
+                      onClick={() => toggleRemoteSort('permissions')}
+                      className="relative text-left px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)]"
+                    >
+                      Perms {remoteSortField === 'permissions' ? (remoteSortAsc ? '▲' : '▼') : ''}
                       <div 
                         onMouseDown={(e) => handleResizeStart(e, 'remote', 'perms', remoteColWidths.perms)} 
                         className="absolute right-0 top-0 bottom-0 w-[5px] cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
@@ -676,7 +1072,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredRemoteFiles.map((rf, i) => (
+                  {sortedRemoteFiles.map((rf, i) => (
                     <tr 
                       key={i} 
                       onDoubleClick={() => handleRemoteDblClick(rf)}
@@ -709,7 +1105,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
               </table>
             ) : (
               <div className="p-2 flex flex-wrap gap-0.5 content-start items-start">
-                {filteredRemoteFiles.map((rf, i) => (
+                {sortedRemoteFiles.map((rf, i) => (
                   <div 
                     key={i} 
                     onDoubleClick={() => handleRemoteDblClick(rf)}
@@ -740,7 +1136,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
 
           {/* Remote Status Bar */}
           <div className="h-5 bg-[var(--bg-panel-header)] border-t border-[var(--border-color)] flex items-center px-2 gap-3.5 shrink-0 text-[11px] text-[var(--text-muted)] theme-transition">
-            <span>{filteredRemoteFiles.length} items</span>
+            <span>{sortedRemoteFiles.length} items</span>
           </div>
 
         </div>
@@ -749,7 +1145,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
       {/* Connected Blue Status Bar */}
       <div className="h-5 bg-[var(--color-primary)] text-white flex items-center px-2.5 gap-3.5 shrink-0 text-[11px] font-medium border-t border-[var(--border-color)] select-none text-left">
         <span>● Connected · {username}@{host}</span>
-        <span className="opacity-75">{remoteCurrentDir} · {filteredRemoteFiles.length} items</span>
+        <span className="opacity-75">{remoteCurrentDir} · {sortedRemoteFiles.length} items</span>
         <div className="flex-1"></div>
         <button 
           onClick={onDisconnect} 

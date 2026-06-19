@@ -361,6 +361,7 @@ function App() {
               const conn = connections.find(c => c.id === currentTab.connectionId);
               return (
                 <FileManager
+                  connectionId={currentTab.connectionId}
                   connectionName={currentTab.name}
                   username={conn?.credentialUsername || 'ubuntu'}
                   host={conn?.host || ''}
