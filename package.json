@@ -4,10 +4,10 @@
   "version": "0.0.0",
   "main": "dist-main/main/main.js",
   "scripts": {
-    "dev": "npm run build:main && concurrently -k \"vite\" \"tsc -p tsconfig.main.json --watch\" \"electron .\"",
+    "dev": "tsc -p tsconfig.main.json && concurrently -k \"npx.cmd vite\" \"tsc -p tsconfig.main.json --watch\" \"npx.cmd electron .\"",
     "build:main": "tsc -p tsconfig.main.json",
-    "build:renderer": "tsc -p tsconfig.app.json && vite build",
-    "build": "npm run build:main && npm run build:renderer",
+    "build:renderer": "tsc -p tsconfig.app.json && npx.cmd vite build",
+    "build": "npm.cmd run build:main && npm.cmd run build:renderer",
     "lint": "eslint .",
     "preview": "vite preview"
   },
