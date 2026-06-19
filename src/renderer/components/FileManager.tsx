@@ -37,6 +37,89 @@ export const FileManager: React.FC<FileManagerProps> = ({
   const [remoteView, setRemoteView] = useState<'list' | 'grid'>('list');
   const [activeRemoteTab, setActiveRemoteTab] = useState(0);
 
+  // Layout states
+  const [localWidth, setLocalWidth] = useState(280);
+  const [isDraggingSeparator, setIsDraggingSeparator] = useState(false);
+  const [localColWidths, setLocalColWidths] = useState({
+    name: 160,
+    size: 70,
+    modified: 100,
+  });
+  const [remoteColWidths, setRemoteColWidths] = useState({
+    name: 180,
+    size: 70,
+    modified: 110,
+    owner: 80,
+    perms: 80,
+  });
+  const [activeResizeCol, setActiveResizeCol] = useState<{
+    panel: 'local' | 'remote';
+    column: string;
+    startX: number;
+    startWidth: number;
+  } | null>(null);
+
+  const handleSeparatorMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDraggingSeparator(true);
+  };
+
+  const handleResizeStart = (e: React.MouseEvent, panel: 'local' | 'remote', column: string, currentWidth: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setActiveResizeCol({
+      panel,
+      column,
+      startX: e.clientX,
+      startWidth: currentWidth,
+    });
+  };
+
+  useEffect(() => {
+    if (!isDraggingSeparator) return;
+    const handleMouseMove = (e: MouseEvent) => {
+      const newWidth = Math.max(180, Math.min(600, e.clientX));
+      setLocalWidth(newWidth);
+    };
+    const handleMouseUp = () => {
+      setIsDraggingSeparator(false);
+    };
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDraggingSeparator]);
+
+  useEffect(() => {
+    if (!activeResizeCol) return;
+    const handleMouseMove = (e: MouseEvent) => {
+      const deltaX = e.clientX - activeResizeCol.startX;
+      const newWidth = Math.max(50, activeResizeCol.startWidth + deltaX);
+      if (activeResizeCol.panel === 'local') {
+        setLocalColWidths(prev => ({
+          ...prev,
+          [activeResizeCol.column]: newWidth,
+        }));
+      } else {
+        setRemoteColWidths(prev => ({
+          ...prev,
+          [activeResizeCol.column]: newWidth,
+        }));
+      }
+    };
+    const handleMouseUp = () => {
+      setActiveResizeCol(null);
+    };
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [activeResizeCol]);
+
 
   // Dynamic directory states
   const [localHome, setLocalHome] = useState('');
@@ -219,7 +302,10 @@ export const FileManager: React.FC<FileManagerProps> = ({
       <div className="flex-1 flex overflow-hidden">
         {/* LOCAL PANEL */}
         {!localCollapsed ? (
-          <div className="w-[280px] min-w-[180px] flex flex-col border-r border-[var(--border-color)] bg-[var(--bg-panel)] shrink-0 overflow-hidden theme-transition">
+          <div 
+            style={{ width: `${localWidth}px` }}
+            className="flex flex-col border-r border-[var(--border-color)] bg-[var(--bg-panel)] shrink-0 overflow-hidden theme-transition"
+          >
             {/* Panel Label & Path */}
             <div className="h-[28px] bg-[var(--bg-panel-header)] border-b border-[var(--border-color)] flex items-center px-2.5 gap-1.5 shrink-0 theme-transition">
               <span className="text-[10px] font-bold text-[var(--text-subtle)] uppercase tracking-widest flex-shrink-0">Local</span>
@@ -311,28 +397,62 @@ export const FileManager: React.FC<FileManagerProps> = ({
               {localLoading ? (
                 <div className="h-full flex items-center justify-center text-xs text-[var(--text-muted)] font-mono">Loading...</div>
               ) : localView === 'list' ? (
-                <table className="w-full border-collapse text-xs">
-                  <tbody>
-                    {filteredLocalFiles.map((lf, i) => (
-                      <tr 
-                        key={i} 
-                        onDoubleClick={() => handleLocalDblClick(lf)}
-                        className="hover:bg-[var(--glow-color)]/25 active:bg-[var(--glow-color)]/50 cursor-default h-[22px] transition-colors duration-75 border-b border-[var(--border-color)]/50"
-                      >
-                        <td className="w-[22px] pl-1.5 text-center align-middle">
-                          {lf.isDirectory ? (
-                            <svg width="14" height="12" viewBox="0 0 16 14" fill="none"><path d="M0 2.5h7l1.5 2H16v9H0z" fill="var(--color-primary)" opacity="0.85"/></svg>
-                          ) : (
-                            <svg width="12" height="14" viewBox="0 0 12 14" fill="none"><path d="M0 0h8l4 4v10H0z" fill="currentColor" className="text-[var(--text-muted)]" opacity="0.6"/><path d="M8 0l4 4H8z" fill="currentColor" className="text-[var(--text-subtle)]"/></svg>
-                          )}
-                        </td>
-                        <td className="px-1 text-[var(--text-main)] overflow-hidden text-ellipsis whitespace-nowrap max-w-[120px] align-middle">{lf.name}</td>
-                        <td className="w-[60px] pr-1.5 text-right text-[var(--text-muted)] font-mono text-[11px] align-middle whitespace-nowrap">{formatSize(lf.size)}</td>
-                        <td className="w-[85px] pr-1.5 text-[var(--text-subtle)] font-mono text-[10px] align-middle whitespace-nowrap">{lf.modified}</td>
+                <div className="flex-1 overflow-auto h-full">
+                  <table className="w-full border-collapse text-[13px] table-fixed">
+                    <colgroup>
+                      <col style={{ width: '26px' }} />
+                      <col style={{ width: `${localColWidths.name}px` }} />
+                      <col style={{ width: `${localColWidths.size}px` }} />
+                      <col style={{ width: `${localColWidths.modified}px` }} />
+                    </colgroup>
+                    <thead className="sticky top-0 bg-[var(--bg-panel-header)] z-10 border-b border-[var(--border-color)]">
+                      <tr className="h-[28px] text-[12px] text-[var(--text-muted)]">
+                        <th className="py-1 pl-2 text-left"></th>
+                        <th className="relative text-left px-2 font-semibold tracking-wider select-none">
+                          Name
+                          <div 
+                            onMouseDown={(e) => handleResizeStart(e, 'local', 'name', localColWidths.name)} 
+                            className="absolute right-0 top-0 bottom-0 w-[5px] cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
+                          />
+                        </th>
+                        <th className="relative text-right px-2 font-semibold tracking-wider select-none">
+                          Size
+                          <div 
+                            onMouseDown={(e) => handleResizeStart(e, 'local', 'size', localColWidths.size)} 
+                            className="absolute right-0 top-0 bottom-0 w-[5px] cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
+                          />
+                        </th>
+                        <th className="relative text-left px-2 font-semibold tracking-wider select-none">
+                          Modified
+                          <div 
+                            onMouseDown={(e) => handleResizeStart(e, 'local', 'modified', localColWidths.modified)} 
+                            className="absolute right-0 top-0 bottom-0 w-[5px] cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
+                          />
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {filteredLocalFiles.map((lf, i) => (
+                        <tr 
+                          key={i} 
+                          onDoubleClick={() => handleLocalDblClick(lf)}
+                          className="hover:bg-[var(--glow-color)]/25 active:bg-[var(--glow-color)]/50 cursor-default h-[30px] transition-colors duration-75 border-b border-[var(--border-color)]/50"
+                        >
+                          <td className="pl-1.5 text-center align-middle">
+                            {lf.isDirectory ? (
+                              <svg width="14" height="12" viewBox="0 0 16 14" fill="none"><path d="M0 2.5h7l1.5 2H16v9H0z" fill="var(--color-primary)" opacity="0.85"/></svg>
+                            ) : (
+                              <svg width="12" height="14" viewBox="0 0 12 14" fill="none"><path d="M0 0h8l4 4v10H0z" fill="currentColor" className="text-[var(--text-muted)]" opacity="0.6"/><path d="M8 0l4 4H8z" fill="currentColor" className="text-[var(--text-subtle)]"/></svg>
+                            )}
+                          </td>
+                          <td className="px-2 text-[var(--text-main)] overflow-hidden text-ellipsis whitespace-nowrap align-middle" title={lf.name}>{lf.name}</td>
+                          <td className="px-2 text-right text-[var(--text-muted)] font-mono text-[12px] align-middle whitespace-nowrap">{formatSize(lf.size)}</td>
+                          <td className="px-2 text-[var(--text-subtle)] font-mono text-[12px] align-middle whitespace-nowrap">{lf.modified}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               ) : (
                 <div className="p-1.5 flex flex-wrap gap-0.5 content-start items-start">
                   {filteredLocalFiles.map((lf, i) => (
@@ -371,7 +491,10 @@ export const FileManager: React.FC<FileManagerProps> = ({
         )}
 
         {/* Resize Handle Visual Separator */}
-        <div className="w-[3px] bg-[var(--border-color)] shrink-0 theme-transition"></div>
+        <div 
+          onMouseDown={handleSeparatorMouseDown}
+          className={`w-[4px] cursor-col-resize shrink-0 transition-colors ${isDraggingSeparator ? 'bg-[var(--color-primary)]' : 'bg-[var(--border-color)] hover:bg-[var(--color-primary)]/50'}`}
+        ></div>
 
         {/* REMOTE PANEL */}
         <div className="flex-1 flex flex-col overflow-hidden bg-[var(--bg-panel)] theme-transition">
@@ -490,23 +613,6 @@ export const FileManager: React.FC<FileManagerProps> = ({
             </button>
           </div>
 
-          {/* Table Header (only in List view) */}
-          {remoteView === 'list' && (
-            <div className="shrink-0 overflow-hidden flex flex-col">
-              <table className="w-full border-collapse text-[11px]">
-                <thead>
-                  <tr className="border-b border-[var(--border-color)] bg-[var(--bg-panel-header)] h-[22px] theme-transition">
-                    <th className="w-[22px] py-1 pl-2 text-left"><input type="checkbox" className="w-[11px] h-[11px] accent-[var(--color-primary)] cursor-pointer"/></th>
-                    <th className="text-left px-2 font-semibold text-[var(--text-muted)] tracking-wider cursor-pointer select-none">Name ↕</th>
-                    <th className="text-right px-2 font-semibold text-[var(--text-muted)] tracking-wider w-[75px] cursor-pointer select-none">Size</th>
-                    <th className="text-left px-2 font-semibold text-[var(--text-muted)] tracking-wider w-[110px] cursor-pointer select-none">Modified</th>
-                    <th className="text-left px-2 font-semibold text-[var(--text-muted)] tracking-wider w-[70px] cursor-pointer select-none">Perms</th>
-                  </tr>
-                </thead>
-              </table>
-            </div>
-          )}
-
           {/* Remote Grid Sort Bar (sync column alignments in grid view) */}
           {remoteView === 'grid' && (
             <div className="h-[22px] bg-[var(--bg-panel-header)] border-b border-[var(--border-color)] flex items-center px-2 shrink-0 theme-transition">
@@ -516,38 +622,87 @@ export const FileManager: React.FC<FileManagerProps> = ({
           )}
 
           {/* Remote Files list content */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-auto h-full">
             {remoteLoading ? (
               <div className="h-full flex items-center justify-center text-xs text-[var(--text-muted)] font-mono">Loading...</div>
             ) : remoteView === 'list' ? (
-              <table className="w-full border-collapse text-xs">
+              <table className="w-full border-collapse text-[13px] table-fixed">
+                <colgroup>
+                  <col style={{ width: '26px' }} />
+                  <col style={{ width: `${remoteColWidths.name}px` }} />
+                  <col style={{ width: `${remoteColWidths.size}px` }} />
+                  <col style={{ width: `${remoteColWidths.modified}px` }} />
+                  <col style={{ width: `${remoteColWidths.owner}px` }} />
+                  <col style={{ width: `${remoteColWidths.perms}px` }} />
+                </colgroup>
+                <thead className="sticky top-0 bg-[var(--bg-panel-header)] z-10 border-b border-[var(--border-color)]">
+                  <tr className="h-[28px] text-[12px] text-[var(--text-muted)]">
+                    <th className="py-1 pl-2 text-left"><input type="checkbox" className="w-[11px] h-[11px] accent-[var(--color-primary)] cursor-pointer"/></th>
+                    <th className="relative text-left px-2 font-semibold tracking-wider select-none">
+                      Name
+                      <div 
+                        onMouseDown={(e) => handleResizeStart(e, 'remote', 'name', remoteColWidths.name)} 
+                        className="absolute right-0 top-0 bottom-0 w-[5px] cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
+                      />
+                    </th>
+                    <th className="relative text-right px-2 font-semibold tracking-wider select-none">
+                      Size
+                      <div 
+                        onMouseDown={(e) => handleResizeStart(e, 'remote', 'size', remoteColWidths.size)} 
+                        className="absolute right-0 top-0 bottom-0 w-[5px] cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
+                      />
+                    </th>
+                    <th className="relative text-left px-2 font-semibold tracking-wider select-none">
+                      Modified
+                      <div 
+                        onMouseDown={(e) => handleResizeStart(e, 'remote', 'modified', remoteColWidths.modified)} 
+                        className="absolute right-0 top-0 bottom-0 w-[5px] cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
+                      />
+                    </th>
+                    <th className="relative text-left px-2 font-semibold tracking-wider select-none">
+                      Owner
+                      <div 
+                        onMouseDown={(e) => handleResizeStart(e, 'remote', 'owner', remoteColWidths.owner)} 
+                        className="absolute right-0 top-0 bottom-0 w-[5px] cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
+                      />
+                    </th>
+                    <th className="relative text-left px-2 font-semibold tracking-wider select-none">
+                      Perms
+                      <div 
+                        onMouseDown={(e) => handleResizeStart(e, 'remote', 'perms', remoteColWidths.perms)} 
+                        className="absolute right-0 top-0 bottom-0 w-[5px] cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
+                      />
+                    </th>
+                  </tr>
+                </thead>
                 <tbody>
                   {filteredRemoteFiles.map((rf, i) => (
                     <tr 
                       key={i} 
                       onDoubleClick={() => handleRemoteDblClick(rf)}
-                      className="h-[22px] cursor-default transition-colors duration-75 border-b border-[var(--border-color)]/50 hover:bg-[var(--glow-color)]/25 active:bg-[var(--glow-color)]/50"
+                      className="h-[30px] cursor-default transition-colors duration-75 border-b border-[var(--border-color)]/50 hover:bg-[var(--glow-color)]/25 active:bg-[var(--glow-color)]/50"
                     >
-                      <td className="w-[22px] pl-2 align-middle">
+                      <td className="pl-2 align-middle">
                         <input 
                           type="checkbox" 
                           onChange={() => {}}
                           className="w-[11px] h-[11px] accent-[var(--color-primary)] cursor-pointer"
                         />
                       </td>
-                      <td className="px-1 align-middle">
-                        <div className="flex items-center gap-1.5">
+                      <td className="px-2 align-middle">
+                        <div className="flex items-center gap-1.5 overflow-hidden">
                           {rf.isDirectory ? (
-                            <svg width="14" height="12" viewBox="0 0 16 14" fill="none"><path d="M0 2.5h7l1.5 2H16v9H0z" fill="var(--color-primary)" opacity="0.85"/></svg>
+                            <svg width="14" height="12" viewBox="0 0 16 14" fill="none" className="shrink-0"><path d="M0 2.5h7l1.5 2H16v9H0z" fill="var(--color-primary)" opacity="0.85"/></svg>
                           ) : (
-                            <svg width="12" height="14" viewBox="0 0 12 14" fill="none"><path d="M0 0h8l4 4v10H0z" fill="currentColor" className="text-[var(--text-muted)]" opacity="0.6"/><path d="M8 0l4 4H8z" fill="currentColor" className="text-[var(--text-subtle)]"/></svg>
+                            <svg width="12" height="14" viewBox="0 0 12 14" fill="none" className="shrink-0"><path d="M0 0h8l4 4v10H0z" fill="currentColor" className="text-[var(--text-muted)]" opacity="0.6"/><path d="M8 0l4 4H8z" fill="currentColor" className="text-[var(--text-subtle)]"/></svg>
                           )}
-                          <span className="text-[var(--text-main)]">{rf.name}</span>
+                          <span className="text-[var(--text-main)] overflow-hidden text-ellipsis whitespace-nowrap" title={rf.name}>{rf.name}</span>
                         </div>
                       </td>
-                      <td className="w-[75px] px-2 text-right text-[var(--text-muted)] font-mono text-[11px] align-middle whitespace-nowrap">{formatSize(rf.size)}</td>
-                      <td className="w-[110px] px-2 text-[var(--text-subtle)] font-mono text-[10px] align-middle whitespace-nowrap">{rf.date}</td>
-                      <td className="w-[70px] px-2 text-[var(--text-subtle)] font-mono text-[10px] align-middle whitespace-nowrap">{rf.permissions}</td>
+                      <td className="px-2 text-right text-[var(--text-muted)] font-mono text-[12px] align-middle whitespace-nowrap">{formatSize(rf.size)}</td>
+                      <td className="px-2 text-[var(--text-subtle)] font-mono text-[12px] align-middle whitespace-nowrap">{rf.date}</td>
+                      <td className="px-2 text-[var(--text-subtle)] font-mono text-[12px] align-middle whitespace-nowrap">{rf.owner}</td>
+                      <td className="px-2 text-[var(--text-subtle)] font-mono text-[12px] align-middle whitespace-nowrap">{rf.permissions}</td>
                     </tr>
                   ))}
                 </tbody>
