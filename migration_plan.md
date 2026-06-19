@@ -6,14 +6,14 @@ This file tracks the step-by-step progress of migrating the Kotlin/JavaFX SFTP M
 
 ## Phase Roadmap & Progress
 
-### 🟩 Phase 1: Project Setup & Boilerplate (Active)
+### 🟩 Phase 1: Project Setup & Boilerplate (Completed)
 - [x] Initialize `sftp-manager-v2` directory
-- [ ] Initialize a new Git repository inside `sftp-manager-v2`
-- [x] Setup Electron + Vite + React + TypeScript boilerplate (Scaffolded via Vite)
-- [ ] Install production/development dependencies (`ssh2`, `electron`, `react`, etc.)
-- [ ] Commit initial boilerplate setup
+- [x] Initialize a new Git repository inside `sftp-manager-v2`
+- [x] Setup Electron + Vite + React + TypeScript boilerplate
+- [x] Install production/development dependencies (`ssh2`, `electron`, `react`, `framer-motion`, `tailwindcss`, etc.)
+- [x] Commit initial boilerplate setup
 
-### ⬜ Phase 2: SSH Multi-Hop & MFA Logic Migration
+### ⬜ Phase 2: SSH Multi-Hop & MFA Logic Migration (Active)
 - [ ] Implement SLF4J/Log4j style `Logger.ts` matching parent log format
 - [ ] Migrate `SshConnector` (multi-hop jump proxy logic with netcat duplex stream relay)
 - [ ] Migrate `SshClient` & `SshExecutor` (command execution, streams, and virtual term session wrappers)
