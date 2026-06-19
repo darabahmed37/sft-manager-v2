@@ -1,0 +1,42 @@
+{
+  "name": "sftp-manager-v2",
+  "private": true,
+  "version": "0.0.0",
+  "main": "dist-main/main/main.js",
+  "scripts": {
+    "dev": "npm run build:main && concurrently -k \"vite\" \"tsc -p tsconfig.main.json --watch\" \"electron .\"",
+    "build:main": "tsc -p tsconfig.main.json",
+    "build:renderer": "tsc -p tsconfig.app.json && vite build",
+    "build": "npm run build:main && npm run build:renderer",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.11.1",
+    "framer-motion": "^12.40.0",
+    "otplib": "^13.4.1",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "ssh2": "^1.17.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@tailwindcss/vite": "^4.3.1",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^24.12.3",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@types/ssh2": "^1.15.5",
+    "@vitejs/plugin-react": "^6.0.1",
+    "concurrently": "^10.0.3",
+    "electron": "^42.4.1",
+    "eslint": "^10.3.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.6.0",
+    "tailwindcss": "^4.3.1",
+    "typescript": "~6.0.2",
+    "typescript-eslint": "^8.59.2",
+    "vite": "^8.0.12"
+  }
+}
