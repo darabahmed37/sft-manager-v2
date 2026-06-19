@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS connections (
     name                  TEXT    NOT NULL UNIQUE DEFAULT '',
     host                  TEXT    NOT NULL DEFAULT '',
     port                  INTEGER NOT NULL DEFAULT 22,
-    working_dir           TEXT    NOT NULL DEFAULT '/',
+    working_dir           TEXT    NOT NULL DEFAULT '~',
     connection_type_id    INTEGER NOT NULL REFERENCES connection_types(id),
     credential_id         INTEGER REFERENCES stored_credentials(id) ON DELETE SET NULL,
     tunnel_via_connection_id INTEGER REFERENCES connections(id) ON DELETE SET NULL,

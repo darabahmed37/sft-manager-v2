@@ -5,6 +5,8 @@ import { SshExecutor, CmdResult } from './SshExecutor';
 import { SftpBrowser, FileEntry } from './SftpBrowser';
 import { SftpTransfer, Progress } from './SftpTransfer';
 import { Logger } from '../log/Logger';
+import * as os from 'os';
+import * as path from 'path';
 
 const log = Logger.getLogger('SshClient');
 
@@ -48,16 +50,49 @@ export class SshClient {
     return this.executor.exec(command);
   }
 
+  async resolveRemotePath(pathStr: string): Promise<string> {
+    if (!pathStr) {
+      return await this.getHomeDir();
+    }
+    const trimmed = pathStr.trim();
+    if (trimmed === '~') {
+      return await this.getHomeDir();
+    }
+    if (trimmed.startsWith('~/')) {
+      const home = await this.getHomeDir();
+      const subPath = trimmed.substring(2);
+      return home.endsWith('/') ? `${home}${subPath}` : `${home}/${subPath}`;
+    }
+    return trimmed;
+  }
+
+  resolveLocalPath(pathStr: string): string {
+    if (!pathStr) {
+      return os.homedir();
+    }
+    const trimmed = pathStr.trim();
+    if (trimmed === '~') {
+      return os.homedir();
+    }
+    if (trimmed.startsWith('~/')) {
+      const home = os.homedir();
+      const subPath = trimmed.substring(2);
+      return path.join(home, subPath);
+    }
+    return path.resolve(trimmed);
+  }
+
   async listDirectory(pathStr: string): Promise<FileEntry[]> {
-    const result = await this.browser.listDirectory(pathStr);
+    const resolvedPath = await this.resolveRemotePath(pathStr);
+    const result = await this.browser.listDirectory(resolvedPath);
     if (result !== null) {
       return result;
     }
 
     // Fallback to exec ls -la -N
-    const r = await this.exec(`ls -la -N ${this.q(pathStr)}`);
+    const r = await this.exec(`ls -la -N ${this.q(resolvedPath)}`);
     if (r.exitCode !== 0 && r.stderr.includes('Permission denied')) {
-      throw new Error(`Permission denied: ${pathStr}`);
+      throw new Error(`Permission denied: ${resolvedPath}`);
     }
 
     const entries: FileEntry[] = [];
@@ -90,52 +125,59 @@ export class SshClient {
   }
 
   async realPath(pathStr: string): Promise<string> {
-    const rp = await this.browser.realPath(pathStr);
+    const resolvedPath = await this.resolveRemotePath(pathStr);
+    const rp = await this.browser.realPath(resolvedPath);
     if (rp !== null) return rp;
 
-    const r = await this.exec(`cd ${this.q(pathStr)} && pwd`);
-    return r.exitCode === 0 ? r.stdout.trim() : pathStr;
+    const r = await this.exec(`cd ${this.q(resolvedPath)} && pwd`);
+    return r.exitCode === 0 ? r.stdout.trim() : resolvedPath;
   }
 
   async fileExists(pathStr: string): Promise<boolean> {
-    const exists = await this.browser.fileExists(pathStr);
+    const resolvedPath = await this.resolveRemotePath(pathStr);
+    const exists = await this.browser.fileExists(resolvedPath);
     if (exists) return true;
 
-    const r = await this.exec(`test -e ${this.q(pathStr)}`);
+    const r = await this.exec(`test -e ${this.q(resolvedPath)}`);
     return r.exitCode === 0;
   }
 
   async resolveSymlinkIsDir(pathStr: string): Promise<boolean> {
-    return this.browser.resolveSymlinkIsDir(pathStr);
+    const resolvedPath = await this.resolveRemotePath(pathStr);
+    return this.browser.resolveSymlinkIsDir(resolvedPath);
   }
 
   async mkdir(pathStr: string): Promise<void> {
-    await this.browser.mkdirRecursive(pathStr);
+    const resolvedPath = await this.resolveRemotePath(pathStr);
+    await this.browser.mkdirRecursive(resolvedPath);
   }
 
   async delete(pathStr: string, recursive: boolean): Promise<void> {
-    log.info(`DELETE  ${pathStr}  recursive=${recursive}`);
+    const resolvedPath = await this.resolveRemotePath(pathStr);
+    log.info(`DELETE  ${resolvedPath}  recursive=${recursive}`);
     
-    const isLink = await this.browser.isSymlink(pathStr);
+    const isLink = await this.browser.isSymlink(resolvedPath);
     if (isLink) {
-      await this.browser.deleteSimple(pathStr);
+      await this.browser.deleteSimple(resolvedPath);
     } else if (recursive) {
-      const exists = await this.fileExists(pathStr);
+      const exists = await this.fileExists(resolvedPath);
       if (!exists) {
-        throw new Error(`File not found on server: ${pathStr}`);
+        throw new Error(`File not found on server: ${resolvedPath}`);
       }
-      await this.executor.deleteRecursive(pathStr);
+      await this.executor.deleteRecursive(resolvedPath);
     } else {
-      await this.browser.deleteSimple(pathStr);
+      await this.browser.deleteSimple(resolvedPath);
     }
   }
 
   async rename(from: string, to: string): Promise<void> {
+    const resolvedFrom = await this.resolveRemotePath(from);
+    const resolvedTo = await this.resolveRemotePath(to);
     try {
-      await this.browser.rename(from, to);
+      await this.browser.rename(resolvedFrom, resolvedTo);
     } catch (ex: any) {
       log.warn(`RENAME SFTP failed (${ex.message}); falling back to exec mv`);
-      const r = await this.exec(`mv ${this.q(from)} ${this.q(to)}`);
+      const r = await this.exec(`mv ${this.q(resolvedFrom)} ${this.q(resolvedTo)}`);
       if (r.exitCode !== 0) {
         throw new Error(`Rename failed: ${r.stderr}`);
       }
@@ -143,19 +185,27 @@ export class SshClient {
   }
 
   async upload(localPath: string, remoteDir: string, progress?: Progress): Promise<void> {
-    await this.transfer.upload(localPath, remoteDir, progress);
+    const resolvedLocal = this.resolveLocalPath(localPath);
+    const resolvedRemote = await this.resolveRemotePath(remoteDir);
+    await this.transfer.upload(resolvedLocal, resolvedRemote, progress);
   }
 
   async download(remotePath: string, localDir: string, progress?: Progress): Promise<void> {
-    await this.transfer.download(remotePath, localDir, progress);
+    const resolvedRemote = await this.resolveRemotePath(remotePath);
+    const resolvedLocal = this.resolveLocalPath(localDir);
+    await this.transfer.download(resolvedRemote, resolvedLocal, progress);
   }
 
   async uploadFolder(localFolder: string, remoteDir: string, progress?: Progress): Promise<void> {
-    await this.transfer.uploadFolder(localFolder, remoteDir, progress);
+    const resolvedLocal = this.resolveLocalPath(localFolder);
+    const resolvedRemote = await this.resolveRemotePath(remoteDir);
+    await this.transfer.uploadFolder(resolvedLocal, resolvedRemote, progress);
   }
 
   async downloadFolder(remoteFolderPath: string, localDir: string, progress?: Progress): Promise<void> {
-    await this.transfer.downloadFolder(remoteFolderPath, localDir, progress);
+    const resolvedRemote = await this.resolveRemotePath(remoteFolderPath);
+    const resolvedLocal = this.resolveLocalPath(localDir);
+    await this.transfer.downloadFolder(resolvedRemote, resolvedLocal, progress);
   }
 
   get isCancelRequested(): boolean {

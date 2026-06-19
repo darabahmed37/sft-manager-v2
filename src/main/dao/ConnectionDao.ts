@@ -34,6 +34,7 @@ export class ConnectionDao {
   ): number {
     const db = getDatabase();
     try {
+      const finalWorkingDir = (workingDir && workingDir.trim()) ? workingDir.trim() : '~';
       const stmt = db.prepare(`
         INSERT INTO connections (name, host, port, working_dir, connection_type_id, credential_id, tunnel_via_connection_id, last_used)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -42,7 +43,7 @@ export class ConnectionDao {
         name.trim(),
         host.trim(),
         port,
-        workingDir.trim(),
+        finalWorkingDir,
         connectionTypeId,
         credentialId,
         tunnelViaConnectionId,
@@ -113,6 +114,7 @@ export class ConnectionDao {
   ): void {
     const db = getDatabase();
     try {
+      const finalWorkingDir = (workingDir && workingDir.trim()) ? workingDir.trim() : '~';
       db.prepare(`
         UPDATE connections
         SET name = ?, host = ?, port = ?, working_dir = ?, connection_type_id = ?, credential_id = ?, tunnel_via_connection_id = ?
@@ -121,7 +123,7 @@ export class ConnectionDao {
         name.trim(),
         host.trim(),
         port,
-        workingDir.trim(),
+        finalWorkingDir,
         connectionTypeId,
         credentialId,
         tunnelViaConnectionId,
