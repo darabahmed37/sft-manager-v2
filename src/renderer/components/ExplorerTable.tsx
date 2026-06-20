@@ -28,6 +28,12 @@ interface ExplorerTableProps {
   joinPath: (parent: string, child: string) => string;
   formatSize: (bytes: number) => string;
   onEmptySpaceClick: () => void;
+  clipboard: {
+    type: 'copy' | 'cut';
+    pane: 'local' | 'remote';
+    dir: string;
+    items: { name: string; isDirectory: boolean }[];
+  } | null;
 }
 
 export const ExplorerTable: React.FC<ExplorerTableProps> = ({
@@ -51,6 +57,7 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
   joinPath,
   formatSize,
   onEmptySpaceClick,
+  clipboard,
 }) => {
   const getModifiedStr = (file: LocalFile | RemoteFile): string => {
     return 'modified' in file ? file.modified : (file as RemoteFile).date;
@@ -146,6 +153,8 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
             const targetPath = joinPath(currentDir, file.name);
             const isSelected = selectedFile?.name === file.name;
             const isDragOver = dragOverRow === targetPath;
+            const isCut = clipboard?.type === 'cut' &&
+              clipboard.items.some(ci => ci.name === file.name);
 
             return (
               <tr 
@@ -185,7 +194,7 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
                     onDrop(e);
                   }
                 }}
-                className={`${isSelected ? 'bg-[var(--glow-color)]/30 text-[var(--active-tab-text)] font-semibold' : 'hover:bg-[var(--glow-color)]/25'} ${isDragOver ? 'bg-[var(--color-primary)]/20 border-y border-dashed border-[var(--color-primary)]' : ''} cursor-default h-[30px] transition-colors duration-75 border-b border-[var(--border-color)]/50`}
+                className={`${isSelected ? 'bg-[var(--glow-color)]/30 text-[var(--active-tab-text)] font-semibold' : 'hover:bg-[var(--glow-color)]/25'} ${isDragOver ? 'bg-[var(--color-primary)]/20 border-y border-dashed border-[var(--color-primary)]' : ''} ${isCut ? 'opacity-40' : ''} cursor-default h-[30px] transition-colors duration-75 border-b border-[var(--border-color)]/50`}
               >
                 <td className="pl-1.5 text-center align-middle">
                   {pane === 'remote' ? (

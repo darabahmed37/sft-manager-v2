@@ -1186,6 +1186,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
               isBookmarksOpen={isLocalBookmarksOpen}
               setIsBookmarksOpen={setIsLocalBookmarksOpen}
               onCollapse={() => { setLocalCollapsed(true); saveLayoutSettings({ localPanelCollapsed: true }); }}
+              clipboard={clipboard}
             />
           </div>
         ) : (
@@ -1286,6 +1287,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
             onCloseTab={handleCloseRemoteTab}
             onTabContextMenu={handleTabContextMenu}
             onAddTab={handleAddTab}
+            clipboard={clipboard}
           />
         </div>
       </div>
@@ -1336,7 +1338,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
                 onClick={() => handleRefresh(contextMenu.pane)}
                 className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
               >
-                🔄 Refresh Panel
+                🔄 Refresh
               </button>
               <button 
                 onClick={() => handleNewFolder(contextMenu.pane)}
@@ -1361,6 +1363,37 @@ export const FileManager: React.FC<FileManagerProps> = ({
             </>
           ) : (
             <>
+              {/* Open / Open in New Tab for folders (remote) */}
+              {contextMenu.pane === 'remote' && contextMenu.item?.isDirectory && (
+                <>
+                  <button
+                    onClick={() => {
+                      const item = contextMenu.item;
+                      if (item) changeRemoteDirectory(joinRemotePath(remoteHistory.currentDir, item.name));
+                    }}
+                    className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
+                  >
+                    📂 Open
+                  </button>
+                  {localCollapsed && (
+                    <button
+                      onClick={() => {
+                        const item = contextMenu.item;
+                        if (!item) return;
+                        const newPath = joinRemotePath(remoteHistory.currentDir, item.name);
+                        const nextTabs = [...remoteTabs, { path: newPath, isPinned: false }];
+                        setRemoteTabs(nextTabs);
+                        setActiveRemoteTabIdx(nextTabs.length - 1);
+                        changeRemoteDirectory(newPath, false);
+                      }}
+                      className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
+                    >
+                      🗂️ Open in New Tab
+                    </button>
+                  )}
+                  <div className="border-t border-[var(--border-color)]/40 my-1"></div>
+                </>
+              )}
               <button 
                 onClick={async () => {
                   const item = contextMenu.item;

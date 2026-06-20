@@ -17,6 +17,12 @@ interface ExplorerGridProps {
   joinPath: (parent: string, child: string) => string;
   formatSize: (bytes: number) => string;
   onEmptySpaceClick: () => void;
+  clipboard: {
+    type: 'copy' | 'cut';
+    pane: 'local' | 'remote';
+    dir: string;
+    items: { name: string; isDirectory: boolean }[];
+  } | null;
 }
 
 export const ExplorerGrid: React.FC<ExplorerGridProps> = ({
@@ -35,6 +41,7 @@ export const ExplorerGrid: React.FC<ExplorerGridProps> = ({
   joinPath,
   formatSize,
   onEmptySpaceClick,
+  clipboard,
 }) => {
   const getModifiedStr = (file: LocalFile | RemoteFile): string => {
     return 'modified' in file ? file.modified : (file as RemoteFile).date;
@@ -53,6 +60,8 @@ export const ExplorerGrid: React.FC<ExplorerGridProps> = ({
         const targetPath = joinPath(currentDir, file.name);
         const isSelected = selectedFile?.name === file.name;
         const isDragOver = dragOverRow === targetPath;
+        const isCut = clipboard?.type === 'cut' &&
+          clipboard.items.some(ci => ci.name === file.name);
 
         return (
           <div 
@@ -96,7 +105,7 @@ export const ExplorerGrid: React.FC<ExplorerGridProps> = ({
               pane === 'local' 
                 ? `w-20 p-1.5 ${isSelected ? 'bg-[var(--glow-color)]/40 border-[var(--color-primary)]' : 'border-transparent hover:bg-[var(--glow-color)]/20'}`
                 : `w-[88px] p-2 ${isSelected ? 'bg-[var(--glow-color)]/40 border-[var(--color-primary)]' : 'border-transparent hover:bg-[var(--glow-color)]/20'}`
-            } ${isDragOver ? 'bg-[var(--color-primary)]/20 border-[var(--color-primary)] border-dashed' : ''}`}
+            } ${isDragOver ? 'bg-[var(--color-primary)]/20 border-[var(--color-primary)] border-dashed' : ''} ${isCut ? 'opacity-40' : ''}`}
           >
             {pane === 'local' ? (
               file.isDirectory ? (

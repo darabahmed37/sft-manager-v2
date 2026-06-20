@@ -73,6 +73,14 @@ interface ExplorerPanelProps {
   onCloseTab?: (idx: number, e: React.MouseEvent) => void;
   onTabContextMenu?: (e: React.MouseEvent, idx: number) => void;
   onAddTab?: () => void;
+
+  // Clipboard (for cut dimming)
+  clipboard: {
+    type: 'copy' | 'cut';
+    pane: 'local' | 'remote';
+    dir: string;
+    items: { name: string; isDirectory: boolean }[];
+  } | null;
 }
 
 export const ExplorerPanel: React.FC<ExplorerPanelProps> = ({
@@ -133,6 +141,7 @@ export const ExplorerPanel: React.FC<ExplorerPanelProps> = ({
   onCloseTab,
   onTabContextMenu,
   onAddTab,
+  clipboard,
 }) => {
   const [dragCount, setDragCount] = useState(0);
 
@@ -298,6 +307,7 @@ export const ExplorerPanel: React.FC<ExplorerPanelProps> = ({
             joinPath={joinPath}
             formatSize={formatSize}
             onEmptySpaceClick={onEmptySpaceClick}
+            clipboard={clipboard}
           />
         ) : (
           <ExplorerGrid 
@@ -316,6 +326,7 @@ export const ExplorerPanel: React.FC<ExplorerPanelProps> = ({
             joinPath={joinPath}
             formatSize={formatSize}
             onEmptySpaceClick={onEmptySpaceClick}
+            clipboard={clipboard}
           />
         )}
       </div>

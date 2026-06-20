@@ -1,4 +1,5 @@
 import React from 'react';
+import { MdRefresh } from 'react-icons/md';
 import type { Bookmark } from '../global';
 
 interface ExplorerToolbarProps {
@@ -84,10 +85,11 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({
       </button>
       <button 
         onClick={onRefresh} 
-        title="Refresh" 
-        className="w-6 h-6 bg-transparent border-none cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)] flex items-center justify-center rounded-[3px] outline-none transition-colors"
+        title="Refresh (F5)" 
+        className="h-6 px-2 bg-transparent border-none cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)] flex items-center gap-1 rounded-[3px] outline-none transition-colors shrink-0"
       >
-        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M12 6.5A5.5 5.5 0 1 1 6.5 1M12 1v4h-4"/></svg>
+        <MdRefresh size={15} />
+        <span className="text-[11px] font-medium">Refresh</span>
       </button>
       
       <div className="relative shrink-0">
