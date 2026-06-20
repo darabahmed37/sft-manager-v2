@@ -313,7 +313,7 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({
         {pane === 'remote' && onOpenTerminal && (
           <button 
             onClick={onOpenTerminal} 
-            title="Open Terminal Window" 
+            title="Toggle Terminal Panel" 
             className="w-9 h-9 border-none cursor-pointer flex items-center justify-center rounded-[var(--radius-md)] outline-none text-[var(--text-muted)] hover:text-[var(--active-tab-text)] hover:bg-[var(--glow-color)]/25 transition-colors"
           >
             <LuTerminal size={18} />

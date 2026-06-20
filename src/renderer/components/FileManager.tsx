@@ -3,6 +3,7 @@ import { PropertiesModal } from './PropertiesModal';
 import { ExplorerPanel } from './ExplorerPanel';
 import { useFolderHistory } from '../hooks/useFolderHistory';
 import type { LocalFile, RemoteFile, Bookmark, ConnectionSettings } from '../global';
+import { TerminalPanel } from './TerminalPanel';
 
 interface FileManagerProps {
   connectionId?: number;
@@ -77,6 +78,11 @@ export const FileManager: React.FC<FileManagerProps> = ({
   // Layout states
   const [localWidthPercent, setLocalWidthPercent] = useState(50.0);
   const [isDraggingSeparator, setIsDraggingSeparator] = useState(false);
+
+  // Terminal panel states
+  const [isTerminalOpen, setIsTerminalOpen] = useState(false);
+  const [terminalHeight, setTerminalHeight] = useState(280);
+  const [isDraggingTerminal, setIsDraggingTerminal] = useState(false);
 
   // Active panel and selected items state
   const [activePanel, setActivePanel] = useState<'local' | 'remote'>('local');
@@ -169,6 +175,9 @@ export const FileManager: React.FC<FileManagerProps> = ({
           } else {
             setLocalWidthPercent(50.0);
           }
+          if ((settings as any).terminalHeight !== undefined) {
+            setTerminalHeight(Number((settings as any).terminalHeight) || 280);
+          }
           if (settings.remoteColName) {
             setRemoteColWidths({
               name: settings.remoteColName,
@@ -195,6 +204,35 @@ export const FileManager: React.FC<FileManagerProps> = ({
     e.preventDefault();
     setIsDraggingSeparator(true);
   };
+
+  const handleTerminalResizeMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDraggingTerminal(true);
+  };
+
+  const terminalHeightRef = React.useRef(terminalHeight);
+  useEffect(() => {
+    terminalHeightRef.current = terminalHeight;
+  }, [terminalHeight]);
+
+  useEffect(() => {
+    if (!isDraggingTerminal) return;
+    const handleMouseMove = (e: MouseEvent) => {
+      const height = window.innerHeight - e.clientY;
+      const newHeight = Math.max(140, Math.min(window.innerHeight * 0.8, height - 24));
+      setTerminalHeight(newHeight);
+    };
+    const handleMouseUp = () => {
+      setIsDraggingTerminal(false);
+      saveLayoutSettings({ terminalHeight: terminalHeightRef.current } as any);
+    };
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDraggingTerminal, saveLayoutSettings]);
 
   const handleResizeStart = (e: React.MouseEvent, panel: 'local' | 'remote', column: string, currentWidth: number) => {
     e.preventDefault();
@@ -870,6 +908,12 @@ export const FileManager: React.FC<FileManagerProps> = ({
   // Global Keyboard Actions
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === '`') {
+        e.preventDefault();
+        setIsTerminalOpen(prev => !prev);
+        return;
+      }
+
       const activeEl = document.activeElement;
       if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.hasAttribute('contenteditable'))) {
         return;
@@ -1226,7 +1270,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
         {/* Separator Resize Handle */}
         <div 
           onMouseDown={handleSeparatorMouseDown}
-          className={`w-[5px] hover:w-[6px] cursor-col-resize shrink-0 transition-all duration-150 ${isDraggingSeparator ? 'bg-[var(--color-primary)] w-[6px]' : 'bg-[var(--border-color)] hover:bg-[var(--color-primary)]/50'}`}
+          className={`w-[2px] cursor-col-resize shrink-0 transition-all duration-150 ${isDraggingSeparator ? 'bg-[var(--color-primary)]' : 'bg-[var(--border-color)] hover:bg-[var(--color-primary)]/50'}`}
         ></div>
 
         {/* REMOTE PANEL */}
@@ -1297,7 +1341,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
             connectionName={connectionName}
             username={username}
             host={host}
-            onOpenTerminal={() => window.electronAPI.terminal.openWindow(sessionId, username, host)}
+            onOpenTerminal={() => setIsTerminalOpen(prev => !prev)}
             
             localCollapsed={localCollapsed}
             remoteTabs={remoteTabs}
@@ -1312,6 +1356,27 @@ export const FileManager: React.FC<FileManagerProps> = ({
           />
         </div>
       </div>
+
+      {/* Embedded Terminal Panel */}
+      {isTerminalOpen && (
+        <div className="relative shrink-0 flex flex-col">
+          {/* Resize Handle */}
+          <div
+            onMouseDown={handleTerminalResizeMouseDown}
+            className={`h-[2px] cursor-row-resize absolute top-0 left-0 right-0 z-50 transition-all duration-150 ${
+              isDraggingTerminal ? 'bg-[var(--color-primary)]' : 'bg-[var(--border-color)] hover:bg-[var(--color-primary)]/50'
+            }`}
+          />
+          <TerminalPanel
+            sessionId={sessionId}
+            username={username}
+            host={host}
+            isOpen={isTerminalOpen}
+            onClose={() => setIsTerminalOpen(false)}
+            height={terminalHeight}
+          />
+        </div>
+      )}
 
       {/* Blue Global Connected Footer Status Bar */}
       <div className="h-6 bg-[var(--color-primary)] text-white flex items-center px-3 gap-3.5 shrink-0 text-[12px] font-medium border-t border-[var(--border-color)] select-none text-left">

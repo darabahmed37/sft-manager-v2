@@ -1,6 +1,9 @@
 import { app, BrowserWindow, Menu } from 'electron';
 import * as path from 'path';
 import { registerIpcHandlers } from './ipc/ipcHandlers';
+import { Logger } from './log/Logger';
+
+const log = Logger.getLogger('main');
 
 function createWindow() {
   // Remove the native menu bar (File/Edit/View/Window) from every window
@@ -47,11 +50,17 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  log.info('App started, logging to file');
   createWindow();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+});
+
+app.on('will-quit', () => {
+  log.info('App quitting — closing log stream');
+  Logger.close();
 });
 
 // Do NOT auto-quit here. App lifetime is managed by mainWindow.on('closed') above.

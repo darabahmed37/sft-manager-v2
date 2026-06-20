@@ -143,7 +143,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
   return (
     <div 
       className="h-[46px] bg-[var(--bg-app)] flex items-center border-b border-[var(--border-color)] shrink-0 relative select-none theme-transition"
-      style={{ WebkitAppRegion: 'drag', boxShadow: '0 1px 0 var(--border-color)' } as React.CSSProperties}
+      style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
     >
       {platform === 'darwin' ? (
         // macOS Spacer for Native Traffic Lights

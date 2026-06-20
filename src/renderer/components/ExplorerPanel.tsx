@@ -352,7 +352,7 @@ export const ExplorerPanel: React.FC<ExplorerPanelProps> = ({
                   onClick={onOpenTerminal}
                   className="w-full bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white text-[12.5px] px-4 py-2 rounded-[5px] font-semibold cursor-pointer outline-none transition-colors border-none"
                 >
-                  Open Terminal
+                  Open Terminal Panel
                 </button>
               )}
               {onOpenSettings && (

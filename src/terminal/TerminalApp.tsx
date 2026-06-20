@@ -50,6 +50,7 @@ function createTerminalInstance(theme: TerminalTheme): {
   searchAddon: SearchAddon;
 } {
   const terminal = new Terminal({
+    allowProposedApi: true,
     theme: xtermTheme(theme),
     fontFamily: '"Cascadia Code", "Fira Code", "JetBrains Mono", "Consolas", monospace',
     fontSize: 13,

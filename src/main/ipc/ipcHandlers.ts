@@ -28,6 +28,7 @@ interface HopConfig {
 
 const activeShells = new Map<string, import('ssh2').Channel>(); // shellId → ssh2 shell stream
 let terminalWindow: BrowserWindow | null = null;
+let mainBrowserWindow: BrowserWindow | null = null;
 let shellCounter = 0;
 
 // ─── Per-shell output buffer: batch SSH chunks → fewer IPC round-trips ─────────
@@ -44,12 +45,15 @@ function flushShellBuffer(shellId: string): void {
   shellBuffers.set(shellId, []);
   shellTimers.delete(shellId);
 
-  const win = terminalWindow;
-  if (!win || win.isDestroyed()) return;
-
   // Concatenate all buffered chunks into one Buffer and send once.
   const combined = chunks.length === 1 ? chunks[0] : Buffer.concat(chunks);
-  win.webContents.send('terminal-shell-data', shellId, combined);
+  
+  if (mainBrowserWindow && !mainBrowserWindow.isDestroyed()) {
+    mainBrowserWindow.webContents.send('terminal-shell-data', shellId, combined);
+  }
+  if (terminalWindow && !terminalWindow.isDestroyed()) {
+    terminalWindow.webContents.send('terminal-shell-data', shellId, combined);
+  }
 }
 
 function scheduleShellFlush(shellId: string): void {
@@ -192,6 +196,7 @@ async function buildHopChain(connectionId: number): Promise<HopConfig[]> {
 }
 
 export function registerIpcHandlers(mainWindow: BrowserWindow) {
+  mainBrowserWindow = mainWindow;
   // ─── Window Controls ───
   ipcMain.on('window-set-theme', (event, theme: 'dark' | 'light') => {
     const win = BrowserWindow.fromWebContents(event.sender);
@@ -581,17 +586,22 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
         flushShellBuffer(shellId);
         clearShellFlush(shellId);
         activeShells.delete(shellId);
-        const win = terminalWindow;
-        if (win && !win.isDestroyed()) {
-          win.webContents.send('terminal-shell-close', shellId);
+        if (mainBrowserWindow && !mainBrowserWindow.isDestroyed()) {
+          mainBrowserWindow.webContents.send('terminal-shell-close', shellId);
+        }
+        if (terminalWindow && !terminalWindow.isDestroyed()) {
+          terminalWindow.webContents.send('terminal-shell-close', shellId);
         }
       });
 
       stream.on('error', (err: Error) => {
         log.error(`Shell error for ${shellId}: ${(err as Error).message}`);
-        const win = terminalWindow;
-        if (win && !win.isDestroyed()) {
-          win.webContents.send('terminal-shell-data', shellId, `\r\n\x1b[31mShell error: ${(err as Error).message}\x1b[0m\r\n`);
+        const errMsg = `\r\n\x1b[31mShell error: ${(err as Error).message}\x1b[0m\r\n`;
+        if (mainBrowserWindow && !mainBrowserWindow.isDestroyed()) {
+          mainBrowserWindow.webContents.send('terminal-shell-data', shellId, errMsg);
+        }
+        if (terminalWindow && !terminalWindow.isDestroyed()) {
+          terminalWindow.webContents.send('terminal-shell-data', shellId, errMsg);
         }
       });
 
@@ -747,7 +757,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
   });
 
   ipcMain.handle('maintenance-clear-logs', async () => {
-    const logsDir = path.join(process.cwd(), 'logs');
+    const base = app.isPackaged ? app.getPath('userData') : process.cwd();
+    const logsDir = path.join(base, 'logs');
     let clearedCount = 0;
     if (fs.existsSync(logsDir)) {
       const files = fs.readdirSync(logsDir);
