@@ -460,20 +460,32 @@ export const FileManager: React.FC<FileManagerProps> = ({
 
   // Drag handles
   const handleLocalDragStart = (e: React.DragEvent, file: LocalFile) => {
+    const isDraggedSelected = localSelectedFiles.some(f => f.name === file.name);
+    const dragItems = isDraggedSelected
+      ? localSelectedFiles.map(f => ({ name: f.name, isDirectory: f.isDirectory }))
+      : [{ name: file.name, isDirectory: file.isDirectory }];
+
     e.dataTransfer.setData('application/json', JSON.stringify({
       source: 'local',
       name: file.name,
-      isDirectory: file.isDirectory
+      isDirectory: file.isDirectory,
+      items: dragItems
     }));
     const absolutePath = joinLocalPath(localHistory.currentDir, file.name);
     window.electronAPI.window.startDrag(absolutePath, 'favicon.png');
   };
 
   const handleRemoteDragStart = (e: React.DragEvent, file: RemoteFile) => {
+    const isDraggedSelected = remoteSelectedFiles.some(f => f.name === file.name);
+    const dragItems = isDraggedSelected
+      ? remoteSelectedFiles.map(f => ({ name: f.name, isDirectory: f.isDirectory }))
+      : [{ name: file.name, isDirectory: file.isDirectory }];
+
     e.dataTransfer.setData('application/json', JSON.stringify({
       source: 'remote',
       name: file.name,
-      isDirectory: file.isDirectory
+      isDirectory: file.isDirectory,
+      items: dragItems
     }));
   };
 
@@ -486,15 +498,19 @@ export const FileManager: React.FC<FileManagerProps> = ({
     if (dataStr) {
       try {
         const data = JSON.parse(dataStr);
+        const items = data.items || [{ name: data.name, isDirectory: data.isDirectory }];
+
         if (data.source === 'remote') {
           setRemoteLoading(true);
           setLocalLoading(true);
           try {
-            const src = joinRemotePath(remoteHistory.currentDir, data.name);
-            if (data.isDirectory) {
-              await window.electronAPI.ssh.downloadFolder(sessionId, src, targetDir);
-            } else {
-              await window.electronAPI.ssh.download(sessionId, src, targetDir);
+            for (const item of items) {
+              const src = joinRemotePath(remoteHistory.currentDir, item.name);
+              if (item.isDirectory) {
+                await window.electronAPI.ssh.downloadFolder(sessionId, src, targetDir);
+              } else {
+                await window.electronAPI.ssh.download(sessionId, src, targetDir);
+              }
             }
           } catch (err: unknown) {
             setErrorMsg(`Download failed: ${(err as Error).message}`);
@@ -504,17 +520,19 @@ export const FileManager: React.FC<FileManagerProps> = ({
           }
           return;
         } else if (data.source === 'local') {
-          const src = joinLocalPath(localHistory.currentDir, data.name);
-          const dest = joinLocalPath(targetDir, data.name);
-          if (src !== dest) {
-            setLocalLoading(true);
-            try {
-              await window.electronAPI.fs.copy(src, dest);
-            } catch (err: unknown) {
-              setErrorMsg(`Copy failed: ${(err as Error).message}`);
-            } finally {
-              await loadLocalDirectory(localHistory.currentDir);
+          setLocalLoading(true);
+          try {
+            for (const item of items) {
+              const src = joinLocalPath(localHistory.currentDir, item.name);
+              const dest = joinLocalPath(targetDir, item.name);
+              if (src !== dest) {
+                await window.electronAPI.fs.rename(src, dest);
+              }
             }
+          } catch (err: unknown) {
+            setErrorMsg(`Move failed: ${(err as Error).message}`);
+          } finally {
+            await loadLocalDirectory(localHistory.currentDir);
           }
           return;
         }
@@ -549,15 +567,19 @@ export const FileManager: React.FC<FileManagerProps> = ({
     if (dataStr) {
       try {
         const data = JSON.parse(dataStr);
+        const items = data.items || [{ name: data.name, isDirectory: data.isDirectory }];
+
         if (data.source === 'local') {
           setRemoteLoading(true);
           setLocalLoading(true);
           try {
-            const src = joinLocalPath(localHistory.currentDir, data.name);
-            if (data.isDirectory) {
-              await window.electronAPI.ssh.uploadFolder(sessionId, src, targetDir);
-            } else {
-              await window.electronAPI.ssh.upload(sessionId, src, targetDir);
+            for (const item of items) {
+              const src = joinLocalPath(localHistory.currentDir, item.name);
+              if (item.isDirectory) {
+                await window.electronAPI.ssh.uploadFolder(sessionId, src, targetDir);
+              } else {
+                await window.electronAPI.ssh.upload(sessionId, src, targetDir);
+              }
             }
           } catch (err: unknown) {
             setErrorMsg(`Upload failed: ${(err as Error).message}`);
@@ -567,17 +589,19 @@ export const FileManager: React.FC<FileManagerProps> = ({
           }
           return;
         } else if (data.source === 'remote') {
-          const src = joinRemotePath(remoteHistory.currentDir, data.name);
-          const dest = joinRemotePath(targetDir, data.name);
-          if (src !== dest) {
-            setRemoteLoading(true);
-            try {
-              await window.electronAPI.ssh.copy(sessionId, src, dest);
-            } catch (err: unknown) {
-              setErrorMsg(`Copy failed: ${(err as Error).message}`);
-            } finally {
-              await loadRemoteDirectory(remoteHistory.currentDir);
+          setRemoteLoading(true);
+          try {
+            for (const item of items) {
+              const src = joinRemotePath(remoteHistory.currentDir, item.name);
+              const dest = joinRemotePath(targetDir, item.name);
+              if (src !== dest) {
+                await window.electronAPI.ssh.rename(sessionId, src, dest);
+              }
             }
+          } catch (err: unknown) {
+            setErrorMsg(`Move failed: ${(err as Error).message}`);
+          } finally {
+            await loadRemoteDirectory(remoteHistory.currentDir);
           }
           return;
         }
@@ -792,12 +816,28 @@ export const FileManager: React.FC<FileManagerProps> = ({
   };
 
   useEffect(() => {
-    const hideMenus = () => {
-      setTabContextMenu(null);
-      setContextMenu(null);
+    const hideMenusOnOutsideClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.context-menu-container')) {
+        setTabContextMenu(null);
+        setContextMenu(null);
+      }
     };
-    document.addEventListener('click', hideMenus);
-    return () => document.removeEventListener('click', hideMenus);
+    const hideMenusOnInsideClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest('.context-menu-container')) {
+        setTabContextMenu(null);
+        setContextMenu(null);
+      }
+    };
+
+    document.addEventListener('mousedown', hideMenusOnOutsideClick, { capture: true });
+    document.addEventListener('click', hideMenusOnInsideClick);
+
+    return () => {
+      document.removeEventListener('mousedown', hideMenusOnOutsideClick, { capture: true });
+      document.removeEventListener('click', hideMenusOnInsideClick);
+    };
   }, []);
 
 
@@ -1395,7 +1435,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
       {tabContextMenu && (
         <div 
           style={{ top: `${tabContextMenu.y}px`, left: `${tabContextMenu.x}px` }}
-          className="fixed bg-[var(--bg-panel)]/90 backdrop-blur-sm border border-[var(--border-color)] rounded-[6px] shadow-[var(--shadow-dropdown)] py-2 z-[100] w-48 text-[12px] text-[var(--text-main)] font-sans"
+          className="context-menu-container fixed bg-[var(--bg-panel)]/90 backdrop-blur-sm border border-[var(--border-color)] rounded-[6px] shadow-[var(--shadow-dropdown)] py-2 z-[100] w-48 text-[12px] text-[var(--text-main)] font-sans"
         >
           <button 
             onClick={() => handleTogglePinTab(tabContextMenu.tabIdx)}
@@ -1416,7 +1456,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
       {contextMenu && (
         <div 
           style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }}
-          className="fixed bg-[var(--bg-panel)]/90 backdrop-blur-sm border border-[var(--border-color)] rounded-[6px] shadow-[var(--shadow-dropdown)] py-2 z-[100] w-52 text-[12px] text-[var(--text-main)] font-sans"
+          className="context-menu-container fixed bg-[var(--bg-panel)]/90 backdrop-blur-sm border border-[var(--border-color)] rounded-[6px] shadow-[var(--shadow-dropdown)] py-2 z-[100] w-52 text-[12px] text-[var(--text-main)] font-sans"
         >
           {contextMenu.item === null ? (
             <>

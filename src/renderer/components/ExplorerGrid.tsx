@@ -230,10 +230,18 @@ export const ExplorerGrid: React.FC<ExplorerGridProps> = ({
               onDragStart={(e) => onDragStart(e, file)}
               onDragEnter={(e) => { e.stopPropagation(); if (file.isDirectory) onDragEnter(e, file); }}
               onDragLeave={(e) => { e.stopPropagation(); onDragLeave(e); }}
-              onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              onDragOver={(e) => {
+                if (file.isDirectory) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }
+              }}
               onDrop={(e) => {
-                e.preventDefault(); e.stopPropagation();
-                file.isDirectory ? onDrop(e, targetPath) : onDrop(e);
+                if (file.isDirectory) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onDrop(e, targetPath);
+                }
               }}
               className={[
                 'flex flex-col items-center gap-1.5 cursor-default border rounded-[5px]',
