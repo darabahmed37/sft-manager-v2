@@ -14,14 +14,14 @@ import {
 } from 'react-icons/vsc';
 import { LuX, LuKeyboard } from 'react-icons/lu';
 
-import type { TermTab, TerminalTheme } from '../../terminal/types';
+import type { TermTab, TerminalTheme } from './terminalTypes';
 import {
   getThemeById,
   xtermTheme,
   TERMINAL_THEMES
-} from '../../terminal/themes';
-import ThemePicker from '../../terminal/components/ThemePicker';
-import XtermPane from '../../terminal/components/XtermPane';
+} from './terminalThemes';
+import ThemePicker from './ThemePicker';
+import XtermPane from './XtermPane';
 import '@xterm/xterm/css/xterm.css';
 
 // ── Utility: darken a hex color by a given factor ──────────────────────────────
