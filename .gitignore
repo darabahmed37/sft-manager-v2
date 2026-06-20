@@ -21,6 +21,8 @@ build
 *.sqlite3
 *.sqlite-journal
 *.db-journal
+*.db-shm
+*.db-wal
 
 # Editor directories and files
 .vscode/*

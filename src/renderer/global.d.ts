@@ -178,7 +178,7 @@ export interface ElectronAPI {
   };
   terminal: {
     openWindow: (sessionId: string, username: string, host: string) => void;
-    openShell: (sessionId: string, tabId: string) => Promise<string>;
+    openShell: (sessionId: string, tabId: string) => Promise<{ success: boolean; shellId: string; error?: string }>;
     writeShell: (shellId: string, data: string) => void;
     resizeShell: (shellId: string, cols: number, rows: number) => void;
     closeShell: (shellId: string) => void;

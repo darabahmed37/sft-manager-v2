@@ -604,7 +604,8 @@ export const FileManager: React.FC<FileManagerProps> = ({
     };
 
     initDirs();
-  }, [sessionId, connectionId, loadLocalDirectory, loadRemoteDirectory, localHistory, remoteHistory]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, connectionId]);
 
   const handleLocalDblClick = (file: LocalFile) => {
     if (file.isDirectory) {
@@ -663,8 +664,11 @@ export const FileManager: React.FC<FileManagerProps> = ({
             changeRemoteDirectory(mapped[finalIdx].path, true);
           }
         } else {
-          const defaultPath = remoteHistory.currentDir || '/';
-          setRemoteTabs([{ path: defaultPath, isPinned: false }]);
+          setRemoteTabs(prev => {
+            if (prev.length > 0) return prev;
+            const defaultPath = remoteHistory.currentDir || '/';
+            return [{ path: defaultPath, isPinned: false }];
+          });
           setActiveRemoteTabIdx(0);
         }
       } catch (err) {
@@ -675,7 +679,8 @@ export const FileManager: React.FC<FileManagerProps> = ({
     if (localCollapsed) {
       initRemoteTabs();
     }
-  }, [connectionId, localCollapsed, changeRemoteDirectory, remoteHistory.currentDir]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectionId, localCollapsed]);
 
   const handleSelectTab = (idx: number) => {
     setActiveRemoteTabIdx(idx);
