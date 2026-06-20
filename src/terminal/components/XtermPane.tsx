@@ -12,6 +12,7 @@ export const XtermPane: React.FC<XtermPaneProps> = ({ tab, isActive, onContextMe
   const containerRef = useRef<HTMLDivElement>(null);
   const initializedRef = useRef(false);
   const webglRef = useRef<WebglAddon | null>(null);
+  const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!containerRef.current || initializedRef.current) return;
@@ -20,7 +21,7 @@ export const XtermPane: React.FC<XtermPaneProps> = ({ tab, isActive, onContextMe
     // 1. Attach terminal to DOM
     tab.terminal.open(containerRef.current);
 
-    // 2. Attach custom key handler for shortcuts bypass (tab switches, alt+f4, copy, paste, select all)
+    // 2. Block xterm from handling shortcuts we intercept at the window level
     tab.terminal.attachCustomKeyEventHandler((e) => {
       if (e.type === 'keydown') {
         const isSwitchTab = e.ctrlKey && !e.shiftKey && !e.altKey && /^[1-9]$/.test(e.key);
@@ -28,15 +29,12 @@ export const XtermPane: React.FC<XtermPaneProps> = ({ tab, isActive, onContextMe
         const isCopy = e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'c';
         const isPaste = e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'v';
         const isSelectAll = e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'a';
-
-        if (isSwitchTab || isAltF4 || isCopy || isPaste || isSelectAll) {
-          return false; // let the window.keydown handler take care of it!
-        }
+        if (isSwitchTab || isAltF4 || isCopy || isPaste || isSelectAll) return false;
       }
       return true;
     });
 
-    // 3. Load WebGL renderer (GPU-accelerated) with fallback
+    // 3. Load WebGL renderer (GPU-accelerated) with DOM canvas fallback
     try {
       const webgl = new WebglAddon();
       webgl.onContextLoss(() => {
@@ -46,14 +44,19 @@ export const XtermPane: React.FC<XtermPaneProps> = ({ tab, isActive, onContextMe
       tab.terminal.loadAddon(webgl);
       webglRef.current = webgl;
     } catch {
-      // Fallback to DOM rendering automatically
+      // DOM renderer fallback is automatic
     }
 
-    // 4. Fit and focus
-    tab.fitAddon.fit();
-    tab.terminal.focus();
+    // 4. Initial fit via rAF so the browser has laid out the container first
+    //    This prevents the common "0-column" issue on first open.
+    rafRef.current = requestAnimationFrame(() => {
+      tab.fitAddon.fit();
+      tab.terminal.focus();
+      rafRef.current = null;
+    });
 
     return () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
       webglRef.current?.dispose();
       webglRef.current = null;
     };
@@ -61,11 +64,15 @@ export const XtermPane: React.FC<XtermPaneProps> = ({ tab, isActive, onContextMe
 
   useEffect(() => {
     if (!isActive) return;
-    const t = setTimeout(() => {
+    // Defer fit until after the pane is visible in the DOM
+    rafRef.current = requestAnimationFrame(() => {
       tab.fitAddon.fit();
       tab.terminal.focus();
-    }, 50);
-    return () => clearTimeout(t);
+      rafRef.current = null;
+    });
+    return () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    };
   }, [isActive, tab]);
 
   return (

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { SearchAddon } from '@xterm/addon-search';
+import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   VscTerminal,
@@ -56,14 +57,32 @@ function createTerminalInstance(theme: TerminalTheme): {
     letterSpacing: 0,
     cursorBlink: true,
     cursorStyle: 'block',
-    scrollback: 5000,
+    // 50k line scrollback — enough for a full `cat` of a large log file
+    scrollback: 50000,
     allowTransparency: false,
     convertEol: false,
+    // Fast scroll: hold Shift to jump 5 pages at once
+    fastScrollModifier: 'shift',
+    fastScrollSensitivity: 5,
+    // Smooth scroll sensitivity (normal scroll)
+    scrollSensitivity: 2,
+    // Overview ruler shows cursor + search hits in the scrollbar track
+    overviewRulerWidth: 8,
+    // Minimum 4px row height guard to prevent layout thrash on fit()
+    minimumContrastRatio: 1,
   });
+
   const fitAddon = new FitAddon();
   const searchAddon = new SearchAddon();
+  const unicode11Addon = new Unicode11Addon();
+
   terminal.loadAddon(fitAddon);
   terminal.loadAddon(searchAddon);
+  terminal.loadAddon(unicode11Addon);
+
+  // Activate Unicode 11 so wide characters (emoji, CJK) render at correct width
+  terminal.unicode.activeVersion = '11';
+
   return { terminal, fitAddon, searchAddon };
 }
 

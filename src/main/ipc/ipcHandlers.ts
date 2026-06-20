@@ -30,6 +30,40 @@ const activeShells = new Map<string, import('ssh2').Channel>(); // shellId → s
 let terminalWindow: BrowserWindow | null = null;
 let shellCounter = 0;
 
+// ─── Per-shell output buffer: batch SSH chunks → fewer IPC round-trips ─────────
+// SSH can fire hundreds of 'data' events/sec when streaming large output (e.g. cat file.txt).
+// Without batching every chunk crosses the IPC bridge separately — saturating it.
+// We accumulate chunks for up to FLUSH_INTERVAL_MS and send one combined payload.
+const FLUSH_INTERVAL_MS = 8; // imperceptible to humans (~80ms reaction time)
+const shellBuffers = new Map<string, Buffer[]>();   // shellId → pending chunks
+const shellTimers  = new Map<string, ReturnType<typeof setTimeout>>(); // shellId → flush timer
+
+function flushShellBuffer(shellId: string): void {
+  const chunks = shellBuffers.get(shellId);
+  if (!chunks || chunks.length === 0) return;
+  shellBuffers.set(shellId, []);
+  shellTimers.delete(shellId);
+
+  const win = terminalWindow;
+  if (!win || win.isDestroyed()) return;
+
+  // Concatenate all buffered chunks into one Buffer and send once.
+  const combined = chunks.length === 1 ? chunks[0] : Buffer.concat(chunks);
+  win.webContents.send('terminal-shell-data', shellId, combined);
+}
+
+function scheduleShellFlush(shellId: string): void {
+  if (shellTimers.has(shellId)) return; // timer already running
+  const timer = setTimeout(() => flushShellBuffer(shellId), FLUSH_INTERVAL_MS);
+  shellTimers.set(shellId, timer);
+}
+
+function clearShellFlush(shellId: string): void {
+  const t = shellTimers.get(shellId);
+  if (t !== undefined) { clearTimeout(t); shellTimers.delete(shellId); }
+  shellBuffers.delete(shellId);
+}
+
 function getOrCreateTerminalWindow(mainWindow: BrowserWindow, sessionId: string, username: string, host: string): BrowserWindow {
   if (terminalWindow && !terminalWindow.isDestroyed()) {
     terminalWindow.focus();
@@ -59,6 +93,9 @@ function getOrCreateTerminalWindow(mainWindow: BrowserWindow, sessionId: string,
       preload: path.join(__dirname, '../../preload/preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      // Keep timer resolution at full rate even when window is backgrounded.
+      // Without this, Chrome throttles setTimeout to 1s which breaks the 8ms IPC flush.
+      backgroundThrottling: false,
     },
     show: false,
   });
@@ -524,24 +561,25 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
       });
 
       activeShells.set(shellId, stream);
+      shellBuffers.set(shellId, []);
 
-      // Send raw Buffer — no UTF-8 conversion overhead.
-      // Electron serializes Buffer as Uint8Array; xterm.write() accepts Uint8Array natively.
+      // Buffer SSH output chunks → batched IPC (dramatically reduces IPC overhead on large output)
       stream.on('data', (data: Buffer) => {
-        const win = terminalWindow;
-        if (win && !win.isDestroyed()) {
-          win.webContents.send('terminal-shell-data', shellId, data);
-        }
+        const buf = shellBuffers.get(shellId);
+        if (buf) buf.push(data);
+        scheduleShellFlush(shellId);
       });
 
       stream.stderr?.on('data', (data: Buffer) => {
-        const win = terminalWindow;
-        if (win && !win.isDestroyed()) {
-          win.webContents.send('terminal-shell-data', shellId, data);
-        }
+        const buf = shellBuffers.get(shellId);
+        if (buf) buf.push(data);
+        scheduleShellFlush(shellId);
       });
 
       stream.on('close', () => {
+        // Flush any remaining buffered data, then clean up
+        flushShellBuffer(shellId);
+        clearShellFlush(shellId);
         activeShells.delete(shellId);
         const win = terminalWindow;
         if (win && !win.isDestroyed()) {
@@ -591,6 +629,9 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
   ipcMain.on('terminal-shell-close', (event, shellId: string) => {
     const stream = activeShells.get(shellId);
     if (stream) {
+      // Flush any remaining buffered data before closing
+      flushShellBuffer(shellId);
+      clearShellFlush(shellId);
       try { stream.end(); } catch (err: unknown) { log.debug('stream.end failed', err); }
       activeShells.delete(shellId);
     }
