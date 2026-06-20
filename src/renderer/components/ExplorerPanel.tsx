@@ -28,7 +28,6 @@ interface ExplorerPanelProps {
     size: number;
     modified: number;
     owner?: number;
-    perms?: number;
   };
   onResizeStart: (e: React.MouseEvent, column: string, currentWidth: number) => void;
   dragOverRow: string | null;
@@ -81,6 +80,10 @@ interface ExplorerPanelProps {
     dir: string;
     items: { name: string; isDirectory: boolean }[];
   } | null;
+
+  // Multi-select
+  selectedFiles: (LocalFile | RemoteFile)[];
+  onMultiSelectChange: (files: (LocalFile | RemoteFile)[]) => void;
 }
 
 export const ExplorerPanel: React.FC<ExplorerPanelProps> = ({
@@ -142,6 +145,8 @@ export const ExplorerPanel: React.FC<ExplorerPanelProps> = ({
   onTabContextMenu,
   onAddTab,
   clipboard,
+  selectedFiles,
+  onMultiSelectChange,
 }) => {
   const [dragCount, setDragCount] = useState(0);
 
@@ -290,9 +295,12 @@ export const ExplorerPanel: React.FC<ExplorerPanelProps> = ({
             pane={pane}
             files={files}
             selectedFile={selectedFile}
+            selectedFiles={selectedFiles}
             onSelect={onSelect}
+            onMultiSelectChange={onMultiSelectChange}
             onDoubleClick={onDoubleClick}
             onContextMenu={onContextMenu}
+            onEmptyContextMenu={onBlankContextMenu}
             sortField={sortField}
             sortAsc={sortAsc}
             onSort={onSort}
@@ -314,9 +322,12 @@ export const ExplorerPanel: React.FC<ExplorerPanelProps> = ({
             pane={pane}
             files={files}
             selectedFile={selectedFile}
+            selectedFiles={selectedFiles}
             onSelect={onSelect}
+            onMultiSelectChange={onMultiSelectChange}
             onDoubleClick={onDoubleClick}
             onContextMenu={onContextMenu}
+            onEmptyContextMenu={onBlankContextMenu}
             dragOverRow={dragOverRow}
             onDragStart={onDragStart}
             onDragEnter={onDragEnterRow}

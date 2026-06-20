@@ -95,7 +95,6 @@ export const FileManager: React.FC<FileManagerProps> = ({
     size: 70,
     modified: 110,
     owner: 80,
-    perms: 80,
   });
   const [activeResizeCol, setActiveResizeCol] = useState<{
     panel: 'local' | 'remote';
@@ -103,6 +102,10 @@ export const FileManager: React.FC<FileManagerProps> = ({
     startX: number;
     startWidth: number;
   } | null>(null);
+
+  // Multi-select state
+  const [localSelectedFiles, setLocalSelectedFiles] = useState<(LocalFile | RemoteFile)[]>([]);
+  const [remoteSelectedFiles, setRemoteSelectedFiles] = useState<(LocalFile | RemoteFile)[]>([]);
 
   // Directory hooks
   const localHistory = useFolderHistory('');
@@ -169,7 +172,6 @@ export const FileManager: React.FC<FileManagerProps> = ({
               size: settings.remoteColSize || 70,
               modified: settings.remoteColModified || 110,
               owner: settings.remoteColOwner || 80,
-              perms: settings.remoteColRights || 80,
             });
           }
         }
@@ -260,7 +262,6 @@ export const FileManager: React.FC<FileManagerProps> = ({
             remoteColSize: remoteColWidthsRef.current.size,
             remoteColModified: remoteColWidthsRef.current.modified,
             remoteColOwner: remoteColWidthsRef.current.owner,
-            remoteColRights: remoteColWidthsRef.current.perms,
           });
         }
       }
@@ -1187,6 +1188,8 @@ export const FileManager: React.FC<FileManagerProps> = ({
               setIsBookmarksOpen={setIsLocalBookmarksOpen}
               onCollapse={() => { setLocalCollapsed(true); saveLayoutSettings({ localPanelCollapsed: true }); }}
               clipboard={clipboard}
+              selectedFiles={localSelectedFiles}
+              onMultiSelectChange={setLocalSelectedFiles}
             />
           </div>
         ) : (
@@ -1288,6 +1291,8 @@ export const FileManager: React.FC<FileManagerProps> = ({
             onTabContextMenu={handleTabContextMenu}
             onAddTab={handleAddTab}
             clipboard={clipboard}
+            selectedFiles={remoteSelectedFiles}
+            onMultiSelectChange={setRemoteSelectedFiles}
           />
         </div>
       </div>
