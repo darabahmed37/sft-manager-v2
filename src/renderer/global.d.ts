@@ -97,6 +97,7 @@ export interface ElectronAPI {
     maximize: () => void;
     close: () => void;
     getPlatform: () => Promise<string>;
+    setTheme: (theme: 'dark' | 'light') => void;
     isMaximized: () => Promise<boolean>;
     onMaximizedState: (callback: (event: unknown, isMaximized: boolean) => void) => () => void;
     openFile: () => Promise<string | null>;

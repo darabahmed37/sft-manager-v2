@@ -152,6 +152,25 @@ async function buildHopChain(connectionId: number): Promise<HopConfig[]> {
 
 export function registerIpcHandlers(mainWindow: BrowserWindow) {
   // ─── Window Controls ───
+  ipcMain.on('window-set-theme', (event, theme: 'dark' | 'light') => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win && win.setTitleBarOverlay) {
+      if (theme === 'light') {
+        win.setTitleBarOverlay({
+          color: '#f4f5f8',
+          symbolColor: '#5c6479',
+          height: 46
+        });
+      } else {
+        win.setTitleBarOverlay({
+          color: '#080b11',
+          symbolColor: '#94a3b8',
+          height: 46
+        });
+      }
+    }
+  });
+
   ipcMain.on('window-minimize', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     win?.minimize();

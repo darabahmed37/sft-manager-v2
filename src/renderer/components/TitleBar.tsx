@@ -27,34 +27,14 @@ export const TitleBar: React.FC<TitleBarProps> = ({
   onNewConnection,
 }) => {
   const [platform, setPlatform] = useState<string>('win32');
-  const [isMaximized, setIsMaximized] = useState<boolean>(false);
 
   useEffect(() => {
     if (window.electronAPI && window.electronAPI.window) {
       window.electronAPI.window.getPlatform().then((p) => {
         setPlatform(p);
       });
-      window.electronAPI.window.isMaximized().then((max) => {
-        setIsMaximized(max);
-      });
-      const unsub = window.electronAPI.window.onMaximizedState((_e, max) => {
-        setIsMaximized(max);
-      });
-      return () => unsub?.();
     }
   }, []);
-
-  const handleMinimize = () => {
-    window.electronAPI?.window.minimize();
-  };
-
-  const handleMaximize = () => {
-    window.electronAPI?.window.maximize();
-  };
-
-  const handleClose = () => {
-    window.electronAPI?.window.close();
-  };
 
   const renderThemeToggle = () => (
     <button
@@ -189,50 +169,10 @@ export const TitleBar: React.FC<TitleBarProps> = ({
       {/* Windows Window Controls */}
       {platform !== 'darwin' && (
         <div 
-          className="ml-auto flex items-center h-full shrink-0 select-none"
+          className="ml-auto flex items-center h-full shrink-0 select-none pr-[138px]"
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
         >
           {renderThemeToggle()}
-          
-          {/* Minimize */}
-          <button
-            onClick={handleMinimize}
-            className="w-[46px] h-full flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--bg-panel-header)] hover:text-[var(--text-main)] transition-colors duration-155 outline-none border-none bg-transparent cursor-pointer"
-            title="Minimize"
-          >
-            <svg width="10" height="1" viewBox="0 0 10 1" fill="none" stroke="currentColor" strokeWidth="1">
-              <line x1="0" y1="0.5" x2="10" y2="0.5" />
-            </svg>
-          </button>
-          
-          {/* Maximize */}
-          <button
-            onClick={handleMaximize}
-            className="w-[46px] h-full flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--bg-panel-header)] hover:text-[var(--text-main)] transition-colors duration-155 outline-none border-none bg-transparent cursor-pointer"
-            title={isMaximized ? "Restore" : "Maximize"}
-          >
-            {isMaximized ? (
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1">
-                <path d="M3,1 L9,1 L9,7 M1,3 L7,3 L7,9 L1,9 Z" />
-              </svg>
-            ) : (
-              <svg width="9" height="9" viewBox="0 0 9 9" fill="none" stroke="currentColor" strokeWidth="1">
-                <rect x="0.5" y="0.5" width="8" height="8" />
-              </svg>
-            )}
-          </button>
-
-          {/* Close */}
-          <button
-            onClick={handleClose}
-            className="w-[46px] h-full flex items-center justify-center text-[var(--text-muted)] hover:bg-[#e81123] hover:text-white transition-colors duration-155 outline-none border-none bg-transparent cursor-pointer"
-            title="Close"
-          >
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1">
-              <line x1="1" y1="1" x2="9" y2="9" />
-              <line x1="9" y1="1" x2="1" y2="9" />
-            </svg>
-          </button>
         </div>
       )}
     </div>

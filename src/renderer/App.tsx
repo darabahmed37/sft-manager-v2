@@ -110,6 +110,9 @@ function App() {
     } else {
       document.documentElement.classList.remove('dark');
     }
+    if (window.electronAPI && window.electronAPI.window && window.electronAPI.window.setTheme) {
+      window.electronAPI.window.setTheme(theme);
+    }
   }, [theme]);
 
   const refreshConnections = async () => {

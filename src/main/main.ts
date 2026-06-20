@@ -9,8 +9,12 @@ function createWindow() {
   const mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    frame: false,
     titleBarStyle: 'hidden',
+    titleBarOverlay: {
+      color: '#080b11',
+      symbolColor: '#94a3b8',
+      height: 46
+    },
     webPreferences: {
       preload: path.join(__dirname, '../preload/preload.js'),
       contextIsolation: true,

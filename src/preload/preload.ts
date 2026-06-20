@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     maximize: () => ipcRenderer.send('window-maximize'),
     close: () => ipcRenderer.send('window-close'),
     getPlatform: () => ipcRenderer.invoke('window-get-platform'),
+    setTheme: (theme: 'dark' | 'light') => ipcRenderer.send('window-set-theme', theme),
     isMaximized: () => ipcRenderer.invoke('window-is-maximized'),
     onMaximizedState: (callback: (event: unknown, isMaximized: boolean) => void) => {
       ipcRenderer.on('window-maximized-state', callback);
