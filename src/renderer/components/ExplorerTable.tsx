@@ -76,7 +76,6 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
     left: number; top: number; width: number; height: number;
   } | null>(null);
 
-  // Always-on document listeners; they are no-ops while lassoStartRef is null.
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!lassoStartRef.current) return;
@@ -100,7 +99,6 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
       lassoStartRef.current = null;
       setLassoBox(null);
 
-      // Only do selection if the lasso is large enough to be intentional
       if (right - left < 5 && bottom - top < 5) return;
 
       const selected: (LocalFile | RemoteFile)[] = [];
@@ -125,7 +123,6 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
   const handleContainerMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
     const target = e.target as HTMLElement;
-    // Don't start lasso when clicking on a row or header cell
     if (target.closest('tr[data-file-row]') || target.closest('th')) return;
     lassoStartRef.current = { x: e.clientX, y: e.clientY };
     onMultiSelectChange([]);
@@ -153,13 +150,19 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
         />
       )}
 
+      {/*
+        The scroll container: NO pr-4. The table does NOT use w-full so it
+        only takes its natural column widths. The remaining area to the right
+        of the table is genuine empty space — right-clicking there triggers
+        the blank context menu via the container's onContextMenu handler.
+      */}
       <div
         ref={containerRef}
-        className="flex-1 overflow-auto h-full pr-4"
+        className="flex-1 overflow-auto h-full"
         onMouseDown={handleContainerMouseDown}
         onContextMenu={(e) => {
-          // Bubble check: only call blank handler when NOT on a file row
           if (!(e.target as HTMLElement).closest('tr[data-file-row]')) {
+            e.stopPropagation();
             onEmptyContextMenu(e);
           }
         }}
@@ -167,98 +170,104 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
           if (e.target === e.currentTarget) onEmptySpaceClick();
         }}
       >
-        <table className="w-full border-collapse text-[13px] table-fixed">
+        {/*
+          min-w-full makes the table expand to fill the container when there
+          is enough room, but shrinks to its natural width on narrow panels.
+          We do NOT use table-fixed so columns size to their content + col hints.
+        */}
+        <table className="min-w-full border-collapse text-[13px]">
           <colgroup>
-            <col style={{ width: '26px' }} />
+            <col style={{ width: '28px' }} />
             <col style={{ width: `${colWidths.name}px` }} />
             <col style={{ width: `${colWidths.size}px` }} />
             <col style={{ width: `${colWidths.modified}px` }} />
             {pane === 'remote' && (
               <col style={{ width: `${colWidths.owner ?? 80}px` }} />
             )}
+            {/* Filler column — fills remaining width and acts as "empty space" */}
+            <col style={{ width: 'auto' }} />
           </colgroup>
+
           <thead className="sticky top-0 bg-[var(--bg-panel-header)] z-10 border-b border-[var(--border-color)]">
             <tr className="h-[28px] text-[12px] text-[var(--text-muted)] border-b border-[var(--border-color)]">
+              {/* Icon column header */}
               <th className="py-1 pl-2 text-left border-r border-[var(--border-color)]/30" />
+
               <th
                 onClick={() => onSort('name')}
                 className="relative text-left px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)] border-r border-[var(--border-color)]/30"
               >
                 Name {sortField === 'name' ? (sortAsc ? '▲' : '▼') : ''}
                 <div
-                  onMouseDown={(e) => onResizeStart(e, 'name', colWidths.name)}
-                  className="absolute right-0 top-1 bottom-1 w-[1px] bg-[var(--border-color)]/45 cursor-col-resize hover:bg-[var(--color-primary)] z-10"
+                  onMouseDown={(e) => { e.stopPropagation(); onResizeStart(e, 'name', colWidths.name); }}
+                  className="absolute right-0 top-1 bottom-1 w-[3px] cursor-col-resize hover:bg-[var(--color-primary)] z-10"
                 />
               </th>
+
               <th
                 onClick={() => onSort('size')}
                 className="relative text-right px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)] border-r border-[var(--border-color)]/30"
               >
                 Size {sortField === 'size' ? (sortAsc ? '▲' : '▼') : ''}
                 <div
-                  onMouseDown={(e) => onResizeStart(e, 'size', colWidths.size)}
-                  className="absolute right-0 top-1 bottom-1 w-[1px] bg-[var(--border-color)]/45 cursor-col-resize hover:bg-[var(--color-primary)] z-10"
+                  onMouseDown={(e) => { e.stopPropagation(); onResizeStart(e, 'size', colWidths.size); }}
+                  className="absolute right-0 top-1 bottom-1 w-[3px] cursor-col-resize hover:bg-[var(--color-primary)] z-10"
                 />
               </th>
+
               <th
                 onClick={() => onSort('modified')}
                 className={`relative text-left px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)] ${pane === 'remote' ? 'border-r border-[var(--border-color)]/30' : ''}`}
               >
                 Modified {sortField === 'modified' ? (sortAsc ? '▲' : '▼') : ''}
                 <div
-                  onMouseDown={(e) => onResizeStart(e, 'modified', colWidths.modified)}
-                  className="absolute right-0 top-1 bottom-1 w-[1px] bg-[var(--border-color)]/45 cursor-col-resize hover:bg-[var(--color-primary)] z-10"
+                  onMouseDown={(e) => { e.stopPropagation(); onResizeStart(e, 'modified', colWidths.modified); }}
+                  className="absolute right-0 top-1 bottom-1 w-[3px] cursor-col-resize hover:bg-[var(--color-primary)] z-10"
                 />
               </th>
+
               {pane === 'remote' && (
                 <th
                   onClick={() => onSort('owner')}
-                  className="relative text-left px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)]"
+                  className="relative text-left px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)] border-r border-[var(--border-color)]/30"
                 >
                   Owner {sortField === 'owner' ? (sortAsc ? '▲' : '▼') : ''}
                   <div
-                    onMouseDown={(e) => onResizeStart(e, 'owner', colWidths.owner ?? 80)}
-                    className="absolute right-0 top-1 bottom-1 w-[1px] bg-[var(--border-color)]/45 cursor-col-resize hover:bg-[var(--color-primary)] z-10"
+                    onMouseDown={(e) => { e.stopPropagation(); onResizeStart(e, 'owner', colWidths.owner ?? 80); }}
+                    className="absolute right-0 top-1 bottom-1 w-[3px] cursor-col-resize hover:bg-[var(--color-primary)] z-10"
                   />
                 </th>
               )}
+
+              {/* Filler header — empty, fills remaining width */}
+              <th
+                onContextMenu={(e) => { e.stopPropagation(); onEmptyContextMenu(e); }}
+                className="pointer-events-auto"
+              />
             </tr>
           </thead>
+
           <tbody>
             {files.map((file, i) => {
-              const targetPath    = joinPath(currentDir, file.name);
-              const isSelected    = selectedFile?.name === file.name;
-              const isMultiSel    = selectedFiles.some(f => f.name === file.name);
-              const isDragOver    = dragOverRow === targetPath;
-              const isCut         = clipboard?.type === 'cut' &&
-                                    clipboard.items.some(ci => ci.name === file.name);
+              const targetPath = joinPath(currentDir, file.name);
+              const isSelected = selectedFile?.name === file.name;
+              const isMultiSel = selectedFiles.some(f => f.name === file.name);
+              const isDragOver = dragOverRow === targetPath;
+              const isCut      = clipboard?.type === 'cut' &&
+                                 clipboard.items.some(ci => ci.name === file.name);
+
+              const rowBg = isMultiSel
+                ? 'bg-[var(--color-primary)]/25 text-[var(--active-tab-text)] font-semibold'
+                : isSelected
+                  ? 'bg-[var(--glow-color)]/30 text-[var(--active-tab-text)] font-semibold'
+                  : 'hover:bg-[var(--glow-color)]/15';
 
               return (
                 <tr
                   key={i}
                   data-file-row="true"
                   ref={el => { rowRefs.current[i] = el; }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (e.ctrlKey || e.metaKey) {
-                      // Toggle Ctrl+click multi-select
-                      const already = selectedFiles.some(f => f.name === file.name);
-                      onMultiSelectChange(
-                        already
-                          ? selectedFiles.filter(f => f.name !== file.name)
-                          : [...selectedFiles, file]
-                      );
-                    } else {
-                      onSelect(file);
-                      onMultiSelectChange([]);
-                    }
-                  }}
                   onDoubleClick={() => onDoubleClick(file)}
-                  onContextMenu={(e) => {
-                    e.stopPropagation();
-                    onSelect(file);
-                    onContextMenu(e, file);
-                  }}
                   draggable
                   onDragStart={(e) => onDragStart(e, file)}
                   onDragEnter={(e) => { e.stopPropagation(); if (file.isDirectory) onDragEnter(e, file); }}
@@ -269,26 +278,26 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
                     file.isDirectory ? onDrop(e, targetPath) : onDrop(e);
                   }}
                   className={[
-                    isMultiSel
-                      ? 'bg-[var(--color-primary)]/25 text-[var(--active-tab-text)] font-semibold'
-                      : isSelected
-                        ? 'bg-[var(--glow-color)]/30 text-[var(--active-tab-text)] font-semibold'
-                        : 'hover:bg-[var(--glow-color)]/25',
+                    rowBg,
                     isDragOver ? 'bg-[var(--color-primary)]/20 border-y border-dashed border-[var(--color-primary)]' : '',
                     isCut ? 'opacity-40' : '',
-                    'cursor-default h-[30px] transition-colors duration-75 border-b border-[var(--border-color)]/50',
+                    'cursor-default h-[32px] transition-colors duration-75 border-b border-[var(--border-color)]/40',
                   ].join(' ')}
                 >
-                  {/* Icon col — same for both panes, no checkboxes */}
-                  <td className="pl-1.5 text-center align-middle">
+                  {/* Icon — no click handler needed here, falls through to row */}
+                  <td
+                    className="pl-2 pr-1 text-center align-middle w-[28px]"
+                    onClick={(e) => { e.stopPropagation(); onSelect(file); onMultiSelectChange([]); }}
+                    onContextMenu={(e) => { e.stopPropagation(); onSelect(file); onContextMenu(e, file); }}
+                  >
                     {file.isDirectory ? (
                       <svg width="14" height="12" viewBox="0 0 16 14" fill="none">
-                        <path d="M0 2.5h7l1.5 2H16v9H0z" fill="var(--color-primary)" opacity="0.85" />
+                        <path d="M0 2.5h7l1.5 2H16v9H0z" fill="var(--color-primary)" opacity="0.9" />
                       </svg>
                     ) : (
-                      <svg width="12" height="14" viewBox="0 0 12 14" fill="none">
-                        <path d="M0 0h8l4 4v10H0z" fill="currentColor" opacity="0.55" />
-                        <path d="M8 0l4 4H8z" fill="currentColor" opacity="0.35" />
+                      <svg width="11" height="13" viewBox="0 0 11 13" fill="none">
+                        <path d="M0 0h7l4 4v9H0z" fill="currentColor" opacity="0.45" />
+                        <path d="M7 0l4 4H7z" fill="currentColor" opacity="0.3" />
                       </svg>
                     )}
                   </td>
@@ -297,35 +306,80 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
                   <td
                     className="px-2 text-[var(--text-main)] overflow-hidden text-ellipsis whitespace-nowrap align-middle"
                     title={file.name}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (e.ctrlKey || e.metaKey) {
+                        const already = selectedFiles.some(f => f.name === file.name);
+                        onMultiSelectChange(already ? selectedFiles.filter(f => f.name !== file.name) : [...selectedFiles, file]);
+                      } else {
+                        onSelect(file);
+                        onMultiSelectChange([]);
+                      }
+                    }}
+                    onContextMenu={(e) => { e.stopPropagation(); onSelect(file); onContextMenu(e, file); }}
                   >
                     {file.name}
                   </td>
 
                   {/* Size */}
-                  <td className="px-2 text-right text-[var(--text-muted)] font-mono text-[12px] align-middle whitespace-nowrap">
+                  <td
+                    className="px-2 text-right text-[var(--text-muted)] font-mono text-[12px] align-middle whitespace-nowrap tabular-nums"
+                    onClick={(e) => { e.stopPropagation(); onSelect(file); onMultiSelectChange([]); }}
+                    onContextMenu={(e) => { e.stopPropagation(); onSelect(file); onContextMenu(e, file); }}
+                  >
                     {formatSize(file.size)}
                   </td>
 
                   {/* Modified */}
-                  <td className="px-2 text-[var(--text-subtle)] font-mono text-[12px] align-middle whitespace-nowrap">
+                  <td
+                    className="px-2 text-[var(--text-subtle)] font-mono text-[12px] align-middle whitespace-nowrap tabular-nums"
+                    onClick={(e) => { e.stopPropagation(); onSelect(file); onMultiSelectChange([]); }}
+                    onContextMenu={(e) => { e.stopPropagation(); onSelect(file); onContextMenu(e, file); }}
+                  >
                     {getModifiedStr(file)}
                   </td>
 
                   {/* Owner (remote only) */}
                   {pane === 'remote' && (
-                    <td className="px-2 text-[var(--text-subtle)] font-mono text-[12px] align-middle whitespace-nowrap">
+                    <td
+                      className="px-2 text-[var(--text-subtle)] font-mono text-[12px] align-middle whitespace-nowrap"
+                      onClick={(e) => { e.stopPropagation(); onSelect(file); onMultiSelectChange([]); }}
+                      onContextMenu={(e) => { e.stopPropagation(); onSelect(file); onContextMenu(e, file); }}
+                    >
                       {(file as RemoteFile).owner}
                     </td>
                   )}
+
+                  {/*
+                    Filler cell — the entire remaining width of the row.
+                    Right-clicking here shows the BLANK context menu, not the item menu.
+                    Left-clicking selects the file (good UX: clicking anywhere in a row selects it).
+                  */}
+                  <td
+                    className="w-full"
+                    onClick={(e) => { e.stopPropagation(); onSelect(file); onMultiSelectChange([]); }}
+                    onContextMenu={(e) => {
+                      e.stopPropagation();
+                      // Right-click on filler area → blank context menu
+                      onEmptyContextMenu(e);
+                    }}
+                  />
                 </tr>
               );
             })}
+
+            {/* Ghost rows — give breathing room + right-click surface below last file */}
+            {Array.from({ length: 8 }).map((_, i) => (
+              <tr
+                key={`ghost-${i}`}
+                className="h-[32px] border-b border-[var(--border-color)]/20"
+                onContextMenu={(e) => { e.stopPropagation(); onEmptyContextMenu(e); }}
+              >
+                <td colSpan={pane === 'remote' ? 6 : 5} />
+              </tr>
+            ))}
           </tbody>
         </table>
-
-        {/* Spacer — always ensures there is empty space below the last row
-            so users can right-click to get the blank context menu */}
-        <div className="h-[150px]" />
       </div>
     </>
   );

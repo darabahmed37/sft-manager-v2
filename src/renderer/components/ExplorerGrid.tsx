@@ -136,7 +136,7 @@ export const ExplorerGrid: React.FC<ExplorerGridProps> = ({
 
       <div
         ref={containerRef}
-        className={`p-${pane === 'local' ? '1.5' : '2'} flex flex-wrap gap-0.5 content-start items-start h-full overflow-auto pr-4`}
+        className={`p-${pane === 'local' ? '1.5' : '2'} flex flex-wrap gap-0.5 content-start items-start h-full overflow-auto`}
         onMouseDown={handleContainerMouseDown}
         onContextMenu={(e) => {
           if (!(e.target as HTMLElement).closest('[data-grid-item]')) {
@@ -241,7 +241,7 @@ export const ExplorerGrid: React.FC<ExplorerGridProps> = ({
           );
         })}
         {/* Spacer for empty-space right-click */}
-        <div className="w-full h-[120px] flex-none" />
+        <div className="w-full h-[100px] flex-none" />
       </div>
     </>
   );
