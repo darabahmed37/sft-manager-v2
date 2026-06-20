@@ -77,7 +77,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
   const [remoteSortAsc, setRemoteSortAsc] = useState(true);
 
   // Layout states
-  const [localWidth, setLocalWidth] = useState(280);
+  const [localWidthPercent, setLocalWidthPercent] = useState(50.0);
   const [isDraggingSeparator, setIsDraggingSeparator] = useState(false);
   const [localColWidths, setLocalColWidths] = useState({
     name: 160,
@@ -100,6 +100,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
 
   const localColWidthsRef = React.useRef(localColWidths);
   const remoteColWidthsRef = React.useRef(remoteColWidths);
+  const localWidthPercentRef = React.useRef(localWidthPercent);
 
   useEffect(() => {
     localColWidthsRef.current = localColWidths;
@@ -108,6 +109,10 @@ export const FileManager: React.FC<FileManagerProps> = ({
   useEffect(() => {
     remoteColWidthsRef.current = remoteColWidths;
   }, [remoteColWidths]);
+
+  useEffect(() => {
+    localWidthPercentRef.current = localWidthPercent;
+  }, [localWidthPercent]);
 
   const saveLayoutSettings = async (updates: any) => {
     if (!connectionId) return;
@@ -139,7 +144,11 @@ export const FileManager: React.FC<FileManagerProps> = ({
               size: settings.localColSize || 70,
               modified: settings.localColModified || 100,
             });
-            setLocalWidth(settings.localColName + (settings.localColSize || 70) + (settings.localColModified || 100) + 30);
+          }
+          if (settings.localPanelWidth !== undefined) {
+            setLocalWidthPercent(settings.localPanelWidth);
+          } else {
+            setLocalWidthPercent(50.0);
           }
           if (settings.remoteColName) {
             setRemoteColWidths({
@@ -184,11 +193,23 @@ export const FileManager: React.FC<FileManagerProps> = ({
   useEffect(() => {
     if (!isDraggingSeparator) return;
     const handleMouseMove = (e: MouseEvent) => {
-      const newWidth = Math.max(180, Math.min(600, e.clientX));
-      setLocalWidth(newWidth);
+      const percent = (e.clientX / window.innerWidth) * 100;
+      // Allow visual dragging between 5% and 95%
+      const newPercent = Math.max(5, Math.min(95, percent));
+      setLocalWidthPercent(newPercent);
     };
     const handleMouseUp = () => {
       setIsDraggingSeparator(false);
+      const finalPercent = localWidthPercentRef.current;
+      const finalPixels = (finalPercent / 100) * window.innerWidth;
+      
+      // If dragged below 120px threshold, collapse the local panel
+      if (finalPixels < 120) {
+        setLocalCollapsed(true);
+        saveLayoutSettings({ localPanelCollapsed: true });
+      } else {
+        saveLayoutSettings({ localPanelWidth: finalPercent });
+      }
     };
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
@@ -895,7 +916,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
         {/* LOCAL PANEL */}
         {!localCollapsed ? (
           <div 
-            style={{ width: `${localWidth}px` }}
+            style={{ width: `${localWidthPercent}%` }}
             className="flex flex-col border-r border-[var(--border-color)] bg-[var(--bg-panel)] shrink-0 overflow-hidden theme-transition"
           >
             {/* Panel Label & Path */}
@@ -1051,28 +1072,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
               </button>
             </div>
 
-            {/* Sort Bar */}
-            <div className="h-[22px] bg-[var(--bg-panel-header)] border-b border-[var(--border-color)] flex items-center px-2 shrink-0 theme-transition">
-              <span className="text-[11px] text-[var(--text-muted)]">Sort:</span>
-              <button 
-                onClick={() => toggleLocalSort('name')} 
-                className="bg-transparent border-none text-[11px] text-[var(--text-main)] ml-1 cursor-pointer hover:text-[var(--text-main)] font-semibold outline-none"
-              >
-                Name {localSortField === 'name' ? (localSortAsc ? '▲' : '▼') : '↕'}
-              </button>
-              <button 
-                onClick={() => toggleLocalSort('size')} 
-                className="bg-transparent border-none text-[11px] text-[var(--text-main)] ml-2 cursor-pointer hover:text-[var(--text-main)] font-semibold outline-none"
-              >
-                Size {localSortField === 'size' ? (localSortAsc ? '▲' : '▼') : '↕'}
-              </button>
-              <button 
-                onClick={() => toggleLocalSort('modified')} 
-                className="bg-transparent border-none text-[11px] text-[var(--text-main)] ml-2 cursor-pointer hover:text-[var(--text-main)] font-semibold outline-none"
-              >
-                Modified {localSortField === 'modified' ? (localSortAsc ? '▲' : '▼') : '↕'}
-              </button>
-            </div>
+
 
             {/* Local Files View */}
             <div className="flex-1 overflow-y-auto" onContextMenu={(e) => handleBlankContextMenu(e, 'local')}>
@@ -1178,6 +1178,11 @@ export const FileManager: React.FC<FileManagerProps> = ({
             onClick={() => {
               setLocalCollapsed(false);
               saveLayoutSettings({ localPanelCollapsed: false });
+              // If the width is too small, reset it to a standard usable fallback width (e.g. 25%)
+              if (localWidthPercentRef.current < 15) {
+                setLocalWidthPercent(25.0);
+                saveLayoutSettings({ localPanelWidth: 25.0 });
+              }
             }}
             className="w-5 bg-[var(--bg-panel-header)] border-r border-[var(--border-color)] cursor-pointer flex items-center justify-center shrink-0 hover:bg-[var(--bg-panel)] theme-transition"
             title="Expand local panel"
@@ -1398,40 +1403,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
             </button>
           </div>
 
-          {/* Sort Bar */}
-          <div className="h-[22px] bg-[var(--bg-panel-header)] border-b border-[var(--border-color)] flex items-center px-2 shrink-0 theme-transition">
-            <span className="text-[11px] text-[var(--text-muted)]">Sort:</span>
-            <button 
-              onClick={() => toggleRemoteSort('name')} 
-              className="bg-transparent border-none text-[11px] text-[var(--text-main)] ml-1 cursor-pointer hover:text-[var(--text-main)] font-semibold outline-none"
-            >
-              Name {remoteSortField === 'name' ? (remoteSortAsc ? '▲' : '▼') : '↕'}
-            </button>
-            <button 
-              onClick={() => toggleRemoteSort('size')} 
-              className="bg-transparent border-none text-[11px] text-[var(--text-main)] ml-2 cursor-pointer hover:text-[var(--text-main)] font-semibold outline-none"
-            >
-              Size {remoteSortField === 'size' ? (remoteSortAsc ? '▲' : '▼') : '↕'}
-            </button>
-            <button 
-              onClick={() => toggleRemoteSort('modified')} 
-              className="bg-transparent border-none text-[11px] text-[var(--text-main)] ml-2 cursor-pointer hover:text-[var(--text-main)] font-semibold outline-none"
-            >
-              Modified {remoteSortField === 'modified' ? (remoteSortAsc ? '▲' : '▼') : '↕'}
-            </button>
-            <button 
-              onClick={() => toggleRemoteSort('owner')} 
-              className="bg-transparent border-none text-[11px] text-[var(--text-main)] ml-2 cursor-pointer hover:text-[var(--text-main)] font-semibold outline-none"
-            >
-              Owner {remoteSortField === 'owner' ? (remoteSortAsc ? '▲' : '▼') : '↕'}
-            </button>
-            <button 
-              onClick={() => toggleRemoteSort('permissions')} 
-              className="bg-transparent border-none text-[11px] text-[var(--text-main)] ml-2 cursor-pointer hover:text-[var(--text-main)] font-semibold outline-none"
-            >
-              Perms {remoteSortField === 'permissions' ? (remoteSortAsc ? '▲' : '▼') : '↕'}
-            </button>
-          </div>
+
 
           {/* Remote Files list content */}
           <div className="flex-1 overflow-auto h-full" onContextMenu={(e) => handleBlankContextMenu(e, 'remote')}>
@@ -1679,7 +1651,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
                 }}
                 className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
               >
-                {contextMenu.pane === 'local' ? '📤 Upload to Remote' : '📥 Download to Local'}
+                {contextMenu.pane === 'local' ? '📤 Upload' : '📥 Download'}
               </button>
               <div className="border-t border-[var(--border-color)]/40 my-1"></div>
               <button 

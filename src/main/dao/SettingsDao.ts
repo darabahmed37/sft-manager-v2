@@ -25,6 +25,7 @@ export interface KnownHost {
 export interface ConnectionSettings {
   connectionId: number;
   localPanelCollapsed: boolean;
+  localPanelWidth: number;
   localSortField: string;
   localSortAsc: boolean;
   localFilterText: string;
@@ -208,6 +209,7 @@ export class SettingsDao {
     try {
       const row = db.prepare(`
         SELECT connection_id as connectionId, local_panel_collapsed as localPanelCollapsed,
+               local_panel_width as localPanelWidth,
                local_sort_field as localSortField, local_sort_asc as localSortAsc, local_filter_text as localFilterText,
                remote_sort_field as remoteSortField, remote_sort_asc as remoteSortAsc, remote_filter_text as remoteFilterText,
                local_col_name as localColName, local_col_size as localColSize, local_col_modified as localColModified,
@@ -241,6 +243,10 @@ export class SettingsDao {
       if (settings.localPanelCollapsed !== undefined) {
         fields.push('local_panel_collapsed = ?');
         values.push(settings.localPanelCollapsed ? 1 : 0);
+      }
+      if (settings.localPanelWidth !== undefined) {
+        fields.push('local_panel_width = ?');
+        values.push(settings.localPanelWidth);
       }
       if (settings.localSortField !== undefined) {
         fields.push('local_sort_field = ?');

@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS connections (
 CREATE TABLE IF NOT EXISTS connection_settings (
     connection_id         INTEGER PRIMARY KEY REFERENCES connections(id) ON DELETE CASCADE,
     local_panel_collapsed INTEGER NOT NULL DEFAULT 0,
+    local_panel_width     REAL    NOT NULL DEFAULT 50.0,
     local_sort_field      TEXT    NOT NULL DEFAULT 'Name',
     local_sort_asc        INTEGER NOT NULL DEFAULT 1,
     local_filter_text     TEXT    NOT NULL DEFAULT '',
