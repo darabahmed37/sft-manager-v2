@@ -79,6 +79,17 @@ export const FileManager: React.FC<FileManagerProps> = ({
   // Layout states
   const [localWidthPercent, setLocalWidthPercent] = useState(50.0);
   const [isDraggingSeparator, setIsDraggingSeparator] = useState(false);
+
+  // Active panel and selected items state
+  const [activePanel, setActivePanel] = useState<'local' | 'remote'>('local');
+  const [selectedLocalFile, setSelectedLocalFile] = useState<LocalFile | null>(null);
+  const [selectedRemoteFile, setSelectedRemoteFile] = useState<RemoteFile | null>(null);
+
+  // Directory history state
+  const [localHistory, setLocalHistory] = useState<string[]>([]);
+  const [localHistoryIdx, setLocalHistoryIdx] = useState(-1);
+  const [remoteHistory, setRemoteHistory] = useState<string[]>([]);
+  const [remoteHistoryIdx, setRemoteHistoryIdx] = useState(-1);
   const [localColWidths, setLocalColWidths] = useState({
     name: 160,
     size: 70,
@@ -388,6 +399,68 @@ export const FileManager: React.FC<FileManagerProps> = ({
     }
   };
 
+  const changeLocalDirectory = async (dirPath: string, pushState = true) => {
+    setSelectedLocalFile(null); // Clear selection on navigate
+    await loadLocalDirectory(dirPath);
+    if (pushState) {
+      setLocalHistory(prev => {
+        const next = prev.slice(0, localHistoryIdx + 1);
+        next.push(dirPath);
+        return next;
+      });
+      setLocalHistoryIdx(prev => prev + 1);
+    }
+  };
+
+  const changeRemoteDirectory = async (dirPath: string, pushState = true) => {
+    setSelectedRemoteFile(null); // Clear selection on navigate
+    await loadRemoteDirectory(dirPath);
+    if (pushState) {
+      setRemoteHistory(prev => {
+        const next = prev.slice(0, remoteHistoryIdx + 1);
+        next.push(dirPath);
+        return next;
+      });
+      setRemoteHistoryIdx(prev => prev + 1);
+    }
+  };
+
+  const handleLocalHistoryBack = () => {
+    if (localHistoryIdx > 0) {
+      const prevIdx = localHistoryIdx - 1;
+      setLocalHistoryIdx(prevIdx);
+      loadLocalDirectory(localHistory[prevIdx]);
+      setSelectedLocalFile(null);
+    }
+  };
+
+  const handleLocalHistoryForward = () => {
+    if (localHistoryIdx < localHistory.length - 1) {
+      const nextIdx = localHistoryIdx + 1;
+      setLocalHistoryIdx(nextIdx);
+      loadLocalDirectory(localHistory[nextIdx]);
+      setSelectedLocalFile(null);
+    }
+  };
+
+  const handleRemoteHistoryBack = () => {
+    if (remoteHistoryIdx > 0) {
+      const prevIdx = remoteHistoryIdx - 1;
+      setRemoteHistoryIdx(prevIdx);
+      loadRemoteDirectory(remoteHistory[prevIdx]);
+      setSelectedRemoteFile(null);
+    }
+  };
+
+  const handleRemoteHistoryForward = () => {
+    if (remoteHistoryIdx < remoteHistory.length - 1) {
+      const nextIdx = remoteHistoryIdx + 1;
+      setRemoteHistoryIdx(nextIdx);
+      loadRemoteDirectory(remoteHistory[nextIdx]);
+      setSelectedRemoteFile(null);
+    }
+  };
+
   // Initialize directories on mount
   useEffect(() => {
     const initDirs = async () => {
@@ -426,6 +499,12 @@ export const FileManager: React.FC<FileManagerProps> = ({
           loadLocalDirectory(localPath),
           loadRemoteDirectory(remotePath),
         ]);
+
+        // Initialize history arrays on mount
+        setLocalHistory([localPath]);
+        setLocalHistoryIdx(0);
+        setRemoteHistory([remotePath]);
+        setRemoteHistoryIdx(0);
       } catch (err: any) {
         setErrorMsg(`Initialization failed: ${err.message}`);
       } finally {
@@ -440,28 +519,28 @@ export const FileManager: React.FC<FileManagerProps> = ({
   const handleLocalDblClick = (file: LocalFile) => {
     if (file.isDirectory) {
       const nextDir = joinLocalPath(localCurrentDir, file.name);
-      loadLocalDirectory(nextDir);
+      changeLocalDirectory(nextDir);
     }
   };
 
   const handleRemoteDblClick = (file: RemoteFile) => {
     if (file.isDirectory) {
       const nextDir = joinRemotePath(remoteCurrentDir, file.name);
-      loadRemoteDirectory(nextDir);
+      changeRemoteDirectory(nextDir);
     }
   };
 
   const handleLocalUp = () => {
     const parent = getParentLocal(localCurrentDir);
     if (parent !== localCurrentDir) {
-      loadLocalDirectory(parent);
+      changeLocalDirectory(parent);
     }
   };
 
   const handleRemoteUp = () => {
     const parent = getParentRemote(remoteCurrentDir);
     if (parent !== remoteCurrentDir) {
-      loadRemoteDirectory(parent);
+      changeRemoteDirectory(parent);
     }
   };
 
@@ -492,7 +571,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
           const finalIdx = activeIdx >= 0 ? activeIdx : 0;
           setActiveRemoteTabIdx(finalIdx);
           if (localCollapsed && mapped[finalIdx]) {
-            loadRemoteDirectory(mapped[finalIdx].path);
+            changeRemoteDirectory(mapped[finalIdx].path, true);
           }
         } else {
           const defaultPath = remoteCurrentDir || remoteHome || '/';
@@ -513,7 +592,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
     setActiveRemoteTabIdx(idx);
     const tab = remoteTabs[idx];
     if (tab) {
-      loadRemoteDirectory(tab.path);
+      changeRemoteDirectory(tab.path, false);
     }
   };
 
@@ -522,7 +601,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
     const nextTabs = [...remoteTabs, { path: newPath, isPinned: false }];
     setRemoteTabs(nextTabs);
     setActiveRemoteTabIdx(nextTabs.length - 1);
-    loadRemoteDirectory(newPath);
+    changeRemoteDirectory(newPath, false);
   };
 
   const handleCloseRemoteTab = (idx: number, e: React.MouseEvent) => {
@@ -536,7 +615,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
     setRemoteTabs(nextTabs);
     setActiveRemoteTabIdx(nextIdx);
     if (nextTabs[nextIdx]) {
-      loadRemoteDirectory(nextTabs[nextIdx].path);
+      changeRemoteDirectory(nextTabs[nextIdx].path, false);
     }
     savePinnedTabsToDb(nextTabs, nextIdx);
   };
@@ -574,6 +653,52 @@ export const FileManager: React.FC<FileManagerProps> = ({
     document.addEventListener('click', hideMenus);
     return () => document.removeEventListener('click', hideMenus);
   }, []);
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept keybinds if the user is currently typing in an input/textarea
+      const activeEl = document.activeElement;
+      if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.hasAttribute('contenteditable'))) {
+        return;
+      }
+
+      if (e.key === 'F5' || (e.ctrlKey && e.key === 'r')) {
+        e.preventDefault();
+        handleRefresh(activePanel);
+      } else if (e.key === 'F2') {
+        e.preventDefault();
+        if (activePanel === 'local' && selectedLocalFile) {
+          handleRename('local', selectedLocalFile);
+        } else if (activePanel === 'remote' && selectedRemoteFile) {
+          handleRename('remote', selectedRemoteFile);
+        }
+      } else if (e.key === 'Delete') {
+        e.preventDefault();
+        if (activePanel === 'local' && selectedLocalFile) {
+          handleDelete('local', selectedLocalFile);
+        } else if (activePanel === 'remote' && selectedRemoteFile) {
+          handleDelete('remote', selectedRemoteFile);
+        }
+      } else if (e.key === 'Backspace' || (e.altKey && e.key === 'ArrowLeft')) {
+        e.preventDefault();
+        if (activePanel === 'local') {
+          handleLocalHistoryBack();
+        } else {
+          handleRemoteHistoryBack();
+        }
+      } else if (e.altKey && e.key === 'ArrowRight') {
+        e.preventDefault();
+        if (activePanel === 'local') {
+          handleLocalHistoryForward();
+        } else {
+          handleRemoteHistoryForward();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [activePanel, selectedLocalFile, selectedRemoteFile, localHistory, localHistoryIdx, remoteHistory, remoteHistoryIdx]);
 
   const handleItemContextMenu = (e: React.MouseEvent, pane: 'local' | 'remote', item: any) => {
     e.preventDefault();
@@ -941,10 +1066,20 @@ export const FileManager: React.FC<FileManagerProps> = ({
 
             {/* Navigation Toolbar */}
             <div className="h-8 bg-[var(--bg-panel)] border-b border-[var(--border-color)] flex items-center px-1 shrink-0 theme-transition">
-              <button title="Back" className="w-6 h-6 bg-transparent border-none cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)] flex items-center justify-center rounded-[3px] outline-none transition-colors">
+              <button 
+                title="Back" 
+                onClick={handleLocalHistoryBack} 
+                disabled={localHistoryIdx <= 0}
+                className={`w-6 h-6 bg-transparent border-none cursor-pointer flex items-center justify-center rounded-[3px] outline-none transition-colors ${localHistoryIdx <= 0 ? 'opacity-40 cursor-default text-[var(--text-subtle)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)]'}`}
+              >
                 <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.7"><polyline points="8,2 4,6.5 8,11"/></svg>
               </button>
-              <button title="Forward" className="w-6 h-6 bg-transparent border-none cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)] flex items-center justify-center rounded-[3px] outline-none transition-colors">
+              <button 
+                title="Forward" 
+                onClick={handleLocalHistoryForward} 
+                disabled={localHistoryIdx >= localHistory.length - 1}
+                className={`w-6 h-6 bg-transparent border-none cursor-pointer flex items-center justify-center rounded-[3px] outline-none transition-colors ${localHistoryIdx >= localHistory.length - 1 ? 'opacity-40 cursor-default text-[var(--text-subtle)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)]'}`}
+              >
                 <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.7"><polyline points="5,2 9,6.5 5,11"/></svg>
               </button>
               <button 
@@ -955,14 +1090,14 @@ export const FileManager: React.FC<FileManagerProps> = ({
                 <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.7"><polyline points="2,9 6.5,4 11,9"/></svg>
               </button>
               <button 
-                onClick={() => loadLocalDirectory(localHome)} 
+                onClick={() => changeLocalDirectory(localHome)} 
                 title="Home" 
                 className="w-6 h-6 bg-transparent border-none cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)] flex items-center justify-center rounded-[3px] outline-none transition-colors"
               >
                 <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M2 8L7 3l5 5M4 6.5V12h2.5V9h1V12H10V6.5"/></svg>
               </button>
               <button 
-                onClick={() => loadLocalDirectory(localCurrentDir)} 
+                onClick={() => changeLocalDirectory(localCurrentDir, false)} 
                 title="Refresh" 
                 className="w-6 h-6 bg-transparent border-none cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)] flex items-center justify-center rounded-[3px] outline-none transition-colors"
               >
@@ -1075,11 +1210,11 @@ export const FileManager: React.FC<FileManagerProps> = ({
 
 
             {/* Local Files View */}
-            <div className="flex-1 overflow-y-auto" onContextMenu={(e) => handleBlankContextMenu(e, 'local')}>
+            <div className="flex-1 overflow-y-auto" onContextMenu={(e) => handleBlankContextMenu(e, 'local')} onClick={() => setActivePanel('local')}>
               {localLoading ? (
                 <div className="h-full flex items-center justify-center text-xs text-[var(--text-muted)] font-mono">Loading...</div>
               ) : localView === 'list' ? (
-                <div className="flex-1 overflow-auto h-full">
+                <div className="flex-1 overflow-auto h-full pr-4" onClick={() => setActivePanel('local')}>
                   <table className="w-full border-collapse text-[13px] table-fixed">
                     <colgroup>
                       <col style={{ width: '26px' }} />
@@ -1089,25 +1224,25 @@ export const FileManager: React.FC<FileManagerProps> = ({
                     </colgroup>
                     <thead className="sticky top-0 bg-[var(--bg-panel-header)] z-10 border-b border-[var(--border-color)]">
                       <tr className="h-[28px] text-[12px] text-[var(--text-muted)] border-b border-[var(--border-color)]">
-                        <th className="py-1 pl-2 text-left"></th>
+                        <th className="py-1 pl-2 text-left border-r border-[var(--border-color)]/30"></th>
                         <th 
                           onClick={() => toggleLocalSort('name')}
-                          className="relative text-left px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)]"
+                          className="relative text-left px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)] border-r border-[var(--border-color)]/30"
                         >
                           Name {localSortField === 'name' ? (localSortAsc ? '▲' : '▼') : ''}
                           <div 
                             onMouseDown={(e) => handleResizeStart(e, 'local', 'name', localColWidths.name)} 
-                            className="absolute right-0 top-0 bottom-0 w-[5px] cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
+                            className="absolute right-0 top-1 bottom-1 w-[1px] bg-[var(--border-color)]/45 cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
                           />
                         </th>
                         <th 
                           onClick={() => toggleLocalSort('size')}
-                          className="relative text-right px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)]"
+                          className="relative text-right px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)] border-r border-[var(--border-color)]/30"
                         >
                           Size {localSortField === 'size' ? (localSortAsc ? '▲' : '▼') : ''}
                           <div 
                             onMouseDown={(e) => handleResizeStart(e, 'local', 'size', localColWidths.size)} 
-                            className="absolute right-0 top-0 bottom-0 w-[5px] cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
+                            className="absolute right-0 top-1 bottom-1 w-[1px] bg-[var(--border-color)]/45 cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
                           />
                         </th>
                         <th 
@@ -1117,7 +1252,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
                           Modified {localSortField === 'modified' ? (localSortAsc ? '▲' : '▼') : ''}
                           <div 
                             onMouseDown={(e) => handleResizeStart(e, 'local', 'modified', localColWidths.modified)} 
-                            className="absolute right-0 top-0 bottom-0 w-[5px] cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
+                            className="absolute right-0 top-1 bottom-1 w-[1px] bg-[var(--border-color)]/45 cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
                           />
                         </th>
                       </tr>
@@ -1126,9 +1261,19 @@ export const FileManager: React.FC<FileManagerProps> = ({
                       {sortedLocalFiles.map((lf, i) => (
                         <tr 
                           key={i} 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActivePanel('local');
+                            setSelectedLocalFile(lf);
+                          }}
                           onDoubleClick={() => handleLocalDblClick(lf)}
-                          onContextMenu={(e) => handleItemContextMenu(e, 'local', lf)}
-                          className="hover:bg-[var(--glow-color)]/25 active:bg-[var(--glow-color)]/50 cursor-default h-[30px] transition-colors duration-75 border-b border-[var(--border-color)]/50"
+                          onContextMenu={(e) => {
+                            e.stopPropagation();
+                            setActivePanel('local');
+                            setSelectedLocalFile(lf);
+                            handleItemContextMenu(e, 'local', lf);
+                          }}
+                          className={`${selectedLocalFile?.name === lf.name ? 'bg-[var(--glow-color)]/30 text-[var(--active-tab-text)] font-semibold' : 'hover:bg-[var(--glow-color)]/25'} cursor-default h-[30px] transition-colors duration-75 border-b border-[var(--border-color)]/50`}
                         >
                           <td className="pl-1.5 text-center align-middle">
                             {lf.isDirectory ? (
@@ -1146,13 +1291,23 @@ export const FileManager: React.FC<FileManagerProps> = ({
                   </table>
                 </div>
               ) : (
-                <div className="p-1.5 flex flex-wrap gap-0.5 content-start items-start h-full" onContextMenu={(e) => handleBlankContextMenu(e, 'local')}>
+                <div className="p-1.5 flex flex-wrap gap-0.5 content-start items-start h-full pr-4" onContextMenu={(e) => handleBlankContextMenu(e, 'local')} onClick={() => setActivePanel('local')}>
                   {sortedLocalFiles.map((lf, i) => (
                     <div 
                       key={i} 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActivePanel('local');
+                        setSelectedLocalFile(lf);
+                      }}
                       onDoubleClick={() => handleLocalDblClick(lf)}
-                      onContextMenu={(e) => handleItemContextMenu(e, 'local', lf)}
-                      className="w-20 p-1.5 flex flex-col items-center gap-1 cursor-default hover:bg-[var(--glow-color)]/20 rounded-[2px]"
+                      onContextMenu={(e) => {
+                        e.stopPropagation();
+                        setActivePanel('local');
+                        setSelectedLocalFile(lf);
+                        handleItemContextMenu(e, 'local', lf);
+                      }}
+                      className={`w-20 p-1.5 flex flex-col items-center gap-1 cursor-default border rounded-[2px] ${selectedLocalFile?.name === lf.name ? 'bg-[var(--glow-color)]/40 border-[var(--color-primary)]' : 'border-transparent hover:bg-[var(--glow-color)]/20'}`}
                     >
                       {lf.isDirectory ? (
                         <svg width="40" height="34" viewBox="0 0 44 38" fill="none"><path d="M0 6h20l4 5H44v27H0z" fill="var(--color-primary)" opacity="0.85"/><path d="M0 6h20l4 5H44v4H0z" fill="white" opacity="0.15"/></svg>
@@ -1248,10 +1403,20 @@ export const FileManager: React.FC<FileManagerProps> = ({
 
           {/* Remote Navigation Toolbar */}
           <div className="h-8 bg-[var(--bg-panel)] border-b border-[var(--border-color)] flex items-center px-1 shrink-0 theme-transition">
-            <button title="Back" className="w-6 h-6 bg-transparent border-none cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)] flex items-center justify-center rounded-[3px] outline-none transition-colors">
+            <button 
+              title="Back" 
+              onClick={handleRemoteHistoryBack} 
+              disabled={remoteHistoryIdx <= 0}
+              className={`w-6 h-6 bg-transparent border-none cursor-pointer flex items-center justify-center rounded-[3px] outline-none transition-colors ${remoteHistoryIdx <= 0 ? 'opacity-40 cursor-default text-[var(--text-subtle)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)]'}`}
+            >
               <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.7"><polyline points="8,2 4,6.5 8,11"/></svg>
             </button>
-            <button title="Forward" className="w-6 h-6 bg-transparent border-none cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)] flex items-center justify-center rounded-[3px] outline-none transition-colors">
+            <button 
+              title="Forward" 
+              onClick={handleRemoteHistoryForward} 
+              disabled={remoteHistoryIdx >= remoteHistory.length - 1}
+              className={`w-6 h-6 bg-transparent border-none cursor-pointer flex items-center justify-center rounded-[3px] outline-none transition-colors ${remoteHistoryIdx >= remoteHistory.length - 1 ? 'opacity-40 cursor-default text-[var(--text-subtle)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)]'}`}
+            >
               <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.7"><polyline points="5,2 9,6.5 5,11"/></svg>
             </button>
             <button 
@@ -1262,14 +1427,14 @@ export const FileManager: React.FC<FileManagerProps> = ({
               <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.7"><polyline points="2,9 6.5,4 11,9"/></svg>
             </button>
             <button 
-              onClick={() => loadRemoteDirectory(remoteHome)} 
+              onClick={() => changeRemoteDirectory(remoteHome)} 
               title="Home" 
               className="w-6 h-6 bg-transparent border-none cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)] flex items-center justify-center rounded-[3px] outline-none transition-colors"
             >
               <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M2 8L7 3l5 5M4 6.5V12h2.5V9h1V12H10V6.5"/></svg>
             </button>
             <button 
-              onClick={() => loadRemoteDirectory(remoteCurrentDir)} 
+              onClick={() => changeRemoteDirectory(remoteCurrentDir, false)} 
               title="Refresh" 
               className="w-6 h-6 bg-transparent border-none cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)] flex items-center justify-center rounded-[3px] outline-none transition-colors"
             >
@@ -1406,115 +1571,137 @@ export const FileManager: React.FC<FileManagerProps> = ({
 
 
           {/* Remote Files list content */}
-          <div className="flex-1 overflow-auto h-full" onContextMenu={(e) => handleBlankContextMenu(e, 'remote')}>
+          <div className="flex-1 overflow-auto h-full" onContextMenu={(e) => handleBlankContextMenu(e, 'remote')} onClick={() => setActivePanel('remote')}>
             {remoteLoading ? (
               <div className="h-full flex items-center justify-center text-xs text-[var(--text-muted)] font-mono">Loading...</div>
             ) : remoteView === 'list' ? (
-              <table className="w-full border-collapse text-[13px] table-fixed">
-                <colgroup>
-                  <col style={{ width: '26px' }} />
-                  <col style={{ width: `${remoteColWidths.name}px` }} />
-                  <col style={{ width: `${remoteColWidths.size}px` }} />
-                  <col style={{ width: `${remoteColWidths.modified}px` }} />
-                  <col style={{ width: `${remoteColWidths.owner}px` }} />
-                  <col style={{ width: `${remoteColWidths.perms}px` }} />
-                </colgroup>
-                <thead className="sticky top-0 bg-[var(--bg-panel-header)] z-10 border-b border-[var(--border-color)]">
-                  <tr className="h-[28px] text-[12px] text-[var(--text-muted)] border-b border-[var(--border-color)]">
-                    <th className="py-1 pl-2 text-left"><input type="checkbox" className="w-[11px] h-[11px] accent-[var(--color-primary)] cursor-pointer"/></th>
-                    <th 
-                      onClick={() => toggleRemoteSort('name')}
-                      className="relative text-left px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)]"
-                    >
-                      Name {remoteSortField === 'name' ? (remoteSortAsc ? '▲' : '▼') : ''}
-                      <div 
-                        onMouseDown={(e) => handleResizeStart(e, 'remote', 'name', remoteColWidths.name)} 
-                        className="absolute right-0 top-0 bottom-0 w-[5px] cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
-                      />
-                    </th>
-                    <th 
-                      onClick={() => toggleRemoteSort('size')}
-                      className="relative text-right px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)]"
-                    >
-                      Size {remoteSortField === 'size' ? (remoteSortAsc ? '▲' : '▼') : ''}
-                      <div 
-                        onMouseDown={(e) => handleResizeStart(e, 'remote', 'size', remoteColWidths.size)} 
-                        className="absolute right-0 top-0 bottom-0 w-[5px] cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
-                      />
-                    </th>
-                    <th 
-                      onClick={() => toggleRemoteSort('modified')}
-                      className="relative text-left px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)]"
-                    >
-                      Modified {remoteSortField === 'modified' ? (remoteSortAsc ? '▲' : '▼') : ''}
-                      <div 
-                        onMouseDown={(e) => handleResizeStart(e, 'remote', 'modified', remoteColWidths.modified)} 
-                        className="absolute right-0 top-0 bottom-0 w-[5px] cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
-                      />
-                    </th>
-                    <th 
-                      onClick={() => toggleRemoteSort('owner')}
-                      className="relative text-left px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)]"
-                    >
-                      Owner {remoteSortField === 'owner' ? (remoteSortAsc ? '▲' : '▼') : ''}
-                      <div 
-                        onMouseDown={(e) => handleResizeStart(e, 'remote', 'owner', remoteColWidths.owner)} 
-                        className="absolute right-0 top-0 bottom-0 w-[5px] cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
-                      />
-                    </th>
-                    <th 
-                      onClick={() => toggleRemoteSort('permissions')}
-                      className="relative text-left px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)]"
-                    >
-                      Perms {remoteSortField === 'permissions' ? (remoteSortAsc ? '▲' : '▼') : ''}
-                      <div 
-                        onMouseDown={(e) => handleResizeStart(e, 'remote', 'perms', remoteColWidths.perms)} 
-                        className="absolute right-0 top-0 bottom-0 w-[5px] cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
-                      />
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedRemoteFiles.map((rf, i) => (
-                    <tr 
-                      key={i} 
-                      onDoubleClick={() => handleRemoteDblClick(rf)}
-                      onContextMenu={(e) => handleItemContextMenu(e, 'remote', rf)}
-                      className="h-[30px] cursor-default transition-colors duration-75 border-b border-[var(--border-color)]/50 hover:bg-[var(--glow-color)]/25 active:bg-[var(--glow-color)]/50"
-                    >
-                      <td className="pl-2 align-middle">
-                        <input 
-                          type="checkbox" 
-                          onChange={() => {}}
-                          className="w-[11px] h-[11px] accent-[var(--color-primary)] cursor-pointer"
+              <div className="flex-1 overflow-auto h-full pr-4">
+                <table className="w-full border-collapse text-[13px] table-fixed">
+                  <colgroup>
+                    <col style={{ width: '26px' }} />
+                    <col style={{ width: `${remoteColWidths.name}px` }} />
+                    <col style={{ width: `${remoteColWidths.size}px` }} />
+                    <col style={{ width: `${remoteColWidths.modified}px` }} />
+                    <col style={{ width: `${remoteColWidths.owner}px` }} />
+                    <col style={{ width: `${remoteColWidths.perms}px` }} />
+                  </colgroup>
+                  <thead className="sticky top-0 bg-[var(--bg-panel-header)] z-10 border-b border-[var(--border-color)]">
+                    <tr className="h-[28px] text-[12px] text-[var(--text-muted)] border-b border-[var(--border-color)]">
+                      <th className="py-1 pl-2 text-left border-r border-[var(--border-color)]/30"><input type="checkbox" className="w-[11px] h-[11px] accent-[var(--color-primary)] cursor-pointer"/></th>
+                      <th 
+                        onClick={() => toggleRemoteSort('name')}
+                        className="relative text-left px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)] border-r border-[var(--border-color)]/30"
+                      >
+                        Name {remoteSortField === 'name' ? (remoteSortAsc ? '▲' : '▼') : ''}
+                        <div 
+                          onMouseDown={(e) => handleResizeStart(e, 'remote', 'name', remoteColWidths.name)} 
+                          className="absolute right-0 top-1 bottom-1 w-[1px] bg-[var(--border-color)]/45 cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
                         />
-                      </td>
-                      <td className="px-2 align-middle">
-                        <div className="flex items-center gap-1.5 overflow-hidden">
-                          {rf.isDirectory ? (
-                            <svg width="14" height="12" viewBox="0 0 16 14" fill="none" className="shrink-0"><path d="M0 2.5h7l1.5 2H16v9H0z" fill="var(--color-primary)" opacity="0.85"/></svg>
-                          ) : (
-                            <svg width="12" height="14" viewBox="0 0 12 14" fill="none" className="shrink-0"><path d="M0 0h8l4 4v10H0z" fill="currentColor" className="text-[var(--text-muted)]" opacity="0.6"/><path d="M8 0l4 4H8z" fill="currentColor" className="text-[var(--text-subtle)]"/></svg>
-                          )}
-                          <span className="text-[var(--text-main)] overflow-hidden text-ellipsis whitespace-nowrap" title={rf.name}>{rf.name}</span>
-                        </div>
-                      </td>
-                      <td className="px-2 text-right text-[var(--text-muted)] font-mono text-[12px] align-middle whitespace-nowrap">{formatSize(rf.size)}</td>
-                      <td className="px-2 text-[var(--text-subtle)] font-mono text-[12px] align-middle whitespace-nowrap">{rf.date}</td>
-                      <td className="px-2 text-[var(--text-subtle)] font-mono text-[12px] align-middle whitespace-nowrap">{rf.owner}</td>
-                      <td className="px-2 text-[var(--text-subtle)] font-mono text-[12px] align-middle whitespace-nowrap">{rf.permissions}</td>
+                      </th>
+                      <th 
+                        onClick={() => toggleRemoteSort('size')}
+                        className="relative text-right px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)] border-r border-[var(--border-color)]/30"
+                      >
+                        Size {remoteSortField === 'size' ? (remoteSortAsc ? '▲' : '▼') : ''}
+                        <div 
+                          onMouseDown={(e) => handleResizeStart(e, 'remote', 'size', remoteColWidths.size)} 
+                          className="absolute right-0 top-1 bottom-1 w-[1px] bg-[var(--border-color)]/45 cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
+                        />
+                      </th>
+                      <th 
+                        onClick={() => toggleRemoteSort('modified')}
+                        className="relative text-left px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)] border-r border-[var(--border-color)]/30"
+                      >
+                        Modified {remoteSortField === 'modified' ? (remoteSortAsc ? '▲' : '▼') : ''}
+                        <div 
+                          onMouseDown={(e) => handleResizeStart(e, 'remote', 'modified', remoteColWidths.modified)} 
+                          className="absolute right-0 top-1 bottom-1 w-[1px] bg-[var(--border-color)]/45 cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
+                        />
+                      </th>
+                      <th 
+                        onClick={() => toggleRemoteSort('owner')}
+                        className="relative text-left px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)] border-r border-[var(--border-color)]/30"
+                      >
+                        Owner {remoteSortField === 'owner' ? (remoteSortAsc ? '▲' : '▼') : ''}
+                        <div 
+                          onMouseDown={(e) => handleResizeStart(e, 'remote', 'owner', remoteColWidths.owner)} 
+                          className="absolute right-0 top-1 bottom-1 w-[1px] bg-[var(--border-color)]/45 cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
+                        />
+                      </th>
+                      <th 
+                        onClick={() => toggleRemoteSort('permissions')}
+                        className="relative text-left px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)]"
+                      >
+                        Perms {remoteSortField === 'permissions' ? (remoteSortAsc ? '▲' : '▼') : ''}
+                        <div 
+                          onMouseDown={(e) => handleResizeStart(e, 'remote', 'perms', remoteColWidths.perms)} 
+                          className="absolute right-0 top-1 bottom-1 w-[1px] bg-[var(--border-color)]/45 cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
+                        />
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {sortedRemoteFiles.map((rf, i) => (
+                      <tr 
+                        key={i} 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActivePanel('remote');
+                          setSelectedRemoteFile(rf);
+                        }}
+                        onDoubleClick={() => handleRemoteDblClick(rf)}
+                        onContextMenu={(e) => {
+                          e.stopPropagation();
+                          setActivePanel('remote');
+                          setSelectedRemoteFile(rf);
+                          handleItemContextMenu(e, 'remote', rf);
+                        }}
+                        className={`${selectedRemoteFile?.name === rf.name ? 'bg-[var(--glow-color)]/30 text-[var(--active-tab-text)] font-semibold' : 'hover:bg-[var(--glow-color)]/25'} cursor-default h-[30px] transition-colors duration-75 border-b border-[var(--border-color)]/50`}
+                      >
+                        <td className="pl-2 align-middle">
+                          <input 
+                            type="checkbox" 
+                            onChange={() => {}}
+                            className="w-[11px] h-[11px] accent-[var(--color-primary)] cursor-pointer"
+                          />
+                        </td>
+                        <td className="px-2 align-middle">
+                          <div className="flex items-center gap-1.5 overflow-hidden">
+                            {rf.isDirectory ? (
+                              <svg width="14" height="12" viewBox="0 0 16 14" fill="none" className="shrink-0"><path d="M0 2.5h7l1.5 2H16v9H0z" fill="var(--color-primary)" opacity="0.85"/></svg>
+                            ) : (
+                              <svg width="12" height="14" viewBox="0 0 12 14" fill="none" className="shrink-0"><path d="M0 0h8l4 4v10H0z" fill="currentColor" className="text-[var(--text-muted)]" opacity="0.6"/><path d="M8 0l4 4H8z" fill="currentColor" className="text-[var(--text-subtle)]"/></svg>
+                            )}
+                            <span className="text-[var(--text-main)] overflow-hidden text-ellipsis whitespace-nowrap" title={rf.name}>{rf.name}</span>
+                          </div>
+                        </td>
+                        <td className="px-2 text-right text-[var(--text-muted)] font-mono text-[12px] align-middle whitespace-nowrap">{formatSize(rf.size)}</td>
+                        <td className="px-2 text-[var(--text-subtle)] font-mono text-[12px] align-middle whitespace-nowrap">{rf.date}</td>
+                        <td className="px-2 text-[var(--text-subtle)] font-mono text-[12px] align-middle whitespace-nowrap">{rf.owner}</td>
+                        <td className="px-2 text-[var(--text-subtle)] font-mono text-[12px] align-middle whitespace-nowrap">{rf.permissions}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             ) : (
-              <div className="p-2 flex flex-wrap gap-0.5 content-start items-start h-full" onContextMenu={(e) => handleBlankContextMenu(e, 'remote')}>
+              <div className="p-2 flex flex-wrap gap-0.5 content-start items-start h-full pr-4" onContextMenu={(e) => handleBlankContextMenu(e, 'remote')} onClick={() => setActivePanel('remote')}>
                 {sortedRemoteFiles.map((rf, i) => (
                   <div 
                     key={i} 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActivePanel('remote');
+                      setSelectedRemoteFile(rf);
+                    }}
                     onDoubleClick={() => handleRemoteDblClick(rf)}
-                    onContextMenu={(e) => handleItemContextMenu(e, 'remote', rf)}
-                    className="w-[88px] p-2 flex flex-col items-center gap-1 cursor-default rounded-[2px] border border-transparent hover:bg-[var(--glow-color)]/20 hover:border-[var(--color-primary)]/40"
+                    onContextMenu={(e) => {
+                      e.stopPropagation();
+                      setActivePanel('remote');
+                      setSelectedRemoteFile(rf);
+                      handleItemContextMenu(e, 'remote', rf);
+                    }}
+                    className={`w-[88px] p-2 flex flex-col items-center gap-1 cursor-default border rounded-[2px] ${selectedRemoteFile?.name === rf.name ? 'bg-[var(--glow-color)]/40 border-[var(--color-primary)]' : 'border-transparent hover:bg-[var(--glow-color)]/20'}`}
                   >
                     {rf.isDirectory ? (
                       <svg width="48" height="40" viewBox="0 0 52 44" fill="none">
