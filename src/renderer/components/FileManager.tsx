@@ -86,15 +86,15 @@ export const FileManager: React.FC<FileManagerProps> = ({
 
   // Column resizing state
   const [localColWidths, setLocalColWidths] = useState({
-    name: 200,
-    size: 70,
-    modified: 100,
+    name: 400,
+    size: 100,
+    modified: 150,
   });
   const [remoteColWidths, setRemoteColWidths] = useState({
-    name: 220,
-    size: 70,
-    modified: 130,
-    owner: 80,
+    name: 400,
+    size: 100,
+    modified: 150,
+    owner: 100,
   });
   const [activeResizeCol, setActiveResizeCol] = useState<{
     panel: 'local' | 'remote';
@@ -157,8 +157,8 @@ export const FileManager: React.FC<FileManagerProps> = ({
           if (settings.localColName) {
             setLocalColWidths({
               name: settings.localColName,
-              size: settings.localColSize || 70,
-              modified: settings.localColModified || 100,
+              size: settings.localColSize || 100,
+              modified: settings.localColModified || 150,
             });
           }
           if (settings.localPanelWidth !== undefined) {
@@ -169,9 +169,9 @@ export const FileManager: React.FC<FileManagerProps> = ({
           if (settings.remoteColName) {
             setRemoteColWidths({
               name: settings.remoteColName,
-              size: settings.remoteColSize || 70,
-              modified: settings.remoteColModified || 110,
-              owner: settings.remoteColOwner || 80,
+              size: settings.remoteColSize || 100,
+              modified: settings.remoteColModified || 150,
+              owner: settings.remoteColOwner || 100,
             });
           }
         }
