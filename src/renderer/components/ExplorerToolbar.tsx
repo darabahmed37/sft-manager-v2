@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { MdRefresh } from 'react-icons/md';
 import type { Bookmark } from '../global';
 
@@ -51,47 +51,130 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({
   setIsBookmarksOpen,
   onOpenTerminal,
 }) => {
+  const [isEditingPath, setIsEditingPath] = useState(false);
+  const [pathInputVal, setPathInputVal] = useState(currentDir);
+
+  useEffect(() => {
+    setPathInputVal(currentDir);
+  }, [currentDir]);
+
+  const handlePathSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pathInputVal.trim()) {
+      onNavigatePath(pathInputVal.trim());
+    }
+    setIsEditingPath(false);
+  };
+
+  const handlePathKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      setPathInputVal(currentDir);
+      setIsEditingPath(false);
+    }
+  };
+
+  const renderBreadcrumbs = () => {
+    if (!currentDir) {
+      return <span className="text-[var(--text-subtle)] font-mono text-[12px]">Root</span>;
+    }
+
+    const isWindows = pane === 'local' && (currentDir.includes('\\') || (currentDir.length >= 2 && currentDir[1] === ':'));
+    const separator = isWindows ? '\\' : '/';
+    const parts = currentDir.split(separator);
+    
+    return (
+      <div className="flex items-center gap-1 overflow-hidden text-[12px] font-mono text-[var(--text-muted)] select-none">
+        {parts.map((part, idx) => {
+          if (part === '' && idx === 0 && !isWindows) {
+            return (
+              <span 
+                key={idx} 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onNavigatePath('/');
+                }}
+                className="cursor-pointer hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)] px-1 py-0.5 rounded transition-all"
+              >
+                /
+              </span>
+            );
+          }
+          if (part === '') return null;
+          
+          let pathTarget = '';
+          if (isWindows) {
+            pathTarget = parts.slice(0, idx + 1).join('\\');
+            if (pathTarget.endsWith(':')) pathTarget += '\\';
+          } else {
+            pathTarget = '/' + parts.slice(1, idx + 1).join('/');
+          }
+          
+          return (
+            <React.Fragment key={idx}>
+              {idx > 0 && <span className="text-[var(--text-subtle)] text-[10px] select-none mx-0.5">›</span>}
+              <span 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onNavigatePath(pathTarget);
+                }} 
+                className="cursor-pointer hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)] px-1 py-0.5 rounded transition-all whitespace-nowrap"
+                title={pathTarget}
+              >
+                {part}
+              </span>
+            </React.Fragment>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
-    <div className="h-9 bg-[var(--bg-panel)] border-b border-[var(--border-color)] flex items-center px-2 shrink-0 theme-transition">
-      <button 
-        title="Back" 
-        onClick={onGoBack} 
-        disabled={!canGoBack}
-        className={`w-7 h-7 bg-transparent border-none cursor-pointer flex items-center justify-center rounded-[4px] outline-none transition-colors ${!canGoBack ? 'opacity-40 cursor-default text-[var(--text-subtle)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)]'}`}
-      >
-        <svg width="14" height="14" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.7"><polyline points="8,2 4,6.5 8,11"/></svg>
-      </button>
-      <button 
-        title="Forward" 
-        onClick={onGoForward} 
-        disabled={!canGoForward}
-        className={`w-7 h-7 bg-transparent border-none cursor-pointer flex items-center justify-center rounded-[4px] outline-none transition-colors ${!canGoForward ? 'opacity-40 cursor-default text-[var(--text-subtle)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)]'}`}
-      >
-        <svg width="14" height="14" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.7"><polyline points="5,2 9,6.5 5,11"/></svg>
-      </button>
-      <button 
-        onClick={onGoUp} 
-        title="Up" 
-        className="w-7 h-7 bg-transparent border-none cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)] flex items-center justify-center rounded-[4px] outline-none transition-colors"
-      >
-        <svg width="14" height="14" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.7"><polyline points="2,9 6.5,4 11,9"/></svg>
-      </button>
-      <button 
-        onClick={onGoHome} 
-        title="Home" 
-        className="w-7 h-7 bg-transparent border-none cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)] flex items-center justify-center rounded-[4px] outline-none transition-colors"
-      >
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M2 8L7 3l5 5M4 6.5V12h2.5V9h1V12H10V6.5"/></svg>
-      </button>
-      <button 
-        onClick={onRefresh} 
-        title="Refresh (F5)" 
-        className="h-7 px-2.5 bg-transparent border-none cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)] flex items-center gap-1.5 rounded-[4px] outline-none transition-colors shrink-0"
-      >
-        <MdRefresh size={16} />
-        <span className="text-[12px] font-medium">Refresh</span>
-      </button>
-      
+    <div className="h-10 bg-[var(--bg-panel)] border-b border-[var(--border-color)] flex items-center px-2 shrink-0 theme-transition relative">
+      {/* Navigation Cluster */}
+      <div className="flex items-center gap-0.5 shrink-0">
+        <button 
+          title="Back" 
+          onClick={onGoBack} 
+          disabled={!canGoBack}
+          className={`w-7 h-7 bg-transparent border-none cursor-pointer flex items-center justify-center rounded-[4px] outline-none transition-colors ${!canGoBack ? 'opacity-40 cursor-default text-[var(--text-subtle)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)]'}`}
+        >
+          <svg width="14" height="14" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.7"><polyline points="8,2 4,6.5 8,11"/></svg>
+        </button>
+        <button 
+          title="Forward" 
+          onClick={onGoForward} 
+          disabled={!canGoForward}
+          className={`w-7 h-7 bg-transparent border-none cursor-pointer flex items-center justify-center rounded-[4px] outline-none transition-colors ${!canGoForward ? 'opacity-40 cursor-default text-[var(--text-subtle)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)]'}`}
+        >
+          <svg width="14" height="14" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.7"><polyline points="5,2 9,6.5 5,11"/></svg>
+        </button>
+        <button 
+          onClick={onGoUp} 
+          title="Up" 
+          className="w-7 h-7 bg-transparent border-none cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)] flex items-center justify-center rounded-[4px] outline-none transition-colors"
+        >
+          <svg width="14" height="14" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.7"><polyline points="2,9 6.5,4 11,9"/></svg>
+        </button>
+        <button 
+          onClick={onGoHome} 
+          title="Home" 
+          className="w-7 h-7 bg-transparent border-none cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)] flex items-center justify-center rounded-[4px] outline-none transition-colors"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M2 8L7 3l5 5M4 6.5V12h2.5V9h1V12H10V6.5"/></svg>
+        </button>
+        <button 
+          onClick={onRefresh} 
+          title="Refresh (F5)" 
+          className="w-7 h-7 bg-transparent border-none cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)] flex items-center justify-center rounded-[4px] outline-none transition-colors shrink-0"
+        >
+          <MdRefresh size={18} />
+        </button>
+      </div>
+
+      <div className="w-[1px] h-5 bg-[var(--border-color)] mx-2 shrink-0"></div>
+
+      {/* Bookmarks */}
       <div className="relative shrink-0">
         <button 
           onClick={() => setIsBookmarksOpen(!isBookmarksOpen)} 
@@ -148,70 +231,86 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({
           </div>
         )}
       </div>
-      
-      <div className="w-[1px] h-5 bg-[var(--border-color)] mx-1.5 shrink-0"></div>
-      
-      {pane === 'remote' ? (
-        <div className="flex-1 flex items-center gap-1 overflow-hidden px-1.5 font-mono text-[12px] text-[var(--text-muted)] select-text">
-          {currentDir.split('/').map((part, idx, arr) => {
-            if (idx === 0 && part === '') {
-              return <span key={idx} onClick={() => onNavigatePath('/')} className="cursor-pointer hover:text-[var(--text-main)] transition-colors">/</span>;
-            }
-            if (part === '') return null;
-            const pathTarget = '/' + arr.slice(1, idx + 1).join('/');
-            return (
-              <React.Fragment key={idx}>
-                <span onClick={() => onNavigatePath(pathTarget)} className="cursor-pointer hover:text-[var(--text-main)] transition-colors">{part}</span>
-                {idx < arr.length - 1 && <span>/</span>}
-              </React.Fragment>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="flex-1"></div>
-      )}
 
-      <div className="w-[1px] h-5 bg-[var(--border-color)] mx-1.5 shrink-0"></div>
-      
+      <div className="w-[1px] h-5 bg-[var(--border-color)] mx-2 shrink-0"></div>
+
+      {/* Path Address Bar (Breadcrumbs click-to-edit) */}
+      <div className="flex-1 flex items-center overflow-hidden h-full">
+        {isEditingPath ? (
+          <form onSubmit={handlePathSubmit} className="flex-1 pr-2 flex items-center">
+            <input
+              type="text"
+              value={pathInputVal}
+              onChange={(e) => setPathInputVal(e.target.value)}
+              onKeyDown={handlePathKeyDown}
+              onBlur={() => {
+                setTimeout(() => {
+                  setIsEditingPath(false);
+                  setPathInputVal(currentDir);
+                }, 180);
+              }}
+              autoFocus
+              className="w-full bg-[var(--input-bg)] border border-[var(--input-focus-border)] rounded-[4px] py-1 px-2.5 text-[var(--text-main)] text-[12.5px] font-mono outline-none"
+            />
+          </form>
+        ) : (
+          <div 
+            onClick={() => {
+              setPathInputVal(currentDir);
+              setIsEditingPath(true);
+            }}
+            className="flex-1 flex items-center gap-1 overflow-hidden px-2 py-1 rounded hover:bg-white/5 cursor-text min-h-[28px]"
+          >
+            {renderBreadcrumbs()}
+          </div>
+        )}
+      </div>
+
+      <div className="w-[1px] h-5 bg-[var(--border-color)] mx-2 shrink-0"></div>
+
+      {/* Search Input */}
       <div className="relative shrink-0">
         <input 
           type="text" 
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Search…" 
-          className="w-[160px] bg-[var(--input-bg)] border border-[var(--input-border)] hover:border-[var(--text-subtle)] focus:border-[var(--input-focus-border)] rounded-[4px] py-1 pl-6.5 pr-1.5 text-[var(--text-main)] placeholder-[var(--text-subtle)] text-[12px] outline-none transition-all"
+          className="w-[140px] bg-[var(--input-bg)] border border-[var(--input-border)] hover:border-[var(--text-subtle)] focus:border-[var(--input-focus-border)] rounded-[4px] py-1 pl-6.5 pr-1.5 text-[var(--text-main)] placeholder-[var(--text-subtle)] text-[12px] outline-none transition-all"
         />
         <svg className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-[var(--text-subtle)]" width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="5.5" cy="5.5" r="3.5"/><line x1="8.5" y1="8.5" x2="11" y2="11"/></svg>
       </div>
 
-      <div className="w-[1px] h-5 bg-[var(--border-color)] mx-1.5 shrink-0"></div>
-      
-      <button 
-        onClick={() => onViewModeChange('list')} 
-        title="List view" 
-        className={`w-7 h-7 border-none cursor-pointer flex items-center justify-center rounded-[4px] outline-none transition-all ${viewMode === 'list' ? 'bg-[var(--glow-color)] text-[var(--active-tab-text)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
-      >
-        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.6"><line x1="4" y1="3" x2="12" y2="3"/><line x1="4" y1="6.5" x2="12" y2="6.5"/><line x1="4" y1="10" x2="12" y2="10"/><rect x="1" y="2" width="2" height="2" fill="currentColor"/><rect x="1" y="5.5" width="2" height="2" fill="currentColor"/><rect x="1" y="9" width="2" height="2" fill="currentColor"/></svg>
-      </button>
-      <button 
-        onClick={() => onViewModeChange('grid')} 
-        title="Grid view" 
-        className={`w-7 h-7 border-none cursor-pointer flex items-center justify-center rounded-[4px] outline-none transition-all ${viewMode === 'grid' ? 'bg-[var(--glow-color)] text-[var(--active-tab-text)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
-      >
-        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1" y="1" width="4.5" height="4.5" rx="0.5"/><rect x="7.5" y="1" width="4.5" height="4.5" rx="0.5"/><rect x="1" y="7.5" width="4.5" height="4.5" rx="0.5"/><rect x="7.5" y="7.5" width="4.5" height="4.5" rx="0.5"/></svg>
-      </button>
+      <div className="w-[1px] h-5 bg-[var(--border-color)] mx-2 shrink-0"></div>
 
-      {pane === 'remote' && onOpenTerminal && (
-        <>
+      {/* View Mode Toggle */}
+      <div className="flex items-center gap-0.5 shrink-0">
+        <button 
+          onClick={() => onViewModeChange('list')} 
+          title="List view" 
+          className={`w-7 h-7 border-none cursor-pointer flex items-center justify-center rounded-[4px] outline-none transition-all ${viewMode === 'list' ? 'bg-[var(--glow-color)] text-[var(--active-tab-text)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
+        >
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.6"><line x1="4" y1="3" x2="12" y2="3"/><line x1="4" y1="6.5" x2="12" y2="6.5"/><line x1="4" y1="10" x2="12" y2="10"/><rect x="1" y="2" width="2" height="2" fill="currentColor"/><rect x="1" y="5.5" width="2" height="2" fill="currentColor"/><rect x="1" y="9" width="2" height="2" fill="currentColor"/></svg>
+        </button>
+        <button 
+          onClick={() => onViewModeChange('grid')} 
+          title="Grid view" 
+          className={`w-7 h-7 border-none cursor-pointer flex items-center justify-center rounded-[4px] outline-none transition-all ${viewMode === 'grid' ? 'bg-[var(--glow-color)] text-[var(--active-tab-text)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
+        >
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1" y="1" width="4.5" height="4.5" rx="0.5"/><rect x="7.5" y="1" width="4.5" height="4.5" rx="0.5"/><rect x="1" y="7.5" width="4.5" height="4.5" rx="0.5"/><rect x="7.5" y="7.5" width="4.5" height="4.5" rx="0.5"/></svg>
+        </button>
+
+        {pane === 'remote' && onOpenTerminal && (
           <button 
             onClick={onOpenTerminal} 
             title="Open Terminal Window" 
-            className="w-7 h-7 border-none cursor-pointer flex items-center justify-center rounded-[4px] ml-0.5 outline-none text-[var(--text-muted)] hover:text-[var(--active-tab-text)] hover:bg-[var(--glow-color)]/25 transition-colors"
+            className="w-7 h-7 border-none cursor-pointer flex items-center justify-center rounded-[4px] outline-none text-[var(--text-muted)] hover:text-[var(--active-tab-text)] hover:bg-[var(--glow-color)]/25 transition-colors"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="1.5" y="2" width="11" height="10" rx="1.5"/><polyline points="4,5.5 6.5,8 4,10.5"/><line x1="7.5" y1="10.5" x2="11" y2="10.5"/></svg>
           </button>
-        </>
-      )}
+        )}
+      </div>
     </div>
   );
 };
+
+export default ExplorerToolbar;

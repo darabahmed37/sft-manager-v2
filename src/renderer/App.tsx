@@ -312,81 +312,17 @@ function App() {
     <div className="h-screen flex flex-col bg-[var(--bg-app)] text-[var(--text-main)] overflow-hidden theme-transition">
       {/* Title Bar */}
       <TitleBar 
-        title={title} 
         theme={theme} 
-        onToggleTheme={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} 
+        onToggleTheme={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+        tabs={tabs}
+        activeTabId={activeTabId}
+        setActiveTabId={setActiveTabId}
+        onCloseTab={handleCloseTab}
+        onNewConnection={() => {
+          setEditingConnectionId(null);
+          setIsWizardOpen(true);
+        }}
       />
-
-      {/* Session Tab Strip */}
-      <div className="h-[36px] bg-[var(--bg-app)] border-b border-[var(--border-color)] flex items-end shrink-0 overflow-hidden select-none">
-        {/* Connections home tab */}
-        <div 
-          onClick={() => setActiveTabId('connections')}
-          className={`h-8 px-4 flex items-center gap-1.5 text-[12.5px] cursor-pointer border-r border-[var(--border-color)] shrink-0 border-t ${
-            activeTabId === 'connections' 
-              ? 'bg-[var(--bg-panel)] text-[var(--active-tab-text)] border-t-transparent border-b border-b-[var(--bg-panel)] font-medium' 
-              : 'bg-[var(--bg-panel-header)] text-[var(--text-muted)] border-t-transparent border-b border-b-[var(--border-color)] hover:bg-[var(--bg-panel)] hover:text-[var(--text-main)]'
-          }`}
-          style={activeTabId === 'connections' ? { boxShadow: 'inset 0 -2px 0 var(--color-primary)' } as React.CSSProperties : undefined}
-        >
-          <svg className="w-3 h-3 text-[var(--text-muted)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4">
-            <rect x="1" y="2" width="10" height="8" rx="1"/>
-            <line x1="1" y1="4.5" x2="11" y2="4.5"/>
-            <line x1="3.5" y1="6.5" x2="5.5" y2="6.5"/>
-            <line x1="3.5" y1="8" x2="7.5" y2="8"/>
-          </svg>
-          Connections
-        </div>
-
-        {/* Active connection tabs */}
-        {tabs.filter(t => t.type === 'connection').map((tab) => {
-          const isActive = activeTabId === tab.id;
-          const statusDotColor = tab.status === 'connected' ? '#4ec9b0' : tab.status === 'failed' ? '#f44747' : '#29ABEE';
-          return (
-            <div 
-              key={tab.id}
-              onClick={() => setActiveTabId(tab.id)}
-              className={`h-8 px-4 flex items-center gap-1.5 text-[12.5px] cursor-pointer border-r border-[var(--border-color)] shrink-0 border-t ${
-                isActive 
-                  ? 'bg-[var(--bg-panel)] text-[var(--active-tab-text)] border-t-transparent border-b border-b-[var(--bg-panel)] font-medium' 
-                  : 'bg-[var(--bg-panel-header)] text-[var(--text-muted)] border-t-transparent border-b border-b-[var(--border-color)] hover:bg-[var(--bg-panel)] hover:text-[var(--text-main)]'
-              }`}
-              style={isActive ? { boxShadow: 'inset 0 -2px 0 var(--color-primary)' } as React.CSSProperties : undefined}
-            >
-              <div 
-                className="w-2 h-2 rounded-full shrink-0 transition-colors duration-300"
-                style={{ 
-                  backgroundColor: statusDotColor,
-                  boxShadow: tab.status === 'connecting' ? '0 0 3px #29ABEE' : tab.status === 'connected' ? '0 0 3px #4ec9b0' : 'none' 
-                }}
-              ></div>
-              <span>{tab.name}</span>
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleCloseTab(tab.id);
-                }}
-                className="ml-1.5 w-5 h-5 rounded-sm hover:bg-[var(--border-color)] hover:text-[var(--text-main)] flex items-center justify-center text-[14px] leading-none mt-[-1px] outline-none cursor-pointer text-[var(--text-subtle)] transition-colors"
-              >
-                ×
-              </button>
-            </div>
-          );
-        })}
-
-        {/* Plus tab button */}
-        <div 
-          onClick={() => {
-            setEditingConnectionId(null);
-            setIsWizardOpen(true);
-          }}
-          className="h-8 w-[36px] flex items-center justify-center cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] text-[18px] mt-[-1px] shrink-0 border-b border-[var(--border-color)]"
-          title="New Connection"
-        >
-          +
-        </div>
-        <div className="flex-1 border-b border-b-[var(--border-color)]"></div>
-      </div>
 
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">

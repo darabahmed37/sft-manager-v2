@@ -168,65 +168,82 @@ export const ExplorerPanel: React.FC<ExplorerPanelProps> = ({
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
-      {/* Panel Label & Info Header */}
-      <div className="h-[32px] bg-[var(--bg-panel-header)] border-b border-[var(--border-color)] flex items-center px-2.5 gap-1.5 shrink-0 theme-transition">
-        <span className="text-[11.5px] font-bold text-[var(--text-subtle)] uppercase tracking-widest flex-shrink-0">
-          {pane === 'local' ? 'Local' : 'Remote'}
-        </span>
-        <span 
-          className="text-[12px] font-mono text-[var(--text-muted)] overflow-hidden text-ellipsis whitespace-nowrap flex-1" 
-          title={pane === 'local' ? currentDir : `${connectionName} — ${username}@${host}:${currentDir}`}
-        >
-          {pane === 'local' ? currentDir : `${connectionName} — ${username}@${host}:${currentDir}`}
-        </span>
-        {pane === 'local' && onCollapse && (
-          <button 
-            onClick={onCollapse} 
-            title="Collapse" 
-            className="bg-transparent border-none p-0.5 cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] flex items-center shrink-0 outline-none"
+      {/* Panel Label & Info Header (hidden on remote panel if local is collapsed to avoid redundancy) */}
+      {!(pane === 'remote' && localCollapsed) && (
+        <div className="h-[32px] bg-[var(--bg-panel-header)] border-b border-[var(--border-color)] flex items-center px-2.5 gap-1.5 shrink-0 theme-transition">
+          <span className="text-[11.5px] font-bold text-[var(--text-subtle)] uppercase tracking-widest flex-shrink-0">
+            {pane === 'local' ? 'Local' : 'Remote'}
+          </span>
+          <span 
+            className="text-[12px] font-mono text-[var(--text-muted)] overflow-hidden text-ellipsis whitespace-nowrap flex-1" 
+            title={pane === 'local' ? currentDir : `${connectionName} — ${username}@${host}:${currentDir}`}
           >
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <polyline points="8,2 3,6 8,10"/>
-            </svg>
-          </button>
-        )}
-      </div>
+            {pane === 'local' ? currentDir : `${connectionName} — ${username}@${host}:${currentDir}`}
+          </span>
+          {pane === 'local' && onCollapse && (
+            <button 
+              onClick={onCollapse} 
+              title="Collapse" 
+              className="bg-transparent border-none p-0.5 cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] flex items-center shrink-0 outline-none"
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <polyline points="8,2 3,6 8,10"/>
+              </svg>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Tabs (Remote specific when local panel is collapsed) */}
       {pane === 'remote' && localCollapsed && remoteTabs && activeRemoteTabIdx !== undefined && onSelectTab && onCloseTab && onTabContextMenu && onAddTab && (
-        <div className="h-[30px] bg-[var(--bg-panel-header)] border-b border-[var(--border-color)] flex items-end overflow-hidden shrink-0 theme-transition select-none">
-          {remoteTabs.map((tab, i) => {
-            const isActive = activeRemoteTabIdx === i;
-            const pathParts = tab.path.split('/').filter(Boolean);
-            const folderName = pathParts.length > 0 ? pathParts[pathParts.length - 1] : '/';
-            return (
-              <div 
-                key={i}
-                onClick={() => onSelectTab(i)} 
-                onContextMenu={(e) => onTabContextMenu(e, i)}
-                className={`h-7 px-3.5 flex items-center gap-1.5 text-[12px] cursor-pointer border-r border-[var(--border-color)] shrink-0 border-t transition-all ${
-                  isActive 
-                    ? 'bg-[var(--bg-panel)] text-[var(--active-tab-text)] border-t border-t-[var(--color-primary)] font-semibold' 
-                    : 'bg-transparent text-[var(--text-muted)] border-t-transparent hover:text-[var(--text-main)] hover:bg-[var(--bg-panel)]/40'
-                }`}
-                title={tab.path}
-              >
-                <span>{tab.isPinned ? '📌 ' : ''}{folderName}</span>
-                <span 
-                  onClick={(e) => onCloseTab(i, e)}
-                  className="text-[var(--text-subtle)] hover:text-[var(--text-main)] text-[14px] font-bold ml-1 cursor-pointer"
+        <div className="h-[34px] bg-[var(--bg-panel-header)] border-b border-[var(--border-color)] flex items-end overflow-hidden shrink-0 theme-transition select-none">
+          <div className="flex items-end h-full pl-2">
+            {remoteTabs.map((tab, i) => {
+              const isActive = activeRemoteTabIdx === i;
+              const pathParts = tab.path.split('/').filter(Boolean);
+              const folderName = pathParts.length > 0 ? pathParts[pathParts.length - 1] : '/';
+              return (
+                <div 
+                  key={i}
+                  onClick={() => onSelectTab(i)} 
+                  onContextMenu={(e) => onTabContextMenu(e, i)}
+                  className={`h-[28px] px-3 flex items-center gap-1.5 text-[12px] cursor-pointer border-t border-r border-l shrink-0 transition-all select-none ${
+                    isActive 
+                      ? 'bg-[var(--bg-panel)] text-[var(--active-tab-text)] border-[var(--border-color)] border-b-[var(--bg-panel)] font-semibold' 
+                      : 'bg-transparent text-[var(--text-muted)] border-transparent hover:text-[var(--text-main)] hover:bg-white/5'
+                  }`}
+                  style={{
+                    borderBottom: isActive ? '1px solid var(--bg-panel)' : 'none',
+                    borderRadius: '5px 5px 0 0',
+                    marginRight: '2px',
+                  }}
+                  title={tab.path}
                 >
-                  ×
-                </span>
-              </div>
-            );
-          })}
-          <div 
-            onClick={onAddTab}
-            className="w-7 h-7 flex items-center justify-center cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] text-[18px] shrink-0 border-b border-b-[var(--border-color)]"
-            title="New Remote Tab"
-          >
-            +
+                  <span className="text-[12px]">{tab.isPinned ? '📌' : '📁'}</span>
+                  <span>{folderName}</span>
+                  {remoteTabs.length > 1 && (
+                    <span 
+                      onClick={(e) => onCloseTab(i, e)}
+                      className="w-4 h-4 rounded-full flex items-center justify-center text-[var(--text-subtle)] hover:bg-[var(--border-color)] hover:text-[var(--text-main)] text-[11px] font-bold ml-1 cursor-pointer transition-colors"
+                    >
+                      ×
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+            <div 
+              onClick={onAddTab}
+              className="w-7 h-[28px] flex items-center justify-center cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-white/5 rounded-[4px] text-[16px] shrink-0 mb-0.5"
+              title="New Remote Tab"
+            >
+              +
+            </div>
+          </div>
+          <div className="flex-1 border-b border-b-[var(--border-color)] h-full"></div>
+          <div className="h-full flex items-center px-3 gap-2 border-b border-b-[var(--border-color)] text-[var(--text-muted)] text-[11.5px] font-medium shrink-0 select-text font-mono">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#4ec9b0] shrink-0"></span>
+            <span>{username}@{host}</span>
           </div>
         </div>
       )}

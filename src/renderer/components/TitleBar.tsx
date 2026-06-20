@@ -1,15 +1,30 @@
 import React, { useEffect, useState } from 'react';
 
+export interface TitleBarTab {
+  id: string; // 'connections' or `conn-${connectionId}`
+  name: string;
+  type: 'connections' | 'connection';
+  status?: 'connecting' | 'connected' | 'failed';
+}
+
 interface TitleBarProps {
-  title?: string;
   theme?: 'dark' | 'light';
   onToggleTheme?: () => void;
+  tabs?: TitleBarTab[];
+  activeTabId?: string;
+  setActiveTabId?: (id: string) => void;
+  onCloseTab?: (id: string) => void;
+  onNewConnection?: () => void;
 }
 
 export const TitleBar: React.FC<TitleBarProps> = ({ 
-  title = 'i2c SFTP',
   theme = 'dark',
   onToggleTheme,
+  tabs = [],
+  activeTabId = 'connections',
+  setActiveTabId,
+  onCloseTab,
+  onNewConnection,
 }) => {
   const [platform, setPlatform] = useState<string>('win32');
   const [isMaximized, setIsMaximized] = useState<boolean>(false);
@@ -44,7 +59,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
   const renderThemeToggle = () => (
     <button
       onClick={onToggleTheme}
-      className="w-9 h-full flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--bg-panel-header)] hover:text-[var(--text-main)] transition-colors duration-150 outline-none cursor-pointer"
+      className="w-9 h-full flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--bg-panel-header)] hover:text-[var(--text-main)] transition-colors duration-150 outline-none border-none bg-transparent cursor-pointer"
       title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
       style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
     >
@@ -68,9 +83,80 @@ export const TitleBar: React.FC<TitleBarProps> = ({
     </button>
   );
 
+  const renderTabs = () => (
+    <div 
+      className="flex items-end h-full overflow-hidden"
+      style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+    >
+      {tabs.map((tab) => {
+        const isActive = activeTabId === tab.id;
+        const statusDotColor = tab.status === 'connected' ? '#4ec9b0' : tab.status === 'failed' ? '#f44747' : '#29ABEE';
+        
+        return (
+          <div
+            key={tab.id}
+            onClick={() => setActiveTabId?.(tab.id)}
+            className={`h-8 px-3.5 flex items-center gap-1.5 text-[12.5px] cursor-pointer border-t border-r border-l shrink-0 transition-all select-none ${
+              isActive
+                ? 'bg-[var(--bg-panel)] text-[var(--active-tab-text)] border-[var(--border-color)] border-b-[var(--bg-panel)] font-semibold'
+                : 'bg-transparent text-[var(--text-muted)] border-transparent hover:text-[var(--text-main)] hover:bg-white/5'
+            }`}
+            style={{
+              boxShadow: isActive ? 'inset 0 2px 0 var(--color-primary)' : 'none',
+              borderBottom: isActive ? '1px solid var(--bg-panel)' : 'none',
+              marginTop: '4px',
+              borderRadius: '6px 6px 0 0',
+              marginLeft: '2px',
+              marginRight: '2px',
+            }}
+          >
+            {tab.type === 'connections' ? (
+              <svg className="w-3.5 h-3.5 text-[var(--text-muted)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4">
+                <rect x="1" y="2" width="10" height="8" rx="1"/>
+                <line x1="1" y1="4.5" x2="11" y2="4.5"/>
+                <line x1="3.5" y1="6.5" x2="5.5" y2="6.5"/>
+                <line x1="3.5" y1="8" x2="7.5" y2="8"/>
+              </svg>
+            ) : (
+              <div 
+                className="w-1.5 h-1.5 rounded-full shrink-0 transition-colors duration-300"
+                style={{ 
+                  backgroundColor: statusDotColor,
+                  boxShadow: tab.status === 'connecting' ? '0 0 3px #29ABEE' : tab.status === 'connected' ? '0 0 3px #4ec9b0' : 'none' 
+                }}
+              ></div>
+            )}
+            <span>{tab.name}</span>
+            {tab.type === 'connection' && (
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCloseTab?.(tab.id);
+                }}
+                className="ml-1.5 w-4.5 h-4.5 rounded-full bg-transparent border-none text-[12px] leading-none flex items-center justify-center text-[var(--text-subtle)] hover:bg-[var(--border-color)] hover:text-[var(--text-main)] transition-colors cursor-pointer outline-none"
+              >
+                ×
+              </button>
+            )}
+          </div>
+        );
+      })}
+
+      {onNewConnection && (
+        <button
+          onClick={onNewConnection}
+          className="h-[28px] w-[28px] flex items-center justify-center cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-white/5 rounded-[4px] border-none bg-transparent text-[16px] mb-0.5 outline-none"
+          title="New Connection"
+        >
+          +
+        </button>
+      )}
+    </div>
+  );
+
   return (
     <div 
-      className="h-[34px] bg-[var(--bg-app)] flex items-center border-b border-[var(--border-color)] shrink-0 relative select-none theme-transition"
+      className="h-10 bg-[var(--bg-app)] flex items-center border-b border-[var(--border-color)] shrink-0 relative select-none theme-transition"
       style={{ WebkitAppRegion: 'drag', boxShadow: '0 1px 0 var(--border-color)' } as React.CSSProperties}
     >
       {platform === 'darwin' ? (
@@ -79,7 +165,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
       ) : (
         // Windows/Linux App Icon & Menu items style on Left
         <div 
-          className="flex items-center gap-2 pl-3 text-[var(--text-subtle)] text-xs font-semibold select-none"
+          className="flex items-center gap-2 pl-3 text-[var(--text-subtle)] text-xs font-semibold select-none shrink-0"
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
         >
           <svg className="w-4 h-4 text-[var(--color-primary)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4">
@@ -88,14 +174,11 @@ export const TitleBar: React.FC<TitleBarProps> = ({
             <line x1="3.5" y1="6.5" x2="5.5" y2="6.5" />
             <line x1="3.5" y1="8" x2="7.5" y2="8" />
           </svg>
-          <span className="text-[11.5px] uppercase tracking-wider text-[var(--text-subtle)]">i2c SFTP</span>
         </div>
       )}
 
-      {/* Central Window Title */}
-      <div className="absolute left-1/2 transform -translate-x-1/2 text-[13px] text-[var(--text-muted)] font-medium pointer-events-none truncate max-w-[50%]">
-        {title}
-      </div>
+      {/* Render Session Tabs */}
+      {renderTabs()}
 
       {/* macOS Theme Toggle Placement */}
       {platform === 'darwin' && (
@@ -118,7 +201,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
           {/* Minimize */}
           <button
             onClick={handleMinimize}
-            className="w-[46px] h-full flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--bg-panel-header)] hover:text-[var(--text-main)] transition-colors duration-150 outline-none"
+            className="w-[46px] h-full flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--bg-panel-header)] hover:text-[var(--text-main)] transition-colors duration-155 outline-none border-none bg-transparent cursor-pointer"
             title="Minimize"
           >
             <svg width="10" height="1" viewBox="0 0 10 1" fill="none" stroke="currentColor" strokeWidth="1">
@@ -129,7 +212,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
           {/* Maximize */}
           <button
             onClick={handleMaximize}
-            className="w-[46px] h-full flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--bg-panel-header)] hover:text-[var(--text-main)] transition-colors duration-150 outline-none"
+            className="w-[46px] h-full flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--bg-panel-header)] hover:text-[var(--text-main)] transition-colors duration-155 outline-none border-none bg-transparent cursor-pointer"
             title={isMaximized ? "Restore" : "Maximize"}
           >
             {isMaximized ? (
@@ -146,7 +229,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
           {/* Close */}
           <button
             onClick={handleClose}
-            className="w-[46px] h-full flex items-center justify-center text-[var(--text-muted)] hover:bg-[#e81123] hover:text-white transition-colors duration-150 outline-none"
+            className="w-[46px] h-full flex items-center justify-center text-[var(--text-muted)] hover:bg-[#e81123] hover:text-white transition-colors duration-155 outline-none border-none bg-transparent cursor-pointer"
             title="Close"
           >
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1">
