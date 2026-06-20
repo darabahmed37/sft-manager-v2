@@ -169,18 +169,8 @@ export const TitleBar: React.FC<TitleBarProps> = ({
         // macOS Spacer for Native Traffic Lights
         <div className="w-[80px] shrink-0" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}></div>
       ) : (
-        // Windows/Linux App Icon & Menu items style on Left
-        <div 
-          className="flex items-center gap-2 pl-3 text-[var(--text-subtle)] text-xs font-semibold select-none shrink-0 h-[38px] self-end pb-1"
-          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-        >
-          <svg className="w-4 h-4 text-[var(--color-primary)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4">
-            <rect x="1" y="2" width="10" height="8" rx="1" />
-            <line x1="1" y1="4.5" x2="11" y2="4.5" />
-            <line x1="3.5" y1="6.5" x2="5.5" y2="6.5" />
-            <line x1="3.5" y1="8" x2="7.5" y2="8" />
-          </svg>
-        </div>
+        // Spacing buffer on Windows/Linux
+        <div className="w-2.5 shrink-0" />
       )}
 
       {/* Render Session Tabs */}
