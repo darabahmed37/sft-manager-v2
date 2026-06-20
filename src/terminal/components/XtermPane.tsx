@@ -72,7 +72,7 @@ export const XtermPane: React.FC<XtermPaneProps> = ({ tab, isActive, onContextMe
     <div
       ref={containerRef}
       onContextMenu={onContextMenu}
-      className={`absolute inset-0 pt-2 pl-3 ${isActive ? 'block' : 'hidden'}`}
+      className={`absolute inset-0 pt-1 pl-2 ${isActive ? 'block' : 'hidden'}`}
     />
   );
 };

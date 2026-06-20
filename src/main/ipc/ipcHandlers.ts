@@ -43,10 +43,14 @@ function getOrCreateTerminalWindow(mainWindow: BrowserWindow, sessionId: string,
     height: 620,
     minWidth: 500,
     minHeight: 360,
-    frame: false,
     titleBarStyle: 'hidden',
+    titleBarOverlay: {
+      color: '#0c0f14',
+      symbolColor: '#8892a4',
+      height: 40,
+    },
     resizable: true,
-    backgroundColor: '#000000',
+    backgroundColor: '#0c0f14',
     title: 'SSH Terminal',
     // Child of mainWindow so closing the terminal does NOT quit the app,
     // but closing the main app DOES auto-close the terminal (triggering shell cleanup).
@@ -168,6 +172,18 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
           height: 46
         });
       }
+    }
+  });
+
+  // Terminal window: update native overlay colors when user switches terminal themes
+  ipcMain.on('terminal-set-overlay-color', (event, bgColor: string, symbolColor: string) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win && win.setTitleBarOverlay) {
+      win.setTitleBarOverlay({
+        color: bgColor,
+        symbolColor: symbolColor,
+        height: 40,
+      });
     }
   });
 

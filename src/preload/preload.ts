@@ -139,6 +139,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on('terminal-open-tab', callback);
       return () => ipcRenderer.removeListener('terminal-open-tab', callback);
     },
+    setOverlayColor: (bgColor: string, symbolColor: string) =>
+      ipcRenderer.send('terminal-set-overlay-color', bgColor, symbolColor),
   },
   settings: {
     getSetting: (key: string, defaultValue: string) => ipcRenderer.invoke('settings-get', key, defaultValue),

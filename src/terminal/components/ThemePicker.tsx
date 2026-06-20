@@ -1,22 +1,32 @@
 import React, { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { FiCheck } from 'react-icons/fi';
+import { LuCheck } from 'react-icons/lu';
 import { TERMINAL_THEMES } from '../themes';
 
 interface ThemePickerProps {
   currentThemeId: string;
   onSelect: (id: string) => void;
   onClose: () => void;
+  accentColor: string;
+  chromeBg: string;
+  borderColor: string;
+  foreground: string;
 }
 
-export const ThemePicker: React.FC<ThemePickerProps> = ({ currentThemeId, onSelect, onClose }) => {
+export const ThemePicker: React.FC<ThemePickerProps> = ({
+  currentThemeId,
+  onSelect,
+  onClose,
+  accentColor,
+  chromeBg,
+  borderColor,
+  foreground,
+}) => {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        onClose();
-      }
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
     };
     document.addEventListener('mousedown', handleOutsideClick);
     return () => document.removeEventListener('mousedown', handleOutsideClick);
@@ -25,48 +35,98 @@ export const ThemePicker: React.FC<ThemePickerProps> = ({ currentThemeId, onSele
   return (
     <motion.div
       ref={ref}
-      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+      initial={{ opacity: 0, y: 8, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+      exit={{ opacity: 0, y: 8, scale: 0.96 }}
       transition={{ duration: 0.15, ease: 'easeOut' }}
-      className="absolute right-1.5 bottom-6.5 z-[1000] w-64 max-h-[340px] overflow-y-auto bg-[#252526] border border-[#3c3c3c] rounded-md shadow-2xl py-1 select-none"
+      className="absolute right-0 bottom-8 z-[1000] w-72 max-h-[360px] overflow-y-auto rounded-xl shadow-2xl py-1.5 select-none"
+      style={{
+        backgroundColor: chromeBg,
+        border: `1px solid ${borderColor}`,
+        backdropFilter: 'blur(16px)',
+      }}
     >
-      <div className="px-3 py-1.5 text-[10px] font-semibold tracking-wider text-[#6e6e6e] uppercase border-b border-[#3c3c3c] mb-1">
+      {/* Header */}
+      <div
+        className="px-3.5 pt-1 pb-2 flex items-center gap-2"
+        style={{
+          fontSize: '10px',
+          fontWeight: 600,
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          color: `${foreground}44`,
+          borderBottom: `1px solid ${foreground}10`,
+          marginBottom: '4px',
+        }}
+      >
+        <span style={{ color: accentColor, opacity: 0.7 }}>◈</span>
         Terminal Color Theme
       </div>
+
       {TERMINAL_THEMES.map((t) => {
         const isSelected = t.id === currentThemeId;
         return (
           <div
             key={t.id}
-            onClick={() => {
-              onSelect(t.id);
-              onClose();
+            onClick={() => { onSelect(t.id); onClose(); }}
+            className="px-3 py-2 flex items-center gap-2.5 cursor-pointer transition-all duration-100 relative"
+            style={{
+              backgroundColor: isSelected ? `${accentColor}15` : 'transparent',
+              borderLeft: isSelected ? `2px solid ${accentColor}` : '2px solid transparent',
             }}
-            className={`px-3 py-2 flex items-center gap-2 cursor-pointer transition-colors duration-150 ${
-              isSelected ? 'bg-[#37373d]' : 'hover:bg-[#2a2d2e]'
-            }`}
+            onMouseEnter={(e) => {
+              if (!isSelected)
+                (e.currentTarget as HTMLDivElement).style.backgroundColor = `${foreground}08`;
+            }}
+            onMouseLeave={(e) => {
+              if (!isSelected)
+                (e.currentTarget as HTMLDivElement).style.backgroundColor = 'transparent';
+            }}
           >
-            <div className="flex gap-[2px] shrink-0">
+            {/* Color swatches */}
+            <div className="flex gap-[2px] shrink-0 rounded overflow-hidden">
               {[t.background, t.green, t.blue, t.red, t.magenta, t.cyan].map((color, i) => (
                 <div
                   key={i}
-                  className="w-2.5 h-2.5 rounded-[2px] border border-white/10 shrink-0"
-                  style={{ backgroundColor: color }}
+                  style={{
+                    width: '12px',
+                    height: '12px',
+                    backgroundColor: color,
+                    outline: `1px solid ${foreground}15`,
+                  }}
                 />
               ))}
             </div>
+
+            {/* Theme info */}
             <div className="flex-1 min-w-0">
               <div
-                className={`text-xs truncate ${
-                  isSelected ? 'text-[#cccccc] font-semibold' : 'text-[#9d9d9d]'
-                }`}
+                style={{
+                  fontSize: '12px',
+                  color: isSelected ? foreground : `${foreground}99`,
+                  fontWeight: isSelected ? 600 : 400,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
               >
                 {t.name}
               </div>
-              <div className="text-[10px] text-[#555] truncate">{t.description}</div>
+              <div
+                style={{
+                  fontSize: '10px',
+                  color: `${foreground}44`,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {t.description}
+              </div>
             </div>
-            {isSelected && <FiCheck className="w-3.5 h-3.5 text-[#29abee] shrink-0" />}
+
+            {/* Selected check */}
+            {isSelected && <LuCheck size={13} style={{ color: accentColor, flexShrink: 0 }} />}
           </div>
         );
       })}

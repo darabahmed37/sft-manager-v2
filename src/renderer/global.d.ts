@@ -186,6 +186,7 @@ export interface ElectronAPI {
     onShellData: (callback: (event: unknown, shellId: string, data: string) => void) => () => void;
     onShellClose: (callback: (event: unknown, shellId: string) => void) => () => void;
     onOpenTab: (callback: (event: unknown, sessionId: string, username: string, host: string) => void) => () => void;
+    setOverlayColor: (bgColor: string, symbolColor: string) => void;
   };
   settings: {
     getSetting: (key: string, defaultValue: string) => Promise<string>;

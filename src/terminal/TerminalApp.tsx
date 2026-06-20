@@ -4,18 +4,14 @@ import { FitAddon } from '@xterm/addon-fit';
 import { SearchAddon } from '@xterm/addon-search';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  VscChromeMinimize,
-  VscChromeMaximize,
-  VscChromeRestore,
-  VscChromeClose,
   VscTerminal,
   VscAdd,
   VscCopy,
   VscClippy,
   VscTrash,
   VscSymbolColor,
-  VscClose,
 } from 'react-icons/vsc';
+import { LuX, LuKeyboard } from 'react-icons/lu';
 
 import type { TermTab, TerminalTheme } from './types';
 import {
@@ -27,6 +23,25 @@ import {
 import ThemePicker from './components/ThemePicker';
 import XtermPane from './components/XtermPane';
 import '@xterm/xterm/css/xterm.css';
+
+// ── Utility: darken a hex color by a given factor ──────────────────────────────
+function darkenHex(hex: string, factor: number): string {
+  const h = hex.replace('#', '');
+  const r = Math.max(0, Math.round(parseInt(h.substring(0, 2), 16) * factor));
+  const g = Math.max(0, Math.round(parseInt(h.substring(2, 4), 16) * factor));
+  const b = Math.max(0, Math.round(parseInt(h.substring(4, 6), 16) * factor));
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+}
+
+// ── Utility: compute a readable symbol color from background brightness ────────
+function symbolColorFor(bgHex: string): string {
+  const h = bgHex.replace('#', '');
+  const r = parseInt(h.substring(0, 2), 16);
+  const g = parseInt(h.substring(2, 4), 16);
+  const b = parseInt(h.substring(4, 6), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.5 ? '#333333' : '#a0aec0';
+}
 
 function createTerminalInstance(theme: TerminalTheme): {
   terminal: Terminal;
@@ -58,7 +73,6 @@ const TerminalApp: React.FC = () => {
   const [themeId, setThemeId] = useState<string>(loadThemeId);
   const [showThemePicker, setShowThemePicker] = useState(false);
   const [platform, setPlatform] = useState<string>('win32');
-  const [isMaximized, setIsMaximized] = useState<boolean>(false);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -69,50 +83,37 @@ const TerminalApp: React.FC = () => {
   const activeTabIdRef = useRef<string>('');
   const themeRef = useRef<TerminalTheme>(getThemeById(loadThemeId()));
 
-  useEffect(() => {
-    tabsRef.current = tabs;
-  }, [tabs]);
-
-  useEffect(() => {
-    activeTabIdRef.current = activeTabId;
-  }, [activeTabId]);
-
-  useEffect(() => {
-    themeRef.current = getThemeById(themeId);
-  }, [themeId]);
+  useEffect(() => { tabsRef.current = tabs; }, [tabs]);
+  useEffect(() => { activeTabIdRef.current = activeTabId; }, [activeTabId]);
+  useEffect(() => { themeRef.current = getThemeById(themeId); }, [themeId]);
 
   const theme = getThemeById(themeId);
+
+  // Derive chrome colors from the terminal theme
+  const chromeBg = darkenHex(theme.background, 0.7);
+  const tabBarBg = darkenHex(theme.background, 0.85);
+  const activeBg = theme.background;
+  const borderColor = darkenHex(theme.background, 0.55);
+  const accentColor = theme.cyan || theme.blue || '#29ABEE';
 
   // ── Platform state initialization ──────────────────────────────────────────
   useEffect(() => {
     const api = window.electronAPI;
     if (api && api.window) {
-      api.window.getPlatform().then((p: string) => {
-        setPlatform(p);
-      });
-      api.window.isMaximized().then((max: boolean) => {
-        setIsMaximized(max);
-      });
-      const unsub = api.window.onMaximizedState((_e: unknown, max: boolean) => {
-        setIsMaximized(max);
-      });
-      return () => unsub?.();
+      api.window.getPlatform().then((p: string) => setPlatform(p));
     }
   }, []);
 
-  const handleMinimize = () => {
-    window.electronAPI?.window.minimize();
-  };
+  // ── Sync overlay color with terminal theme ────────────────────────────────
+  useEffect(() => {
+    const api = window.electronAPI;
+    if (api?.terminal?.setOverlayColor && platform === 'win32') {
+      const sym = symbolColorFor(chromeBg);
+      api.terminal.setOverlayColor(chromeBg, sym);
+    }
+  }, [themeId, chromeBg, platform]);
 
-  const handleMaximize = () => {
-    window.electronAPI?.window.maximize();
-  };
-
-  const handleClose = () => {
-    window.electronAPI?.window.close();
-  };
-
-  // ── Close tab callback ──────────────────────────────────────────────────
+  // ── Close tab callback ────────────────────────────────────────────────────
   const closeTab = useCallback((tabId: string) => {
     const tab = tabsRef.current.find((t) => t.id === tabId);
     if (!tab) return;
@@ -133,7 +134,7 @@ const TerminalApp: React.FC = () => {
     }
   }, []);
 
-  // ── Open SSH shell tab ───────────────────────────────────────────────────
+  // ── Open SSH shell tab ────────────────────────────────────────────────────
   const openShell = useCallback(async (sessionId: string, username: string, host: string) => {
     const { terminal, fitAddon } = createTerminalInstance(themeRef.current);
     const tabId = `tab-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
@@ -164,13 +165,11 @@ const TerminalApp: React.FC = () => {
       isClosed: false,
     };
 
-    // Keystrokes → forward directly to SSH
     terminal.onData((data) => {
       if (!newTab.shellId || newTab.isClosed) return;
       window.electronAPI.terminal.writeShell(newTab.shellId, data);
     });
 
-    // Resize → SSH
     terminal.onResize(({ cols, rows }) => {
       if (!newTab.shellId || newTab.isClosed) return;
       window.electronAPI.terminal.resizeShell(newTab.shellId, cols, rows);
@@ -190,10 +189,9 @@ const TerminalApp: React.FC = () => {
     if (ref) openShell(ref.sessionId, ref.username, ref.host);
   }, [openShell]);
 
-  // ── Keyboard Shortcuts Listener ───────────────────────────────────────────
+  // ── Keyboard Shortcuts ────────────────────────────────────────────────────
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // 1. Switch tabs: Ctrl + 1..9
       if (e.ctrlKey && !e.shiftKey && !e.altKey) {
         const num = parseInt(e.key, 10);
         if (num >= 1 && num <= 9) {
@@ -208,98 +206,64 @@ const TerminalApp: React.FC = () => {
           });
         }
       }
-
-      // 2. Alt + F4 -> Close window
-      if (e.altKey && e.key === 'F4') {
-        e.preventDefault();
-        handleClose();
-      }
-
-      // 3. Ctrl+Shift+C -> Copy selection
+      if (e.altKey && e.key === 'F4') { e.preventDefault(); window.electronAPI?.window.close(); }
       if (e.ctrlKey && e.shiftKey && e.key.toUpperCase() === 'C') {
         e.preventDefault();
         const activeTab = tabsRef.current.find((t) => t.id === activeTabIdRef.current);
-        if (activeTab && activeTab.terminal.hasSelection()) {
-          const text = activeTab.terminal.getSelection();
-          navigator.clipboard.writeText(text);
-        }
+        if (activeTab?.terminal.hasSelection()) navigator.clipboard.writeText(activeTab.terminal.getSelection());
       }
-
-      // 4. Ctrl+Shift+V -> Paste selection
       if (e.ctrlKey && e.shiftKey && e.key.toUpperCase() === 'V') {
         e.preventDefault();
         navigator.clipboard.readText().then((text) => {
           const activeTab = tabsRef.current.find((t) => t.id === activeTabIdRef.current);
-          if (activeTab && activeTab.shellId && !activeTab.isClosed) {
+          if (activeTab?.shellId && !activeTab.isClosed)
             window.electronAPI.terminal.writeShell(activeTab.shellId, text);
-          }
         });
       }
-
-      // 5. Ctrl+Shift+A -> Select All
       if (e.ctrlKey && e.shiftKey && e.key.toUpperCase() === 'A') {
         e.preventDefault();
-        const activeTab = tabsRef.current.find((t) => t.id === activeTabIdRef.current);
-        activeTab?.terminal.selectAll();
+        tabsRef.current.find((t) => t.id === activeTabIdRef.current)?.terminal.selectAll();
       }
     };
-
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // ── Context Menu Actions ──────────────────────────────────────────────────
+  // ── Context Menu ──────────────────────────────────────────────────────────
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
-    setContextMenu({
-      x: e.clientX,
-      y: e.clientY,
-      visible: true,
-    });
+    setContextMenu({ x: e.clientX, y: e.clientY, visible: true });
   };
-
-  const closeContextMenu = () => {
-    setContextMenu(null);
-  };
-
+  const closeContextMenu = () => setContextMenu(null);
   useEffect(() => {
-    const handleOutsideClick = () => closeContextMenu();
-    window.addEventListener('click', handleOutsideClick);
-    return () => window.removeEventListener('click', handleOutsideClick);
+    const h = () => closeContextMenu();
+    window.addEventListener('click', h);
+    return () => window.removeEventListener('click', h);
   }, []);
 
   const handleCopy = () => {
     const activeTab = tabs.find((t) => t.id === activeTabId);
-    if (activeTab && activeTab.terminal.hasSelection()) {
-      const text = activeTab.terminal.getSelection();
-      navigator.clipboard.writeText(text);
-    }
+    if (activeTab?.terminal.hasSelection()) navigator.clipboard.writeText(activeTab.terminal.getSelection());
     closeContextMenu();
   };
-
   const handlePaste = () => {
     navigator.clipboard.readText().then((text) => {
       const activeTab = tabs.find((t) => t.id === activeTabId);
-      if (activeTab && activeTab.shellId && !activeTab.isClosed) {
+      if (activeTab?.shellId && !activeTab.isClosed)
         window.electronAPI.terminal.writeShell(activeTab.shellId, text);
-      }
     });
     closeContextMenu();
   };
-
   const handleSelectAll = () => {
-    const activeTab = tabs.find((t) => t.id === activeTabId);
-    activeTab?.terminal.selectAll();
+    tabs.find((t) => t.id === activeTabId)?.terminal.selectAll();
     closeContextMenu();
   };
-
   const handleClear = () => {
-    const activeTab = tabs.find((t) => t.id === activeTabId);
-    activeTab?.terminal.clear();
+    tabs.find((t) => t.id === activeTabId)?.terminal.clear();
     closeContextMenu();
   };
 
-  // ── Live theme switch ────────────────────────────────────────────────────
+  // ── Live theme switch ─────────────────────────────────────────────────────
   const applyTheme = useCallback((newId: string) => {
     const t = getThemeById(newId);
     saveThemeId(newId);
@@ -310,7 +274,7 @@ const TerminalApp: React.FC = () => {
     });
   }, []);
 
-  // ── SSH data → xterm ─────────────────────────────────────────────────────
+  // ── SSH data → xterm ──────────────────────────────────────────────────────
   useEffect(() => {
     const unsub = window.electronAPI.terminal.onShellData(
       (_e: unknown, shellId: string, data: string) => {
@@ -322,14 +286,12 @@ const TerminalApp: React.FC = () => {
     return () => unsub?.();
   }, []);
 
-  // ── Shell close event → Auto Close Tab ────────────────────────────────────
+  // ── Shell close → auto close tab ─────────────────────────────────────────
   useEffect(() => {
     const unsub = window.electronAPI.terminal.onShellClose(
       (_e: unknown, shellId: string) => {
         const tab = tabsRef.current.find((t) => t.shellId === shellId);
-        if (tab) {
-          closeTab(tab.id);
-        }
+        if (tab) closeTab(tab.id);
       }
     );
     return () => unsub?.();
@@ -365,22 +327,37 @@ const TerminalApp: React.FC = () => {
   const statusText = !activeTab
     ? ''
     : activeTab.isClosed
-    ? '⚠ Disconnected'
+    ? 'Disconnected'
     : activeTab.isConnected
-    ? `● Connected · ${activeTab.label}`
-    : '◉ Connecting...';
-
+    ? activeTab.label
+    : 'Connecting...';
   const isTextSelected = !!activeTab?.terminal.hasSelection();
 
+  // ── Status dot color ──────────────────────────────────────────────────────
+  const dotColor = !activeTab
+    ? 'transparent'
+    : activeTab.isClosed
+    ? '#fc5c5c'
+    : activeTab.isConnected
+    ? '#4eca96'
+    : '#f6ad4f';
+
   return (
-    <div className="w-screen h-screen flex flex-col bg-[#1a1a1a] text-sm overflow-hidden select-none font-sans relative">
+    <div
+      className="w-screen h-screen flex flex-col overflow-hidden select-none font-sans relative"
+      style={{ backgroundColor: theme.background, color: theme.foreground }}
+    >
       {/* ── Tab Bar / Integrated Titlebar ── */}
       <header
-        className="h-[35px] bg-[#1e1e1e] border-b border-[#2d2d2d] flex items-center justify-start shrink-0 overflow-hidden"
-        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+        className="flex items-end shrink-0 overflow-hidden"
+        style={{
+          height: '40px',
+          backgroundColor: tabBarBg,
+          borderBottom: `1px solid ${borderColor}`,
+          WebkitAppRegion: 'drag',
+        } as React.CSSProperties}
       >
         {platform === 'darwin' && (
-          // macOS spacer for native Traffic Lights
           <div
             className="w-[80px] h-full shrink-0"
             style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
@@ -389,94 +366,115 @@ const TerminalApp: React.FC = () => {
 
         {/* Tabs area */}
         <div
-          className={`flex items-end h-full flex-1 overflow-hidden ${platform !== 'darwin' ? 'pl-4' : ''}`}
+          className="flex items-end h-full flex-1 overflow-hidden pl-2"
           style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
         >
-          {tabs.map((tab) => {
+          {tabs.map((tab, i) => {
             const isActive = tab.id === activeTabId;
-            const dotColor = tab.isClosed ? '#f14c4c' : tab.isConnected ? '#4ec9b0' : '#cca700';
+            const tabDot = tab.isClosed ? '#fc5c5c' : tab.isConnected ? '#4eca96' : '#f6ad4f';
             return (
               <div
                 key={tab.id}
                 onClick={() => setActiveTabId(tab.id)}
                 title={tab.label}
-                className={`h-[31px] px-3 flex items-center gap-1.5 cursor-pointer shrink-0 border-r border-[#2d2d2d] border-t-2 transition-all duration-150 ${
-                  isActive
-                    ? 'border-t-[#29abee] bg-[#252526] text-[#cccccc]'
-                    : 'border-t-transparent text-[#6e6e6e] hover:bg-[#2a2d2e] hover:text-[#ababab]'
-                }`}
-                style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+                className="flex items-center gap-1.5 cursor-pointer shrink-0 transition-all duration-150 relative"
+                style={{
+                  height: '34px',
+                  maxWidth: '200px',
+                  minWidth: '100px',
+                  paddingLeft: '12px',
+                  paddingRight: '6px',
+                  marginRight: '2px',
+                  borderRadius: '6px 6px 0 0',
+                  backgroundColor: isActive ? activeBg : 'transparent',
+                  borderTop: isActive ? `1.5px solid ${borderColor}` : '1.5px solid transparent',
+                  borderLeft: isActive ? `1px solid ${borderColor}` : '1px solid transparent',
+                  borderRight: isActive ? `1px solid ${borderColor}` : '1px solid transparent',
+                  boxShadow: isActive ? `inset 0 2px 0 ${accentColor}` : 'none',
+                  WebkitAppRegion: 'no-drag',
+                } as React.CSSProperties}
               >
-                <VscTerminal className={`w-3.5 h-3.5 ${isActive ? 'text-[#29abee]' : ''}`} />
+                <VscTerminal
+                  size={12}
+                  style={{ color: isActive ? accentColor : `${theme.foreground}66`, flexShrink: 0 }}
+                />
+                {/* Connection dot */}
                 <div
-                  className="w-1.5 h-1.5 rounded-full shrink-0"
+                  className="rounded-full shrink-0"
                   style={{
-                    backgroundColor: dotColor,
-                    boxShadow:
-                      tab.isConnected && !tab.isClosed ? `0 0 4px ${dotColor}` : 'none',
+                    width: '6px',
+                    height: '6px',
+                    backgroundColor: tabDot,
+                    boxShadow: tab.isConnected && !tab.isClosed ? `0 0 5px ${tabDot}` : 'none',
                   }}
                 />
-                <span className="max-w-[130px] overflow-hidden text-ellipsis whitespace-nowrap text-xs">
-                  {tab.label}
+                <span
+                  className="overflow-hidden text-ellipsis whitespace-nowrap flex-1"
+                  style={{
+                    fontSize: '11.5px',
+                    color: isActive ? theme.foreground : `${theme.foreground}77`,
+                    fontWeight: isActive ? 500 : 400,
+                  }}
+                >
+                  {i + 1}. {tab.label}
                 </span>
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    closeTab(tab.id);
+                  onClick={(e) => { e.stopPropagation(); closeTab(tab.id); }}
+                  className="flex items-center justify-center rounded shrink-0 border-none cursor-pointer outline-none transition-all duration-150"
+                  title="Close tab"
+                  style={{
+                    width: '18px',
+                    height: '18px',
+                    backgroundColor: 'transparent',
+                    color: `${theme.foreground}55`,
+                    WebkitAppRegion: 'no-drag',
+                  } as React.CSSProperties}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#fc5c5c33';
+                    (e.currentTarget as HTMLButtonElement).style.color = '#fc5c5c';
                   }}
-                  className="ml-1 w-4 h-4 rounded-[3px] border-none bg-transparent text-[#6e6e6e] hover:bg-[#f14c4c30] hover:text-[#f14c4c] cursor-pointer flex items-center justify-center text-xs outline-none"
-                  style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent';
+                    (e.currentTarget as HTMLButtonElement).style.color = `${theme.foreground}55`;
+                  }}
                 >
-                  <VscClose className="w-3 h-3" />
+                  <LuX size={10} />
                 </button>
               </div>
             );
           })}
+
+          {/* New tab button */}
           <button
             onClick={newTab}
-            title="New terminal tab"
-            className="w-[30px] h-[30px] bg-transparent border-none text-[#6e6e6e] hover:text-[#cccccc] cursor-pointer flex items-center justify-center shrink-0 self-center outline-none"
-            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+            title="New terminal tab (same connection)"
+            className="flex items-center justify-center border-none cursor-pointer outline-none transition-all duration-150 shrink-0 rounded self-center ml-1"
+            style={{
+              width: '28px',
+              height: '28px',
+              backgroundColor: 'transparent',
+              color: `${theme.foreground}55`,
+              WebkitAppRegion: 'no-drag',
+            } as React.CSSProperties}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.backgroundColor = `${accentColor}22`;
+              (e.currentTarget as HTMLButtonElement).style.color = accentColor;
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent';
+              (e.currentTarget as HTMLButtonElement).style.color = `${theme.foreground}55`;
+            }}
           >
-            <VscAdd className="w-4 h-4" />
+            <VscAdd size={14} />
           </button>
         </div>
 
-        {/* Windows / Linux Custom Control Buttons */}
+        {/* On Windows, reserve right space for native overlay (138px = approx control strip width) */}
         {platform !== 'darwin' && (
           <div
-            className="flex items-center h-full shrink-0 ml-auto"
-            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-          >
-            {/* Minimize */}
-            <button
-              onClick={handleMinimize}
-              title="Minimize"
-              className="w-[45px] h-full border-none bg-transparent text-[#888] hover:bg-[#2d2d2d] hover:text-white cursor-pointer flex items-center justify-center outline-none transition-colors duration-150"
-            >
-              <VscChromeMinimize className="w-3.5 h-3.5" />
-            </button>
-            {/* Maximize */}
-            <button
-              onClick={handleMaximize}
-              title={isMaximized ? 'Restore' : 'Maximize'}
-              className="w-[45px] h-full border-none bg-transparent text-[#888] hover:bg-[#2d2d2d] hover:text-white cursor-pointer flex items-center justify-center outline-none transition-colors duration-150"
-            >
-              {isMaximized ? (
-                <VscChromeRestore className="w-3.5 h-3.5" />
-              ) : (
-                <VscChromeMaximize className="w-3.5 h-3.5" />
-              )}
-            </button>
-            {/* Close */}
-            <button
-              onClick={handleClose}
-              title="Close"
-              className="w-[45px] h-full border-none bg-transparent text-[#888] hover:bg-[#e81123] hover:text-white cursor-pointer flex items-center justify-center outline-none transition-colors duration-150"
-            >
-              <VscChromeClose className="w-3.5 h-3.5" />
-            </button>
-          </div>
+            className="shrink-0"
+            style={{ width: '138px', WebkitAppRegion: 'drag' } as React.CSSProperties}
+          />
         )}
       </header>
 
@@ -486,9 +484,60 @@ const TerminalApp: React.FC = () => {
         style={{ backgroundColor: theme.background }}
       >
         {tabs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-[#444] gap-3">
-            <VscTerminal className="w-[52px] h-[52px] stroke-[0.7]" />
-            <span className="text-xs">No terminal tabs</span>
+          // ── Empty State ──
+          <div
+            className="flex flex-col items-center justify-center h-full gap-5"
+            style={{ color: `${theme.foreground}44` }}
+          >
+            <div
+              className="flex items-center justify-center rounded-2xl"
+              style={{
+                width: '72px',
+                height: '72px',
+                backgroundColor: `${accentColor}18`,
+                border: `1px solid ${accentColor}33`,
+              }}
+            >
+              <VscTerminal size={32} style={{ color: `${accentColor}99` }} />
+            </div>
+            <div className="flex flex-col items-center gap-1.5">
+              <span style={{ fontSize: '13px', color: `${theme.foreground}66`, fontWeight: 500 }}>
+                No terminal sessions
+              </span>
+              <span style={{ fontSize: '11px', color: `${theme.foreground}33` }}>
+                A session opens automatically when you arrive here
+              </span>
+            </div>
+            <div
+              className="flex flex-col gap-2 mt-1 rounded-xl px-5 py-3"
+              style={{
+                backgroundColor: `${theme.foreground}08`,
+                border: `1px solid ${theme.foreground}12`,
+              }}
+            >
+              {[
+                ['Ctrl+Shift+C', 'Copy selection'],
+                ['Ctrl+Shift+V', 'Paste'],
+                ['Ctrl+Shift+A', 'Select all'],
+                ['Ctrl+1-9', 'Switch tabs'],
+              ].map(([k, d]) => (
+                <div key={k} className="flex items-center gap-3" style={{ fontSize: '11px' }}>
+                  <LuKeyboard size={12} style={{ color: `${accentColor}77`, flexShrink: 0 }} />
+                  <kbd
+                    className="rounded px-1.5 py-0.5 font-mono"
+                    style={{
+                      fontSize: '10px',
+                      backgroundColor: `${theme.foreground}10`,
+                      color: accentColor,
+                      border: `1px solid ${theme.foreground}20`,
+                    }}
+                  >
+                    {k}
+                  </kbd>
+                  <span style={{ color: `${theme.foreground}44` }}>{d}</span>
+                </div>
+              ))}
+            </div>
           </div>
         ) : (
           tabs.map((tab) => (
@@ -500,27 +549,83 @@ const TerminalApp: React.FC = () => {
             />
           ))
         )}
-
       </main>
 
       {/* ── Status Bar ── */}
-      <footer className="h-[22px] bg-[#007acc] text-white flex items-center px-4 gap-2.5 shrink-0">
-        <VscTerminal className="w-3.5 h-3.5" />
-        <span className="text-[11px] font-semibold">SSH Terminal</span>
-        {statusText && <span className="text-[11px] opacity-75">· {statusText}</span>}
+      <footer
+        className="flex items-center px-4 gap-2.5 shrink-0"
+        style={{
+          height: '28px',
+          background: `linear-gradient(90deg, ${chromeBg} 0%, ${darkenHex(chromeBg, 0.9)} 100%)`,
+          borderTop: `1px solid ${borderColor}`,
+        }}
+      >
+        {/* Status indicator */}
+        <div className="flex items-center gap-1.5">
+          <div
+            className="rounded-full"
+            style={{
+              width: '6px',
+              height: '6px',
+              backgroundColor: dotColor,
+              boxShadow: activeTab?.isConnected && !activeTab?.isClosed ? `0 0 6px ${dotColor}` : 'none',
+            }}
+          />
+          <span style={{ fontSize: '11px', color: `${theme.foreground}aa`, fontWeight: 500 }}>
+            {activeTab?.isClosed
+              ? 'Disconnected'
+              : activeTab?.isConnected
+              ? statusText
+              : activeTab
+              ? 'Connecting…'
+              : 'SSH Terminal'}
+          </span>
+        </div>
+
         <div className="flex-1" />
+
+        {/* Tab count pill */}
+        {tabs.length > 0 && (
+          <span
+            className="flex items-center justify-center rounded-full px-2"
+            style={{
+              fontSize: '10px',
+              height: '16px',
+              backgroundColor: `${theme.foreground}12`,
+              color: `${theme.foreground}66`,
+              fontWeight: 500,
+            }}
+          >
+            {tabs.length} tab{tabs.length !== 1 ? 's' : ''}
+          </span>
+        )}
+
+        <div
+          style={{ width: '1px', height: '12px', backgroundColor: `${theme.foreground}20` }}
+        />
 
         {/* Theme Picker Trigger */}
         <div className="relative">
           <button
             onClick={() => setShowThemePicker((p) => !p)}
             title="Change terminal color theme"
-            className={`border-none rounded-[3px] cursor-pointer px-1.5 py-0.5 flex items-center gap-1.5 outline-none transition-colors duration-150 ${
-              showThemePicker ? 'bg-white/15' : 'bg-transparent hover:bg-white/12'
-            }`}
+            className="flex items-center gap-1.5 border-none cursor-pointer outline-none transition-all duration-150 rounded-md px-2"
+            style={{
+              height: '20px',
+              backgroundColor: showThemePicker ? `${theme.foreground}18` : 'transparent',
+              color: `${theme.foreground}77`,
+            } as React.CSSProperties}
+            onMouseEnter={(e) => {
+              if (!showThemePicker)
+                (e.currentTarget as HTMLButtonElement).style.backgroundColor = `${theme.foreground}12`;
+            }}
+            onMouseLeave={(e) => {
+              if (!showThemePicker)
+                (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent';
+            }}
           >
-            <VscSymbolColor className="w-3.5 h-3.5" style={{ color: theme.cyan }} />
-            <span className="text-[11px] text-white/85">{theme.name}</span>
+            <VscSymbolColor size={12} style={{ color: accentColor }} />
+            <span style={{ fontSize: '11px' }}>{theme.name}</span>
           </button>
           <AnimatePresence>
             {showThemePicker && (
@@ -528,57 +633,95 @@ const TerminalApp: React.FC = () => {
                 currentThemeId={themeId}
                 onSelect={applyTheme}
                 onClose={() => setShowThemePicker(false)}
+                accentColor={accentColor}
+                chromeBg={chromeBg}
+                borderColor={borderColor}
+                foreground={theme.foreground}
               />
             )}
           </AnimatePresence>
         </div>
-
-        <div className="w-[1px] h-2.5 bg-white/20" />
-        <span className="text-[11px] text-white/60">
-          {tabs.length} tab{tabs.length !== 1 ? 's' : ''}
-        </span>
       </footer>
 
-      {/* ── Custom Context Menu (Rendered at root level to prevent offset) ── */}
+      {/* ── Custom Context Menu ── */}
       <AnimatePresence>
         {contextMenu && contextMenu.visible && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.1 }}
-            style={{ top: contextMenu.y, left: contextMenu.x }}
-            className="absolute z-[2000] w-48 bg-[#252526] border border-[#3c3c3c] rounded-md shadow-2xl py-1 select-none text-xs"
+            initial={{ opacity: 0, scale: 0.95, y: -4 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: -4 }}
+            transition={{ duration: 0.1, ease: 'easeOut' }}
+            style={{
+              top: contextMenu.y,
+              left: contextMenu.x,
+              backgroundColor: chromeBg,
+              border: `1px solid ${borderColor}`,
+              backdropFilter: 'blur(12px)',
+            }}
+            className="absolute z-[2000] w-48 rounded-lg shadow-2xl py-1.5 select-none overflow-hidden"
           >
-            <button
-              onClick={handleCopy}
-              disabled={!isTextSelected}
-              className="w-full px-3 py-1.5 flex items-center gap-2 text-left text-[#cccccc] hover:bg-[#37373d] disabled:opacity-40 disabled:hover:bg-transparent outline-none border-none cursor-pointer"
-            >
-              <VscCopy className="w-3.5 h-3.5" />
-              <span>Copy</span>
-            </button>
-            <button
-              onClick={handlePaste}
-              className="w-full px-3 py-1.5 flex items-center gap-2 text-left text-[#cccccc] hover:bg-[#37373d] outline-none border-none cursor-pointer"
-            >
-              <VscClippy className="w-3.5 h-3.5" />
-              <span>Paste</span>
-            </button>
-            <div className="border-t border-[#3c3c3c] my-1" />
-            <button
-              onClick={handleSelectAll}
-              className="w-full px-3 py-1.5 flex items-center gap-2 text-left text-[#cccccc] hover:bg-[#37373d] outline-none border-none cursor-pointer"
-            >
-              <span>Select All</span>
-            </button>
-            <button
-              onClick={handleClear}
-              className="w-full px-3 py-1.5 flex items-center gap-2 text-left text-[#cccccc] hover:bg-[#37373d] outline-none border-none cursor-pointer"
-            >
-              <VscTrash className="w-3.5 h-3.5" />
-              <span>Clear Terminal</span>
-            </button>
+            {[
+              { label: 'Copy', icon: <VscCopy size={13} />, action: handleCopy, disabled: !isTextSelected },
+              { label: 'Paste', icon: <VscClippy size={13} />, action: handlePaste, disabled: false },
+            ].map(({ label, icon, action, disabled }) => (
+              <button
+                key={label}
+                onClick={action}
+                disabled={disabled}
+                className="w-full px-3 py-1.5 flex items-center gap-2.5 text-left border-none cursor-pointer outline-none transition-colors duration-100"
+                style={{
+                  fontSize: '12px',
+                  backgroundColor: 'transparent',
+                  color: disabled ? `${theme.foreground}33` : `${theme.foreground}cc`,
+                }}
+                onMouseEnter={(e) => {
+                  if (!disabled)
+                    (e.currentTarget as HTMLButtonElement).style.backgroundColor = `${accentColor}18`;
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent';
+                }}
+              >
+                <span style={{ color: disabled ? `${theme.foreground}22` : `${accentColor}99` }}>{icon}</span>
+                <span>{label}</span>
+                <span style={{ marginLeft: 'auto', fontSize: '10px', color: `${theme.foreground}33` }}>
+                  {label === 'Copy' ? 'Ctrl+Shift+C' : 'Ctrl+Shift+V'}
+                </span>
+              </button>
+            ))}
+
+            <div style={{ height: '1px', backgroundColor: `${theme.foreground}15`, margin: '4px 8px' }} />
+
+            {[
+              { label: 'Select All', icon: null, action: handleSelectAll },
+              { label: 'Clear Terminal', icon: <VscTrash size={13} />, action: handleClear },
+            ].map(({ label, icon, action }) => (
+              <button
+                key={label}
+                onClick={action}
+                className="w-full px-3 py-1.5 flex items-center gap-2.5 text-left border-none cursor-pointer outline-none transition-colors duration-100"
+                style={{
+                  fontSize: '12px',
+                  backgroundColor: 'transparent',
+                  color: `${theme.foreground}cc`,
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.backgroundColor = `${accentColor}18`;
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent';
+                }}
+              >
+                {icon && <span style={{ color: `${accentColor}99` }}>{icon}</span>}
+                {!icon && <span style={{ width: '13px' }} />}
+                <span>{label}</span>
+                {label === 'Select All' && (
+                  <span style={{ marginLeft: 'auto', fontSize: '10px', color: `${theme.foreground}33` }}>
+                    Ctrl+Shift+A
+                  </span>
+                )}
+              </button>
+            ))}
           </motion.div>
         )}
       </AnimatePresence>
