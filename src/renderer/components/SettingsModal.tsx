@@ -54,6 +54,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onThemeCh
   // Logging states
   const [logLevel, setLogLevel] = useState('INFO');
 
+  // File panel display limit
+  const [filesDisplayLimit, setFilesDisplayLimit] = useState(4000);
+
   const loadAllSettings = async () => {
     try {
       const settings = await window.electronAPI.settings.getAllSettings();
@@ -74,6 +77,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onThemeCh
 
       setDownloadDir(settings['download.dir'] || '~/Downloads');
       setRightsFormat(settings['rights.format'] || 'grouped');
+      setFilesDisplayLimit(parseInt(settings['files.display.limit'] || '4000', 10));
       setLogLevel(settings['app.log.level'] || 'INFO');
     } catch (err) {
       console.error('Failed to load settings', err);
@@ -106,6 +110,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onThemeCh
         window.electronAPI.settings.setSetting('terminal.theme.light', termThemeDark),
         window.electronAPI.settings.setSetting('download.dir', downloadDir),
         window.electronAPI.settings.setSetting('rights.format', rightsFormat),
+        window.electronAPI.settings.setSetting('files.display.limit', filesDisplayLimit.toString()),
         window.electronAPI.settings.setSetting('app.log.level', logLevel)
       ]);
 
@@ -253,6 +258,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onThemeCh
                 setDownloadDir={setDownloadDir}
                 rightsFormat={rightsFormat}
                 setRightsFormat={setRightsFormat}
+                filesDisplayLimit={filesDisplayLimit}
+                setFilesDisplayLimit={setFilesDisplayLimit}
               />
             )}
 

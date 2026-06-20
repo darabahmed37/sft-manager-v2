@@ -11,6 +11,7 @@ interface FileManagerProps {
   host: string;
   sessionId: string;
   onDisconnect: () => void;
+  onOpenSettings: () => void;
 }
 
 export const FileManager: React.FC<FileManagerProps> = ({
@@ -20,9 +21,11 @@ export const FileManager: React.FC<FileManagerProps> = ({
   host,
   sessionId,
   onDisconnect,
+  onOpenSettings,
 }) => {
   const [localCollapsed, setLocalCollapsed] = useState(false);
   const [localView, setLocalView] = useState<'list' | 'grid'>('list');
+  const [displayLimit, setDisplayLimit] = useState<number>(4000);
   const [remoteView, setRemoteView] = useState<'list' | 'grid'>('list');
   
   const [remoteTabs, setRemoteTabs] = useState<{ path: string; isPinned: boolean }[]>([]);
@@ -324,6 +327,11 @@ export const FileManager: React.FC<FileManagerProps> = ({
   const loadLocalDirectory = React.useCallback(async (dirPath: string) => {
     setLocalLoading(true);
     try {
+      try {
+        const limitStr = await window.electronAPI.settings.getSetting('files.display.limit', '4000');
+        setDisplayLimit(parseInt(limitStr, 10) || 4000);
+      } catch {}
+
       const filesList = await window.electronAPI.fs.listDirectory(dirPath);
       const sorted = [...filesList].sort((a, b) => {
         if (a.isDirectory && !b.isDirectory) return -1;
@@ -347,6 +355,11 @@ export const FileManager: React.FC<FileManagerProps> = ({
   const loadRemoteDirectory = React.useCallback(async (dirPath: string) => {
     setRemoteLoading(true);
     try {
+      try {
+        const limitStr = await window.electronAPI.settings.getSetting('files.display.limit', '4000');
+        setDisplayLimit(parseInt(limitStr, 10) || 4000);
+      } catch {}
+
       const filesList = await window.electronAPI.ssh.listDirectory(sessionId, dirPath);
       const sorted = [...filesList].sort((a, b) => {
         if (a.isDirectory && !b.isDirectory) return -1;
@@ -1131,6 +1144,8 @@ export const FileManager: React.FC<FileManagerProps> = ({
               loading={localLoading}
               currentDir={localHistory.currentDir}
               files={sortedLocalFiles}
+              displayLimit={displayLimit}
+              onOpenSettings={onOpenSettings}
               selectedFile={selectedLocalFile}
               onSelect={(file) => setSelectedLocalFile(file as LocalFile | null)}
               onDoubleClick={(file) => handleLocalDblClick(file as LocalFile)}
@@ -1221,6 +1236,8 @@ export const FileManager: React.FC<FileManagerProps> = ({
             loading={remoteLoading}
             currentDir={remoteHistory.currentDir}
             files={sortedRemoteFiles}
+            displayLimit={displayLimit}
+            onOpenSettings={onOpenSettings}
             selectedFile={selectedRemoteFile}
             onSelect={(file) => setSelectedRemoteFile(file as RemoteFile | null)}
             onDoubleClick={(file) => handleRemoteDblClick(file as RemoteFile)}

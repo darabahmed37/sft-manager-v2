@@ -5,6 +5,8 @@ interface FilePanelTabProps {
   setDownloadDir: (val: string) => void;
   rightsFormat: string;
   setRightsFormat: (val: string) => void;
+  filesDisplayLimit: number;
+  setFilesDisplayLimit: (val: number) => void;
 }
 
 export const FilePanelTab: React.FC<FilePanelTabProps> = ({
@@ -12,6 +14,8 @@ export const FilePanelTab: React.FC<FilePanelTabProps> = ({
   setDownloadDir,
   rightsFormat,
   setRightsFormat,
+  filesDisplayLimit,
+  setFilesDisplayLimit,
 }) => {
   const handleBrowseDownload = async () => {
     const path = await window.electronAPI.window.openFile();
@@ -54,6 +58,23 @@ export const FilePanelTab: React.FC<FilePanelTabProps> = ({
           <option value="grouped">Grouped segments (rwx | r-x | r-x)</option>
           <option value="unix">Unix raw format (rwxrwxrwx)</option>
         </select>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3 items-start mt-1">
+        <label className="text-[var(--text-muted)] font-semibold pt-1">Display Item Limit:</label>
+        <div className="col-span-2 flex flex-col gap-1">
+          <input 
+            type="number" 
+            min="10"
+            max="100000"
+            value={filesDisplayLimit}
+            onChange={(e) => setFilesDisplayLimit(parseInt(e.target.value, 10) || 4000)}
+            className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-[3px] px-2.5 py-1 text-xs outline-none"
+          />
+          <span className="text-[var(--text-subtle)] text-[10px] leading-relaxed pr-2">
+            Directories containing more items than this limit will display a warning overlay instead of rendering all rows, avoiding UI freezes.
+          </span>
+        </div>
       </div>
     </div>
   );

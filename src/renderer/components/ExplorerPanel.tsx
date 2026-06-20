@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { FaCloudUploadAlt, FaCloudDownloadAlt } from 'react-icons/fa';
+import React, { useState, useEffect } from 'react';
+import { FaCloudUploadAlt, FaCloudDownloadAlt, FaExclamationTriangle } from 'react-icons/fa';
 import { ExplorerToolbar } from './ExplorerToolbar';
 import { ExplorerTable } from './ExplorerTable';
 import { ExplorerGrid } from './ExplorerGrid';
@@ -63,6 +63,8 @@ interface ExplorerPanelProps {
   username?: string;
   host?: string;
   onOpenTerminal?: () => void;
+  displayLimit: number;
+  onOpenSettings?: () => void;
 
   // Tabbed navigation (Remote-only, visible when local panel is collapsed)
   localCollapsed?: boolean;
@@ -136,6 +138,8 @@ export const ExplorerPanel: React.FC<ExplorerPanelProps> = ({
   username,
   host,
   onOpenTerminal,
+  displayLimit,
+  onOpenSettings,
 
   localCollapsed,
   remoteTabs,
@@ -149,6 +153,11 @@ export const ExplorerPanel: React.FC<ExplorerPanelProps> = ({
   onMultiSelectChange,
 }) => {
   const [dragCount, setDragCount] = useState(0);
+  const [forceShow, setForceShow] = useState(false);
+
+  useEffect(() => {
+    setForceShow(false);
+  }, [currentDir]);
 
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
@@ -305,7 +314,43 @@ export const ExplorerPanel: React.FC<ExplorerPanelProps> = ({
           </div>
         )}
 
-        {viewMode === 'list' ? (
+        {!forceShow && !loading && files.length > displayLimit ? (
+          <div className="h-full w-full flex flex-col items-center justify-center p-6 bg-[var(--bg-panel)] animate-fade-in select-none text-center">
+            <div className="w-12 h-12 bg-amber-500/10 border border-amber-500/25 rounded-full flex items-center justify-center mb-4 text-amber-500 text-xl shrink-0">
+              <FaExclamationTriangle size={20} />
+            </div>
+            <h3 className="text-[14.5px] font-semibold text-[var(--text-main)] mb-1">
+              Too Many Items
+            </h3>
+            <p className="text-[12px] text-[var(--text-muted)] leading-relaxed max-w-[340px] mb-6 font-medium">
+              This folder contains <strong className="text-[var(--text-main)] font-bold">{files.length}</strong> items, which exceeds the display limit of <strong className="text-[var(--text-main)] font-bold">{displayLimit}</strong>. Please use the terminal to work with this folder, or change the limit using the settings window.
+            </p>
+            <div className="flex flex-col gap-2.5 justify-center items-center w-full max-w-[280px]">
+              {pane === 'remote' && onOpenTerminal && (
+                <button 
+                  onClick={onOpenTerminal}
+                  className="w-full bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white text-[12.5px] px-4 py-2 rounded-[5px] font-semibold cursor-pointer outline-none transition-colors border-none"
+                >
+                  Open Terminal
+                </button>
+              )}
+              {onOpenSettings && (
+                <button 
+                  onClick={onOpenSettings}
+                  className="w-full bg-transparent hover:bg-white/5 border border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-main)] text-[12.5px] px-4 py-2 rounded-[5px] font-semibold cursor-pointer outline-none transition-colors"
+                >
+                  Open Settings
+                </button>
+              )}
+              <button 
+                onClick={() => setForceShow(true)}
+                className="w-full bg-transparent border-none text-[var(--text-subtle)] hover:text-[var(--color-primary)] text-[11.5px] font-medium cursor-pointer py-1.5 outline-none transition-colors underline"
+              >
+                Display Files Anyway
+              </button>
+            </div>
+          </div>
+        ) : viewMode === 'list' ? (
           <ExplorerTable 
             pane={pane}
             files={files}
