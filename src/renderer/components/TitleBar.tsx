@@ -133,9 +133,12 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                   e.stopPropagation();
                   onCloseTab?.(tab.id);
                 }}
-                className="ml-1.5 w-4.5 h-4.5 rounded-full bg-transparent border-none text-[12px] leading-none flex items-center justify-center text-[var(--text-subtle)] hover:bg-[var(--border-color)] hover:text-[var(--text-main)] transition-colors cursor-pointer outline-none"
+                className="ml-1.5 w-[18px] h-[18px] rounded-full bg-transparent border-none flex items-center justify-center text-[var(--text-subtle)] hover:bg-[var(--border-color)] hover:text-[var(--text-main)] transition-colors cursor-pointer outline-none"
               >
-                ×
+                <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                  <line x1="1.5" y1="1.5" x2="6.5" y2="6.5" />
+                  <line x1="6.5" y1="1.5" x2="1.5" y2="6.5" />
+                </svg>
               </button>
             )}
           </div>
@@ -145,10 +148,14 @@ export const TitleBar: React.FC<TitleBarProps> = ({
       {onNewConnection && (
         <button
           onClick={onNewConnection}
-          className="h-[34px] w-[34px] flex items-center justify-center cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-white/5 rounded-[6px] border-none bg-transparent text-[18px] mb-1 outline-none"
+          className="h-[34px] w-[34px] flex items-center justify-center cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-white/5 rounded-[6px] border-none bg-transparent outline-none ml-1 shrink-0 transition-colors"
+          style={{ marginBottom: '2px' }}
           title="New Connection"
         >
-          +
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+            <line x1="6" y1="2" x2="6" y2="10" />
+            <line x1="2" y1="6" x2="10" y2="6" />
+          </svg>
         </button>
       )}
     </div>

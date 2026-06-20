@@ -230,26 +230,45 @@ export const ExplorerPanel: React.FC<ExplorerPanelProps> = ({
                   }}
                   title={tab.path}
                 >
-                  <span className="text-[12px]">{tab.isPinned ? '📌' : '📁'}</span>
-                  <span>{folderName}</span>
+                  <span className="flex items-center justify-center shrink-0">
+                    {tab.isPinned ? (
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500">
+                        <line x1="12" y1="17" x2="12" y2="22" />
+                        <path d="M5 17h14v-1.76a2 2 0 0 0-.44-1.24l-2.78-3.56A2 2 0 0 1 15 9.2V5a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4.2a2 2 0 0 1-.78 1.56L5.44 14a2 2 0 0 0-.44 1.24z" fill="currentColor" fillOpacity="0.1" />
+                      </svg>
+                    ) : (
+                      <svg width="14" height="12" viewBox="0 0 18 16" fill="none">
+                        <path d="M1.5 3a1.5 1.5 0 0 1 1.5-1.5h3.586a1 1 0 0 1 .707.293l1.414 1.414a1 1 0 0 0 .707.293H15a1.5 1.5 0 0 1 1.5 1.5v1.5H1.5V3z" fill="var(--color-primary)" opacity="0.75" />
+                        <path d="M1.5 5.5C1.5 4.67 2.17 4 3 4h12c.83 0 1.5.67 1.5 1.5v7c0 .83-.67 1.5-1.5 1.5H3c-.83 0-1.5-.67-1.5-1.5v-7z" fill="var(--color-primary)" />
+                      </svg>
+                    )}
+                  </span>
+                  <span className="leading-none">{folderName}</span>
                   {remoteTabs.length > 1 && (
-                    <span 
+                    <button 
                       onClick={(e) => onCloseTab(i, e)}
-                      className="w-4 h-4 rounded-full flex items-center justify-center text-[var(--text-subtle)] hover:bg-[var(--border-color)] hover:text-[var(--text-main)] text-[11px] font-bold ml-1 cursor-pointer transition-colors"
+                      className="w-5 h-5 rounded-full flex items-center justify-center text-[var(--text-subtle)] hover:bg-[var(--border-color)] hover:text-[var(--text-main)] border-none bg-transparent outline-none ml-1 cursor-pointer transition-colors"
                     >
-                      ×
-                    </span>
+                      <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                        <line x1="1.5" y1="1.5" x2="6.5" y2="6.5" />
+                        <line x1="6.5" y1="1.5" x2="1.5" y2="6.5" />
+                      </svg>
+                    </button>
                   )}
                 </div>
               );
             })}
-            <div 
+            <button 
               onClick={onAddTab}
-              className="w-7 h-[28px] flex items-center justify-center cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-white/5 rounded-[4px] text-[16px] shrink-0 mb-0.5"
+              className="w-[30px] h-[30px] flex items-center justify-center cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-white/5 rounded-[4px] border-none bg-transparent outline-none shrink-0"
+              style={{ marginBottom: '2px' }}
               title="New Remote Tab"
             >
-              +
-            </div>
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                <line x1="5" y1="2" x2="5" y2="8" />
+                <line x1="2" y1="5" x2="8" y2="5" />
+              </svg>
+            </button>
           </div>
           <div className="flex-1 border-b border-b-[var(--border-color)] h-full"></div>
           <div className="h-full flex items-center px-3 gap-2 border-b border-b-[var(--border-color)] text-[var(--text-muted)] text-[11.5px] font-medium shrink-0 select-text font-mono">
