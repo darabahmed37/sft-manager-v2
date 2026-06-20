@@ -318,15 +318,16 @@ function App() {
       />
 
       {/* Session Tab Strip */}
-      <div className="h-[30px] bg-[var(--bg-app)] border-b border-[var(--border-color)] flex items-end shrink-0 overflow-hidden select-none">
+      <div className="h-[36px] bg-[var(--bg-app)] border-b border-[var(--border-color)] flex items-end shrink-0 overflow-hidden select-none">
         {/* Connections home tab */}
         <div 
           onClick={() => setActiveTabId('connections')}
-          className={`h-7 px-3.5 flex items-center gap-1.5 text-xs cursor-pointer border-r border-[var(--border-color)] shrink-0 border-t ${
+          className={`h-8 px-4 flex items-center gap-1.5 text-[12.5px] cursor-pointer border-r border-[var(--border-color)] shrink-0 border-t ${
             activeTabId === 'connections' 
-              ? 'bg-[var(--bg-panel)] text-[var(--active-tab-text)] border-t-[2px] border-t-[var(--color-primary)] border-b border-b-[var(--bg-panel)] font-medium' 
+              ? 'bg-[var(--bg-panel)] text-[var(--active-tab-text)] border-t-transparent border-b border-b-[var(--bg-panel)] font-medium' 
               : 'bg-[var(--bg-panel-header)] text-[var(--text-muted)] border-t-transparent border-b border-b-[var(--border-color)] hover:bg-[var(--bg-panel)] hover:text-[var(--text-main)]'
           }`}
+          style={activeTabId === 'connections' ? { boxShadow: 'inset 0 -2px 0 var(--color-primary)' } as React.CSSProperties : undefined}
         >
           <svg className="w-3 h-3 text-[var(--text-muted)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4">
             <rect x="1" y="2" width="10" height="8" rx="1"/>
@@ -345,14 +346,15 @@ function App() {
             <div 
               key={tab.id}
               onClick={() => setActiveTabId(tab.id)}
-              className={`h-7 px-3 flex items-center gap-1.5 text-xs cursor-pointer border-r border-[var(--border-color)] shrink-0 border-t ${
+              className={`h-8 px-4 flex items-center gap-1.5 text-[12.5px] cursor-pointer border-r border-[var(--border-color)] shrink-0 border-t ${
                 isActive 
-                  ? 'bg-[var(--bg-panel)] text-[var(--active-tab-text)] border-t-[2px] border-t-[var(--color-primary)] border-b border-b-[var(--bg-panel)] font-medium' 
+                  ? 'bg-[var(--bg-panel)] text-[var(--active-tab-text)] border-t-transparent border-b border-b-[var(--bg-panel)] font-medium' 
                   : 'bg-[var(--bg-panel-header)] text-[var(--text-muted)] border-t-transparent border-b border-b-[var(--border-color)] hover:bg-[var(--bg-panel)] hover:text-[var(--text-main)]'
               }`}
+              style={isActive ? { boxShadow: 'inset 0 -2px 0 var(--color-primary)' } as React.CSSProperties : undefined}
             >
               <div 
-                className="w-1.5 h-1.5 rounded-full shrink-0 transition-colors duration-300"
+                className="w-2 h-2 rounded-full shrink-0 transition-colors duration-300"
                 style={{ 
                   backgroundColor: statusDotColor,
                   boxShadow: tab.status === 'connecting' ? '0 0 3px #29ABEE' : tab.status === 'connected' ? '0 0 3px #4ec9b0' : 'none' 
@@ -364,7 +366,7 @@ function App() {
                   e.stopPropagation();
                   handleCloseTab(tab.id);
                 }}
-                className="ml-1 text-[var(--text-subtle)] hover:text-[var(--text-main)] font-semibold text-[15px] leading-none mt-[-1px] outline-none cursor-pointer"
+                className="ml-1.5 w-5 h-5 rounded-sm hover:bg-[var(--border-color)] hover:text-[var(--text-main)] flex items-center justify-center text-[14px] leading-none mt-[-1px] outline-none cursor-pointer text-[var(--text-subtle)] transition-colors"
               >
                 ×
               </button>
@@ -378,7 +380,7 @@ function App() {
             setEditingConnectionId(null);
             setIsWizardOpen(true);
           }}
-          className="h-7 w-[30px] flex items-center justify-center cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] text-[17px] mt-[-1px] shrink-0 border-b border-[var(--border-color)]"
+          className="h-8 w-[36px] flex items-center justify-center cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] text-[18px] mt-[-1px] shrink-0 border-b border-[var(--border-color)]"
           title="New Connection"
         >
           +
@@ -441,25 +443,25 @@ function App() {
 
             if (currentTab.status === 'failed') {
               return (
-                <div className="flex-1 flex flex-col items-center justify-center bg-[#141414] select-none text-neutral-300 font-sans p-6">
-                  <div className="w-[420px] bg-[#1e1e1e] border border-neutral-800 rounded-[4px] p-6 shadow-xl text-center">
+                <div className="flex-1 flex flex-col items-center justify-center bg-[var(--bg-app)] select-none text-[var(--text-main)] p-6">
+                  <div className="w-[420px] bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-[var(--radius-md)] p-6 shadow-[var(--shadow-modal)] text-center">
                     <div className="w-12 h-12 bg-red-950/20 border border-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 text-xl font-bold">
                       !
                     </div>
-                    <h3 className="text-[14px] font-semibold text-neutral-200 mb-2">Connection Failed</h3>
-                    <p className="text-xs text-neutral-500 font-mono bg-[#141414] p-3 rounded-[3px] border border-neutral-900/60 break-all text-left mb-6 leading-relaxed max-h-40 overflow-y-auto">
+                    <h3 className="text-[14.5px] font-semibold text-[var(--text-main)] mb-2">Connection Failed</h3>
+                    <p className="text-[11.5px] text-[var(--text-muted)] font-mono bg-[var(--bg-app)] p-3.5 rounded-[var(--radius-sm)] border border-[var(--border-color)] break-all text-left mb-6 leading-relaxed max-h-40 overflow-y-auto">
                       {currentTab.error}
                     </p>
                     <div className="flex gap-3 justify-center">
                       <button 
                         onClick={() => currentTab.connectionId && handleRetryConnect(currentTab.connectionId)}
-                        className="bg-[#29ABEE] hover:bg-[#1a9ad9] active:bg-[#1685bc] border-none text-white text-xs px-5 py-2 rounded-[3px] font-semibold cursor-pointer outline-none transition-colors"
+                        className="bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] border-none text-white text-[12px] px-5 py-2 rounded-[var(--radius-sm)] font-semibold cursor-pointer outline-none transition-colors"
                       >
                         Retry Connection
                       </button>
                       <button 
                         onClick={() => handleCloseTab(currentTab.id)}
-                        className="bg-transparent hover:bg-neutral-800 border border-neutral-800 hover:border-neutral-700 text-neutral-400 text-xs px-5 py-2 rounded-[3px] font-medium cursor-pointer outline-none transition-colors"
+                        className="bg-transparent hover:bg-[var(--bg-panel-header)] border border-[var(--border-color)] text-[var(--text-muted)] text-[12px] px-5 py-2 rounded-[var(--radius-sm)] font-medium cursor-pointer outline-none transition-colors"
                       >
                         Close Tab
                       </button>

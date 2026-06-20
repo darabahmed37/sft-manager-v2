@@ -86,14 +86,14 @@ export const FileManager: React.FC<FileManagerProps> = ({
 
   // Column resizing state
   const [localColWidths, setLocalColWidths] = useState({
-    name: 160,
+    name: 200,
     size: 70,
     modified: 100,
   });
   const [remoteColWidths, setRemoteColWidths] = useState({
-    name: 180,
+    name: 220,
     size: 70,
-    modified: 110,
+    modified: 130,
     owner: 80,
   });
   const [activeResizeCol, setActiveResizeCol] = useState<{
@@ -1208,11 +1208,10 @@ export const FileManager: React.FC<FileManagerProps> = ({
             <div className="writing-mode-vertical text-[9px] text-[var(--text-subtle)] tracking-widest uppercase rotate-180 font-bold select-none">Local</div>
           </div>
         )}
-
         {/* Separator Resize Handle */}
         <div 
           onMouseDown={handleSeparatorMouseDown}
-          className={`w-[4px] cursor-col-resize shrink-0 transition-colors ${isDraggingSeparator ? 'bg-[var(--color-primary)]' : 'bg-[var(--border-color)] hover:bg-[var(--color-primary)]/50'}`}
+          className={`w-[5px] hover:w-[6px] cursor-col-resize shrink-0 transition-all duration-150 ${isDraggingSeparator ? 'bg-[var(--color-primary)] w-[6px]' : 'bg-[var(--border-color)] hover:bg-[var(--color-primary)]/50'}`}
         ></div>
 
         {/* REMOTE PANEL */}
@@ -1298,13 +1297,13 @@ export const FileManager: React.FC<FileManagerProps> = ({
       </div>
 
       {/* Blue Global Connected Footer Status Bar */}
-      <div className="h-5 bg-[var(--color-primary)] text-white flex items-center px-2.5 gap-3.5 shrink-0 text-[11px] font-medium border-t border-[var(--border-color)] select-none text-left">
+      <div className="h-6 bg-[var(--color-primary)] text-white flex items-center px-3 gap-3.5 shrink-0 text-[12px] font-medium border-t border-[var(--border-color)] select-none text-left">
         <span>● Connected · {username}@{host}</span>
         <span className="opacity-75">{remoteHistory.currentDir} · {sortedRemoteFiles.length} items</span>
         <div className="flex-1"></div>
         <button 
           onClick={onDisconnect} 
-          className="bg-transparent border-none text-white hover:text-white/80 cursor-pointer font-bold select-none outline-none mr-2"
+          className="bg-transparent border-none text-white hover:text-white/80 cursor-pointer font-bold select-none outline-none mr-2 px-3 py-0.5 rounded-[4px] hover:bg-white/10 transition-colors"
         >
           Disconnect Session
         </button>
@@ -1314,17 +1313,17 @@ export const FileManager: React.FC<FileManagerProps> = ({
       {tabContextMenu && (
         <div 
           style={{ top: `${tabContextMenu.y}px`, left: `${tabContextMenu.x}px` }}
-          className="fixed bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-[3px] shadow-lg py-1.5 z-[100] w-36 text-xs text-[var(--text-main)] font-sans"
+          className="fixed bg-[var(--bg-panel)]/90 backdrop-blur-sm border border-[var(--border-color)] rounded-[6px] shadow-[var(--shadow-dropdown)] py-2 z-[100] w-48 text-[12px] text-[var(--text-main)] font-sans"
         >
           <button 
             onClick={() => handleTogglePinTab(tabContextMenu.tabIdx)}
-            className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
+            className="w-full text-left px-4 py-2 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-[12px]"
           >
             {remoteTabs[tabContextMenu.tabIdx]?.isPinned ? '📌 Unpin Tab' : '📌 Pin Tab'}
           </button>
           <button 
             onClick={() => handleDuplicateTab(tabContextMenu.tabIdx)}
-            className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs border-t border-[var(--border-color)]/50 text-left"
+            className="w-full text-left px-4 py-2 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-[12px] border-t border-[var(--border-color)]/50 mt-1.5 pt-2"
           >
             📋 Duplicate Tab
           </button>
@@ -1335,32 +1334,32 @@ export const FileManager: React.FC<FileManagerProps> = ({
       {contextMenu && (
         <div 
           style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }}
-          className="fixed bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-[3px] shadow-[0_4px_16px_rgba(0,0,0,0.35)] py-1.5 z-[100] w-48 text-xs text-[var(--text-main)] font-sans"
+          className="fixed bg-[var(--bg-panel)]/90 backdrop-blur-sm border border-[var(--border-color)] rounded-[6px] shadow-[var(--shadow-dropdown)] py-2 z-[100] w-52 text-[12px] text-[var(--text-main)] font-sans"
         >
           {contextMenu.item === null ? (
             <>
               <button 
                 onClick={() => handleRefresh(contextMenu.pane)}
-                className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
+                className="w-full text-left px-4 py-2 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-[12px]"
               >
                 🔄 Refresh
               </button>
               <button 
                 onClick={() => handleNewFolder(contextMenu.pane)}
-                className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
+                className="w-full text-left px-4 py-2 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-[12px]"
               >
                 📁 New Folder
               </button>
               <button 
                 onClick={() => handleNewFile(contextMenu.pane)}
-                className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
+                className="w-full text-left px-4 py-2 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-[12px]"
               >
                 📄 New File
               </button>
               {clipboard && (
                 <button 
                   onClick={() => handlePaste(contextMenu.pane)}
-                  className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs border-t border-[var(--border-color)]/40 text-left"
+                  className="w-full text-left px-4 py-2 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-[12px] border-t border-[var(--border-color)]/40 mt-1.5 pt-2"
                 >
                   📋 Paste ({clipboard.type === 'copy' ? 'Copy' : 'Cut'} items)
                 </button>
@@ -1376,7 +1375,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
                       const item = contextMenu.item;
                       if (item) changeRemoteDirectory(joinRemotePath(remoteHistory.currentDir, item.name));
                     }}
-                    className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
+                    className="w-full text-left px-4 py-2 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-[12px]"
                   >
                     📂 Open
                   </button>
@@ -1391,12 +1390,12 @@ export const FileManager: React.FC<FileManagerProps> = ({
                         setActiveRemoteTabIdx(nextTabs.length - 1);
                         changeRemoteDirectory(newPath, false);
                       }}
-                      className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
+                      className="w-full text-left px-4 py-2 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-[12px]"
                     >
                       🗂️ Open in New Tab
                     </button>
                   )}
-                  <div className="border-t border-[var(--border-color)]/40 my-1"></div>
+                  <div className="border-t border-[var(--border-color)]/40 my-1.5"></div>
                 </>
               )}
               <button 
@@ -1428,63 +1427,63 @@ export const FileManager: React.FC<FileManagerProps> = ({
                     await loadRemoteDirectory(remoteHistory.currentDir);
                   }
                 }}
-                className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
+                className="w-full text-left px-4 py-2 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-[12px]"
               >
                 {contextMenu.pane === 'local' ? '📤 Upload' : '📥 Download'}
               </button>
-              <div className="border-t border-[var(--border-color)]/40 my-1"></div>
+              <div className="border-t border-[var(--border-color)]/40 my-1.5"></div>
               <button 
                 onClick={() => { if (contextMenu.item) handleCopy(contextMenu.pane, contextMenu.item); }}
-                className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
+                className="w-full text-left px-4 py-2 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-[12px]"
               >
                 📋 Copy
               </button>
               <button 
                 onClick={() => { if (contextMenu.item) handleCut(contextMenu.pane, contextMenu.item); }}
-                className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
+                className="w-full text-left px-4 py-2 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-[12px]"
               >
                 ✂️ Cut
               </button>
               {clipboard && (
                 <button 
                   onClick={() => handlePaste(contextMenu.pane)}
-                  className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
+                  className="w-full text-left px-4 py-2 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-[12px]"
                 >
                   📋 Paste
                 </button>
               )}
-              <div className="border-t border-[var(--border-color)]/40 my-1"></div>
+              <div className="border-t border-[var(--border-color)]/40 my-1.5"></div>
               <button 
                 onClick={() => { if (contextMenu.item) handleRename(contextMenu.pane, contextMenu.item); }}
-                className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
+                className="w-full text-left px-4 py-2 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-[12px]"
               >
                 ✏️ Rename
               </button>
               <button 
                 onClick={() => { if (contextMenu.item) handleDelete(contextMenu.pane, contextMenu.item); }}
-                className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left text-red-400"
+                className="w-full text-left px-4 py-2 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-[12px] text-rose-500 hover:text-rose-400"
               >
                 ❌ Delete
               </button>
-              <div className="border-t border-[var(--border-color)]/40 my-1"></div>
+              <div className="border-t border-[var(--border-color)]/40 my-1.5"></div>
               <button 
                 onClick={() => { if (contextMenu.item) handleCompress(contextMenu.pane, contextMenu.item); }}
-                className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
+                className="w-full text-left px-4 py-2 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-[12px]"
               >
                 📦 Compress to tar.gz
               </button>
               {contextMenu.item && (contextMenu.item.name.endsWith('.tar.gz') || contextMenu.item.name.endsWith('.tgz')) && (
                 <button 
                   onClick={() => { if (contextMenu.item) handleExtract(contextMenu.pane, contextMenu.item); }}
-                  className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
+                  className="w-full text-left px-4 py-2 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-[12px]"
                 >
                   📂 Extract Archive
                 </button>
               )}
-              <div className="border-t border-[var(--border-color)]/40 my-1"></div>
+              <div className="border-t border-[var(--border-color)]/40 my-1.5"></div>
               <button 
                 onClick={() => { if (contextMenu.item) handleProperties(contextMenu.pane, contextMenu.item); }}
-                className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
+                className="w-full text-left px-4 py-2 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-[12px]"
               >
                 ℹ️ Properties
               </button>

@@ -179,7 +179,7 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
         */}
         <table className="w-full border-collapse text-[13px] table-fixed">
           <colgroup>
-            <col style={{ width: '28px' }} />
+            <col style={{ width: '30px' }} />
             <col style={{ width: `${colWidths.name}px` }} />
             <col style={{ width: `${colWidths.size}px` }} />
             <col style={{ width: `${colWidths.modified}px` }} />
@@ -191,14 +191,14 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
           </colgroup>
 
           <thead className="sticky top-0 bg-[var(--bg-panel-header)] z-10 border-b border-[var(--border-color)]">
-            <tr className="h-[30px] text-[12px] text-[var(--text-muted)] border-b border-[var(--border-color)]">
+            <tr className="h-[34px] text-[12px] text-[var(--text-muted)] border-b border-[var(--border-color)]">
 
               {/* Icon col — no header text */}
               <th className="py-1 pl-2 border-r border-[var(--border-color)]/30" />
 
               <th
                 onClick={() => onSort('name')}
-                className="relative text-left px-3 font-semibold tracking-wide select-none cursor-pointer hover:text-[var(--text-main)] border-r border-[var(--border-color)]/30 uppercase text-[11px]"
+                className="relative text-left px-3 font-semibold select-none cursor-pointer hover:text-[var(--text-main)] border-r border-[var(--border-color)]/30 uppercase text-[12px]"
               >
                 Name {sortField === 'name' ? (sortAsc ? '▲' : '▼') : ''}
                 <div
@@ -209,7 +209,7 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
 
               <th
                 onClick={() => onSort('size')}
-                className="relative text-right px-3 font-semibold tracking-wide select-none cursor-pointer hover:text-[var(--text-main)] border-r border-[var(--border-color)]/30 uppercase text-[11px]"
+                className="relative text-right px-3 font-semibold select-none cursor-pointer hover:text-[var(--text-main)] border-r border-[var(--border-color)]/30 uppercase text-[12px]"
               >
                 Size {sortField === 'size' ? (sortAsc ? '▲' : '▼') : ''}
                 <div
@@ -220,7 +220,7 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
 
               <th
                 onClick={() => onSort('modified')}
-                className={`relative text-left px-3 font-semibold tracking-wide select-none cursor-pointer hover:text-[var(--text-main)] uppercase text-[11px] ${pane === 'remote' ? 'border-r border-[var(--border-color)]/30' : ''}`}
+                className={`relative text-left px-3 font-semibold select-none cursor-pointer hover:text-[var(--text-main)] uppercase text-[12px] ${pane === 'remote' ? 'border-r border-[var(--border-color)]/30' : ''}`}
               >
                 Modified {sortField === 'modified' ? (sortAsc ? '▲' : '▼') : ''}
                 <div
@@ -232,7 +232,7 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
               {pane === 'remote' && (
                 <th
                   onClick={() => onSort('owner')}
-                  className="relative text-left px-3 font-semibold tracking-wide select-none cursor-pointer hover:text-[var(--text-main)] border-r border-[var(--border-color)]/30 uppercase text-[11px]"
+                  className="relative text-left px-3 font-semibold select-none cursor-pointer hover:text-[var(--text-main)] border-r border-[var(--border-color)]/30 uppercase text-[12px]"
                 >
                   Owner {sortField === 'owner' ? (sortAsc ? '▲' : '▼') : ''}
                   <div
@@ -262,7 +262,7 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
                 ? 'bg-[var(--color-primary)]/25 text-[var(--active-tab-text)] font-semibold'
                 : isSelected
                   ? 'bg-[var(--glow-color)]/30 text-[var(--active-tab-text)] font-semibold'
-                  : 'hover:bg-[var(--glow-color)]/15';
+                  : 'hover:bg-[var(--glow-color)]/20';
 
               const fileRow = (
                 <tr
@@ -283,21 +283,21 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
                     rowBg,
                     isDragOver ? 'bg-[var(--color-primary)]/20 border-y border-dashed border-[var(--color-primary)]' : '',
                     isCut ? 'opacity-40' : '',
-                    'cursor-default h-[30px] transition-colors duration-75',
+                    'cursor-default h-[34px] transition-colors duration-75',
                   ].join(' ')}
                 >
                   {/* Icon */}
                   <td
-                    className="pl-2 pr-1 text-center align-middle"
+                    className={`pl-2 pr-1 text-center align-middle py-1 ${isMultiSel || isSelected ? 'border-l-2 border-l-[var(--color-primary)]' : ''}`}
                     onClick={(e) => { e.stopPropagation(); onSelect(file); onMultiSelectChange([]); }}
                     onContextMenu={(e) => { e.stopPropagation(); onSelect(file); onContextMenu(e, file); }}
                   >
                     {file.isDirectory ? (
-                      <svg width="14" height="12" viewBox="0 0 16 14" fill="none">
+                      <svg className="mx-auto" width="14" height="12" viewBox="0 0 16 14" fill="none">
                         <path d="M0 2.5h7l1.5 2H16v9H0z" fill="var(--color-primary)" opacity="0.9" />
                       </svg>
                     ) : (
-                      <svg width="11" height="13" viewBox="0 0 11 13" fill="none">
+                      <svg className="mx-auto" width="11" height="13" viewBox="0 0 11 13" fill="none">
                         <path d="M0 0h7l4 4v9H0z" fill="currentColor" opacity="0.45" />
                         <path d="M7 0l4 4H7z" fill="currentColor" opacity="0.3" />
                       </svg>
@@ -306,7 +306,7 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
 
                   {/* Name */}
                   <td
-                    className="px-3 text-[var(--text-main)] overflow-hidden text-ellipsis whitespace-nowrap align-middle"
+                    className="px-3 text-[var(--text-main)] overflow-hidden text-ellipsis whitespace-nowrap align-middle py-1"
                     title={file.name}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -327,7 +327,7 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
 
                   {/* Size */}
                   <td
-                    className="px-3 text-right text-[var(--text-muted)] font-mono text-[12px] align-middle whitespace-nowrap tabular-nums"
+                    className="px-3 text-right text-[var(--text-muted)] font-mono text-[12px] align-middle whitespace-nowrap tabular-nums py-1"
                     onClick={(e) => { e.stopPropagation(); onSelect(file); onMultiSelectChange([]); }}
                     onContextMenu={(e) => { e.stopPropagation(); onSelect(file); onContextMenu(e, file); }}
                   >
@@ -336,7 +336,7 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
 
                   {/* Modified */}
                   <td
-                    className="px-3 text-[var(--text-subtle)] font-mono text-[12px] align-middle whitespace-nowrap tabular-nums"
+                    className="px-3 text-[var(--text-subtle)] font-mono text-[12px] align-middle whitespace-nowrap tabular-nums py-1"
                     onClick={(e) => { e.stopPropagation(); onSelect(file); onMultiSelectChange([]); }}
                     onContextMenu={(e) => { e.stopPropagation(); onSelect(file); onContextMenu(e, file); }}
                   >
@@ -346,7 +346,7 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
                   {/* Owner (remote only) */}
                   {pane === 'remote' && (
                     <td
-                      className="px-3 text-[var(--text-subtle)] font-mono text-[12px] align-middle whitespace-nowrap"
+                      className="px-3 text-[var(--text-subtle)] font-mono text-[12px] align-middle whitespace-nowrap py-1"
                       onClick={(e) => { e.stopPropagation(); onSelect(file); onMultiSelectChange([]); }}
                       onContextMenu={(e) => { e.stopPropagation(); onSelect(file); onContextMenu(e, file); }}
                     >
@@ -361,6 +361,7 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
                   <td
                     onClick={(e) => { e.stopPropagation(); onSelect(file); onMultiSelectChange([]); }}
                     onContextMenu={(e) => { e.stopPropagation(); onEmptyContextMenu(e); }}
+                    className="py-1"
                   />
                 </tr>
               );
@@ -369,7 +370,7 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
               const spacerRow = (
                 <tr
                   key={`spacer-${i}`}
-                  className="h-[6px]"
+                  className="h-[4px]"
                   onContextMenu={(e) => { e.stopPropagation(); onEmptyContextMenu(e); }}
                 >
                   <td colSpan={colSpanAll} />
@@ -380,10 +381,10 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
             })}
 
             {/* Extra blank rows at the bottom for easy empty-space right-clicking */}
-            {Array.from({ length: 6 }).map((_, i) => (
+            {Array.from({ length: 4 }).map((_, i) => (
               <tr
                 key={`ghost-${i}`}
-                className="h-[30px]"
+                className="h-[34px]"
                 onContextMenu={(e) => { e.stopPropagation(); onEmptyContextMenu(e); }}
               >
                 <td colSpan={colSpanAll} />

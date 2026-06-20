@@ -123,9 +123,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onThemeCh
 
   return (
     <div className="fixed inset-0 bg-black/65 backdrop-blur-xs flex items-center justify-center z-50 select-none text-[13px] text-[var(--text-main)] font-sans">
-      <div className="w-[850px] h-[580px] bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-[4px] flex flex-col shadow-[0_24px_60px_rgba(0,0,0,0.4)] overflow-hidden">
+      <div className="w-[850px] h-[580px] bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-[8px] flex flex-col shadow-[var(--shadow-modal)] overflow-hidden">
         
-        <div className="h-[38px] bg-[var(--bg-panel-header)] border-b border-[var(--border-color)] flex items-center px-4 justify-between shrink-0">
+        <div className="h-[40px] bg-[var(--bg-panel-header)] border-b border-[var(--border-color)] flex items-center px-4 justify-between shrink-0">
           <span className="font-bold text-xs uppercase tracking-widest text-[var(--text-muted)]">Application Settings</span>
           <button 
             onClick={onClose}
@@ -137,11 +137,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onThemeCh
 
         <div className="flex-1 flex overflow-hidden">
           
-          <div className="w-[200px] border-r border-[var(--border-color)] bg-[var(--bg-panel-header)] flex flex-col p-2 gap-1.5 shrink-0 overflow-y-auto">
+          <div className="w-[210px] border-r border-[var(--border-color)] bg-[var(--bg-panel-header)] flex flex-col p-2 gap-1.5 shrink-0 overflow-y-auto">
             
             <button 
               onClick={() => setActiveCategory('credentials')}
-              className={`flex items-center gap-2.5 px-3 py-2 text-left rounded-[3px] border-none outline-none cursor-pointer transition-all ${activeCategory === 'credentials' ? 'bg-[var(--color-primary)] text-white font-semibold' : 'bg-transparent text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--glow-color)]/25'}`}
+              className={`flex items-center gap-2.5 px-3.5 py-2.5 text-left rounded-[var(--radius-sm)] border-none outline-none cursor-pointer transition-all text-[12.5px] ${activeCategory === 'credentials' ? 'bg-[var(--color-primary)] text-white font-semibold' : 'bg-transparent text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--glow-color)]/25'}`}
             >
               <FaUserShield size={14} className="shrink-0" />
               Credentials Profiles
@@ -149,7 +149,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onThemeCh
 
             <button 
               onClick={() => setActiveCategory('connection')}
-              className={`flex items-center gap-2.5 px-3 py-2 text-left rounded-[3px] border-none outline-none cursor-pointer transition-all ${activeCategory === 'connection' ? 'bg-[var(--color-primary)] text-white font-semibold' : 'bg-transparent text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--glow-color)]/25'}`}
+              className={`flex items-center gap-2.5 px-3.5 py-2.5 text-left rounded-[var(--radius-sm)] border-none outline-none cursor-pointer transition-all text-[12.5px] ${activeCategory === 'connection' ? 'bg-[var(--color-primary)] text-white font-semibold' : 'bg-transparent text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--glow-color)]/25'}`}
             >
               <FaPlug size={14} className="shrink-0" />
               Preferences
@@ -157,7 +157,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onThemeCh
 
             <button 
               onClick={() => setActiveCategory('appearance')}
-              className={`flex items-center gap-2.5 px-3 py-2 text-left rounded-[3px] border-none outline-none cursor-pointer transition-all ${activeCategory === 'appearance' ? 'bg-[var(--color-primary)] text-white font-semibold' : 'bg-transparent text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--glow-color)]/25'}`}
+              className={`flex items-center gap-2.5 px-3.5 py-2.5 text-left rounded-[var(--radius-sm)] border-none outline-none cursor-pointer transition-all text-[12.5px] ${activeCategory === 'appearance' ? 'bg-[var(--color-primary)] text-white font-semibold' : 'bg-transparent text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--glow-color)]/25'}`}
             >
               <FaPaintBrush size={13} className="shrink-0" />
               Theme & Panels
@@ -165,7 +165,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onThemeCh
 
             <button 
               onClick={() => setActiveCategory('terminal')}
-              className={`flex items-center gap-2.5 px-3 py-2 text-left rounded-[3px] border-none outline-none cursor-pointer transition-all ${activeCategory === 'terminal' ? 'bg-[var(--color-primary)] text-white font-semibold' : 'bg-transparent text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--glow-color)]/25'}`}
+              className={`flex items-center gap-2.5 px-3.5 py-2.5 text-left rounded-[var(--radius-sm)] border-none outline-none cursor-pointer transition-all text-[12.5px] ${activeCategory === 'terminal' ? 'bg-[var(--color-primary)] text-white font-semibold' : 'bg-transparent text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--glow-color)]/25'}`}
             >
               <FaTerminal size={13} className="shrink-0" />
               Terminal Options
@@ -173,7 +173,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onThemeCh
 
             <button 
               onClick={() => setActiveCategory('files')}
-              className={`flex items-center gap-2.5 px-3 py-2 text-left rounded-[3px] border-none outline-none cursor-pointer transition-all ${activeCategory === 'files' ? 'bg-[var(--color-primary)] text-white font-semibold' : 'bg-transparent text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--glow-color)]/25'}`}
+              className={`flex items-center gap-2.5 px-3.5 py-2.5 text-left rounded-[var(--radius-sm)] border-none outline-none cursor-pointer transition-all text-[12.5px] ${activeCategory === 'files' ? 'bg-[var(--color-primary)] text-white font-semibold' : 'bg-transparent text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--glow-color)]/25'}`}
             >
               <FaFolderOpen size={14} className="shrink-0" />
               File Panels
@@ -181,7 +181,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onThemeCh
 
             <button 
               onClick={() => setActiveCategory('maintenance')}
-              className={`flex items-center gap-2.5 px-3 py-2 text-left rounded-[3px] border-none outline-none cursor-pointer transition-all ${activeCategory === 'maintenance' ? 'bg-[var(--color-primary)] text-white font-semibold' : 'bg-transparent text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--glow-color)]/25'}`}
+              className={`flex items-center gap-2.5 px-3.5 py-2.5 text-left rounded-[var(--radius-sm)] border-none outline-none cursor-pointer transition-all text-[12.5px] ${activeCategory === 'maintenance' ? 'bg-[var(--color-primary)] text-white font-semibold' : 'bg-transparent text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--glow-color)]/25'}`}
             >
               <FaCogs size={14} className="shrink-0" />
               System Maintenance
@@ -189,7 +189,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onThemeCh
 
             <button 
               onClick={() => setActiveCategory('known_hosts')}
-              className={`flex items-center gap-2.5 px-3 py-2 text-left rounded-[3px] border-none outline-none cursor-pointer transition-all ${activeCategory === 'known_hosts' ? 'bg-[var(--color-primary)] text-white font-semibold' : 'bg-transparent text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--glow-color)]/25'}`}
+              className={`flex items-center gap-2.5 px-3.5 py-2.5 text-left rounded-[var(--radius-sm)] border-none outline-none cursor-pointer transition-all text-[12.5px] ${activeCategory === 'known_hosts' ? 'bg-[var(--color-primary)] text-white font-semibold' : 'bg-transparent text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--glow-color)]/25'}`}
             >
               <FaKey size={14} className="shrink-0" />
               Known Hosts Key
@@ -197,7 +197,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onThemeCh
 
             <button 
               onClick={() => setActiveCategory('logging')}
-              className={`flex items-center gap-2.5 px-3 py-2 text-left rounded-[3px] border-none outline-none cursor-pointer transition-all ${activeCategory === 'logging' ? 'bg-[var(--color-primary)] text-white font-semibold' : 'bg-transparent text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--glow-color)]/25'}`}
+              className={`flex items-center gap-2.5 px-3.5 py-2.5 text-left rounded-[var(--radius-sm)] border-none outline-none cursor-pointer transition-all text-[12.5px] ${activeCategory === 'logging' ? 'bg-[var(--color-primary)] text-white font-semibold' : 'bg-transparent text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--glow-color)]/25'}`}
             >
               <FaListAlt size={14} className="shrink-0" />
               Logging Settings
@@ -205,7 +205,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onThemeCh
 
           </div>
 
-          <div className="flex-1 flex flex-col overflow-y-auto p-5">
+          <div className="flex-1 flex flex-col overflow-y-auto p-6">
             {activeCategory === 'credentials' && (
               <CredentialsTab setLoadingGlobal={setLoading} />
             )}
@@ -277,13 +277,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onThemeCh
         <div className="h-[48px] bg-[var(--bg-panel-header)] border-t border-[var(--border-color)] flex items-center px-4.5 justify-end gap-2.5 shrink-0">
           <button 
             onClick={handleSaveAll}
-            className="bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white border-none rounded-[3px] px-5 py-2 text-xs font-semibold cursor-pointer select-none transition-all outline-none"
+            className="bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white border-none rounded-[5px] px-6 py-2 text-[12.5px] font-semibold cursor-pointer select-none transition-all outline-none"
           >
             Apply Changes
           </button>
           <button 
             onClick={onClose}
-            className="bg-transparent border border-[var(--border-color)] text-[var(--text-muted)] hover:text-white rounded-[3px] px-5 py-2 text-xs font-semibold cursor-pointer select-none transition-all outline-none"
+            className="bg-transparent border border-[var(--border-color)] text-[var(--text-muted)] hover:text-white rounded-[5px] px-6 py-2 text-[12.5px] font-semibold cursor-pointer select-none transition-all outline-none"
           >
             Cancel
           </button>
@@ -292,8 +292,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onThemeCh
       </div>
 
       {loading && (
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[110]">
-          <div className="text-white text-xs font-mono">Loading Settings...</div>
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-center z-[110] gap-3">
+          <svg className="animate-spin h-6 w-6 text-[var(--color-primary)]" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <div className="text-white text-[13px] font-semibold">Loading Settings...</div>
         </div>
       )}
     </div>

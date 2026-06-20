@@ -142,7 +142,7 @@ export const ExplorerGrid: React.FC<ExplorerGridProps> = ({
 
       <div
         ref={containerRef}
-        className={`p-${pane === 'local' ? '1.5' : '2'} flex flex-wrap gap-0.5 content-start items-start h-full overflow-auto`}
+        className="p-3 flex flex-wrap gap-1.5 content-start items-start h-full overflow-auto"
         onMouseDown={handleContainerMouseDown}
         onContextMenu={(e) => {
           if (!(e.target as HTMLElement).closest('[data-grid-item]')) {
@@ -196,10 +196,10 @@ export const ExplorerGrid: React.FC<ExplorerGridProps> = ({
                 file.isDirectory ? onDrop(e, targetPath) : onDrop(e);
               }}
               className={[
-                'flex flex-col items-center gap-1 cursor-default border rounded-[2px]',
+                'flex flex-col items-center gap-1.5 cursor-default border rounded-[5px]',
                 pane === 'local'
-                  ? `w-20 p-1.5 ${isMultiSel || isSelected ? 'bg-[var(--glow-color)]/40 border-[var(--color-primary)]' : 'border-transparent hover:bg-[var(--glow-color)]/20'}`
-                  : `w-[88px] p-2 ${isMultiSel || isSelected ? 'bg-[var(--glow-color)]/40 border-[var(--color-primary)]' : 'border-transparent hover:bg-[var(--glow-color)]/20'}`,
+                  ? `w-[88px] p-2.5 ${isMultiSel || isSelected ? 'bg-[var(--glow-color)]/40 border-[var(--color-primary)]' : 'border-transparent hover:bg-[var(--glow-color)]/20'}`
+                  : `w-[96px] p-3 ${isMultiSel || isSelected ? 'bg-[var(--glow-color)]/40 border-[var(--color-primary)]' : 'border-transparent hover:bg-[var(--glow-color)]/20'}`,
                 isDragOver ? 'bg-[var(--color-primary)]/20 border-[var(--color-primary)] border-dashed' : '',
                 isCut ? 'opacity-40' : '',
               ].join(' ')}
@@ -232,14 +232,14 @@ export const ExplorerGrid: React.FC<ExplorerGridProps> = ({
                   </svg>
                 )
               )}
-              <div className={`text-center overflow-hidden text-ellipsis whitespace-nowrap w-full block leading-normal ${pane === 'local' ? 'text-[10px] text-[var(--text-main)]' : 'text-[11px] text-[var(--text-main)]'}`}>
+              <div className={`text-center overflow-hidden text-ellipsis whitespace-nowrap w-full block leading-normal ${pane === 'local' ? 'text-[11.5px] text-[var(--text-main)]' : 'text-[12px] text-[var(--text-main)]'}`}>
                 {file.name}
               </div>
-              <div className="text-center text-[10px] text-[var(--text-muted)]">
+              <div className="text-center text-[11px] text-[var(--text-muted)]">
                 {formatSize(file.size) || (pane === 'local' ? '' : '--')}
               </div>
               {pane === 'remote' && (
-                <div className="text-[9px] text-[var(--text-subtle)] text-center font-mono">
+                <div className="text-[11px] text-[var(--text-subtle)] text-center font-mono">
                   {getModifiedStr(file)}
                 </div>
               )}

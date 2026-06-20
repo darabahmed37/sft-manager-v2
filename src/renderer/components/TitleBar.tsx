@@ -70,8 +70,8 @@ export const TitleBar: React.FC<TitleBarProps> = ({
 
   return (
     <div 
-      className="h-[28px] bg-[var(--bg-app)] flex items-center border-b border-[var(--border-color)] shrink-0 relative select-none theme-transition"
-      style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+      className="h-[34px] bg-[var(--bg-app)] flex items-center border-b border-[var(--border-color)] shrink-0 relative select-none theme-transition"
+      style={{ WebkitAppRegion: 'drag', boxShadow: '0 1px 0 var(--border-color)' } as React.CSSProperties}
     >
       {platform === 'darwin' ? (
         // macOS Spacer for Native Traffic Lights
@@ -82,18 +82,18 @@ export const TitleBar: React.FC<TitleBarProps> = ({
           className="flex items-center gap-2 pl-3 text-[var(--text-subtle)] text-xs font-semibold select-none"
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
         >
-          <svg className="w-3.5 h-3.5 text-[var(--color-primary)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4">
+          <svg className="w-4 h-4 text-[var(--color-primary)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4">
             <rect x="1" y="2" width="10" height="8" rx="1" />
             <line x1="1" y1="4.5" x2="11" y2="4.5" />
             <line x1="3.5" y1="6.5" x2="5.5" y2="6.5" />
             <line x1="3.5" y1="8" x2="7.5" y2="8" />
           </svg>
-          <span className="text-[10px] uppercase tracking-wider text-[var(--text-subtle)]">i2c SFTP</span>
+          <span className="text-[11.5px] uppercase tracking-wider text-[var(--text-subtle)]">i2c SFTP</span>
         </div>
       )}
 
       {/* Central Window Title */}
-      <div className="absolute left-1/2 transform -translate-x-1/2 text-xs text-[var(--text-muted)] font-medium pointer-events-none truncate max-w-[50%]">
+      <div className="absolute left-1/2 transform -translate-x-1/2 text-[13px] text-[var(--text-muted)] font-medium pointer-events-none truncate max-w-[50%]">
         {title}
       </div>
 
@@ -118,7 +118,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
           {/* Minimize */}
           <button
             onClick={handleMinimize}
-            className="w-[45px] h-full flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--bg-panel-header)] hover:text-[var(--text-main)] transition-colors duration-150 outline-none"
+            className="w-[46px] h-full flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--bg-panel-header)] hover:text-[var(--text-main)] transition-colors duration-150 outline-none"
             title="Minimize"
           >
             <svg width="10" height="1" viewBox="0 0 10 1" fill="none" stroke="currentColor" strokeWidth="1">
@@ -129,7 +129,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
           {/* Maximize */}
           <button
             onClick={handleMaximize}
-            className="w-[45px] h-full flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--bg-panel-header)] hover:text-[var(--text-main)] transition-colors duration-150 outline-none"
+            className="w-[46px] h-full flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--bg-panel-header)] hover:text-[var(--text-main)] transition-colors duration-150 outline-none"
             title={isMaximized ? "Restore" : "Maximize"}
           >
             {isMaximized ? (
@@ -146,7 +146,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
           {/* Close */}
           <button
             onClick={handleClose}
-            className="w-[45px] h-full flex items-center justify-center text-[var(--text-muted)] hover:bg-[#e81123] hover:text-white transition-colors duration-150 outline-none"
+            className="w-[46px] h-full flex items-center justify-center text-[var(--text-muted)] hover:bg-[#e81123] hover:text-white transition-colors duration-150 outline-none"
             title="Close"
           >
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1">

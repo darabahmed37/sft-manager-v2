@@ -296,11 +296,11 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/65 backdrop-blur-xs flex items-center justify-center z-50 select-none text-[13px] text-[var(--text-main)] font-sans">
-      <div className="w-[520px] bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-[4px] flex flex-col shadow-[0_24px_60px_rgba(0,0,0,0.4)] max-h-[85vh]">
+      <div className="w-[520px] bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-[8px] flex flex-col shadow-[var(--shadow-modal)] max-h-[85vh]">
         
         {/* Modal Title Bar */}
-        <div className="h-8 bg-[var(--bg-panel-header)] border-b border-[var(--border-color)] flex items-center px-4 rounded-t-[4px] shrink-0">
-          <span className="text-xs font-semibold text-[var(--text-main)]">
+        <div className="h-[40px] bg-[var(--bg-panel-header)] border-b border-[var(--border-color)] flex items-center px-4 rounded-t-[8px] shrink-0">
+          <span className="text-[13px] font-semibold text-[var(--text-main)]">
             {connectionId !== null ? 'Edit Connection' : 'New Connection'} — {stepTitles[step - 1]}
           </span>
           <button 
@@ -315,7 +315,7 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
         </div>
 
         {/* Step Indicator Tabs */}
-        <div className="h-[30px] bg-[var(--bg-panel-header)] border-b border-[var(--border-color)] flex items-end px-2 shrink-0 overflow-x-auto">
+        <div className="h-[36px] bg-[var(--bg-panel-header)] border-b border-[var(--border-color)] flex items-end px-2 shrink-0 overflow-x-auto">
           {stepTitles.map((title, idx) => {
             const num = idx + 1;
             const isActive = step === num;
@@ -323,7 +323,7 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
             return (
               <div 
                 key={num}
-                className={`h-7 px-3.5 flex items-center gap-1.5 text-[11px] font-medium border-r border-[var(--border-color)] transition-all rounded-t-[2px] ${
+                className={`h-8 px-4 flex items-center gap-2 text-[12px] font-medium border-r border-[var(--border-color)] transition-all rounded-t-[4px] ${
                   isActive 
                     ? 'bg-[var(--bg-panel)] text-[var(--active-tab-text)] border-t-[2px] border-t-[var(--color-primary)] font-semibold' 
                     : isCompleted 
@@ -332,8 +332,8 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
                 }`}
                 onClick={() => isCompleted && setStep(num)}
               >
-                <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] ${
-                  isActive ? 'bg-[var(--color-primary)] text-white' : isCompleted ? 'bg-emerald-500/20 text-emerald-500' : 'bg-[var(--bg-panel-header)] text-[var(--text-subtle)] border border-[var(--border-color)]'
+                <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${
+                  isActive ? 'bg-[var(--color-primary)] text-white font-bold' : isCompleted ? 'bg-emerald-500/20 text-emerald-500 font-bold' : 'bg-[var(--bg-panel-header)] text-[var(--text-subtle)] border border-[var(--border-color)]'
                 }`}>
                   {isCompleted ? '✓' : num}
                 </div>
@@ -350,47 +350,47 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
           {step === 1 && (
             <div className="space-y-4 animate-fade-in">
               <div>
-                <label className="block text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">Connection Name</label>
+                <label className="block text-[10.5px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">Connection Name</label>
                 <input 
                   type="text" 
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. Production Web Server" 
-                  className="w-full h-8 bg-[var(--input-bg)] border border-[var(--input-border)] hover:border-[var(--text-subtle)] focus:border-[var(--input-focus-border)] rounded-[3px] px-3 text-[var(--text-main)] placeholder-[var(--text-subtle)] outline-none transition-colors text-xs"
+                  className="w-full h-8 bg-[var(--input-bg)] border border-[var(--input-border)] hover:border-[var(--text-subtle)] focus:border-[var(--input-focus-border)] rounded-[4px] px-3 text-[var(--text-main)] placeholder-[var(--text-subtle)] outline-none transition-colors text-[12px]"
                 />
               </div>
               
               <div className="flex gap-4">
                 <div className="flex-1">
-                  <label className="block text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">SSH Host</label>
+                  <label className="block text-[10.5px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">SSH Host</label>
                   <input 
                     type="text" 
                     value={host}
                     onChange={(e) => setHost(e.target.value)}
                     placeholder="domain.com or 192.168.1.100" 
-                    className="w-full h-8 bg-[var(--input-bg)] border border-[var(--input-border)] hover:border-[var(--text-subtle)] focus:border-[var(--input-focus-border)] rounded-[3px] px-3 text-[var(--text-main)] placeholder-[var(--text-subtle)] outline-none transition-colors text-xs"
+                    className="w-full h-8 bg-[var(--input-bg)] border border-[var(--input-border)] hover:border-[var(--text-subtle)] focus:border-[var(--input-focus-border)] rounded-[4px] px-3 text-[var(--text-main)] placeholder-[var(--text-subtle)] outline-none transition-colors text-[12px]"
                   />
                 </div>
                 <div className="w-[100px]">
-                  <label className="block text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">Port</label>
+                  <label className="block text-[10.5px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">Port</label>
                   <input 
                     type="number" 
                     value={port}
                     onChange={(e) => setPort(Number(e.target.value))}
                     placeholder="22" 
-                    className="w-full h-8 bg-[var(--input-bg)] border border-[var(--input-border)] hover:border-[var(--text-subtle)] focus:border-[var(--input-focus-border)] rounded-[3px] px-3 text-[var(--text-main)] placeholder-[var(--text-subtle)] outline-none transition-colors text-xs"
+                    className="w-full h-8 bg-[var(--input-bg)] border border-[var(--input-border)] hover:border-[var(--text-subtle)] focus:border-[var(--input-focus-border)] rounded-[4px] px-3 text-[var(--text-main)] placeholder-[var(--text-subtle)] outline-none transition-colors text-[12px]"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">Username</label>
+                <label className="block text-[10.5px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">Username</label>
                 <input 
                   type="text" 
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="e.g. root or ubuntu" 
-                  className="w-full h-8 bg-[var(--input-bg)] border border-[var(--input-border)] hover:border-[var(--text-subtle)] focus:border-[var(--input-focus-border)] rounded-[3px] px-3 text-[var(--text-main)] placeholder-[var(--text-subtle)] outline-none transition-colors text-xs"
+                  className="w-full h-8 bg-[var(--input-bg)] border border-[var(--input-border)] hover:border-[var(--text-subtle)] focus:border-[var(--input-focus-border)] rounded-[4px] px-3 text-[var(--text-main)] placeholder-[var(--text-subtle)] outline-none transition-colors text-[12px]"
                 />
               </div>
             </div>
@@ -399,11 +399,11 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
           {/* STEP 2: AUTHENTICATION */}
           {step === 2 && (
             <div className="space-y-4 animate-fade-in">
-              <label className="block text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">Authentication Method</label>
+              <label className="block text-[10.5px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">Authentication Method</label>
               
               <div className="space-y-2">
                 {/* Method Option: Key */}
-                <div className={`p-4 border rounded-[4px] transition-all cursor-pointer ${
+                <div className={`p-4 border rounded-[6px] transition-all cursor-pointer ${
                   authMethod === 'KEY' ? 'border-[var(--color-primary)] bg-[var(--glow-color)]/20' : 'border-[var(--border-color)] bg-transparent hover:bg-[var(--bg-panel-header)]'
                 }`} onClick={() => setAuthMethod('KEY')}>
                   <div className="flex items-center gap-3.5 mb-3">
@@ -414,8 +414,8 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
                       className="accent-[var(--color-primary)]"
                     />
                     <div>
-                      <div className="font-semibold text-[var(--text-main)]">SSH Private Key</div>
-                      <div className="text-[11px] text-[var(--text-muted)] mt-0.5">Public/private key pair file authentication</div>
+                      <div className="font-semibold text-[var(--text-main)] text-[13px]">SSH Private Key</div>
+                      <div className="text-[11.5px] text-[var(--text-muted)] mt-0.5">Public/private key pair file authentication</div>
                     </div>
                   </div>
                   {authMethod === 'KEY' && (
@@ -428,11 +428,11 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
                             value={privateKeyPath}
                             onChange={(e) => setPrivateKeyPath(e.target.value)}
                             placeholder="C:\Users\name\.ssh\id_rsa"
-                            className="flex-1 h-8 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-[3px] px-3 text-[var(--text-main)] outline-none focus:border-[var(--input-focus-border)] text-xs"
+                            className="flex-1 h-8 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-[4px] px-3 text-[var(--text-main)] outline-none focus:border-[var(--input-focus-border)] text-[12px]"
                           />
                           <button 
                             onClick={handleBrowseKeyFile}
-                            className="h-8 border border-[var(--border-color)] bg-[var(--bg-panel-header)] hover:bg-[var(--bg-app)] hover:text-[var(--text-main)] px-4 rounded-[3px] text-xs font-semibold cursor-pointer outline-none transition-colors"
+                            className="h-8 border border-[var(--border-color)] bg-[var(--bg-panel-header)] hover:bg-[var(--bg-app)] hover:text-[var(--text-main)] px-4 rounded-[4px] text-[12px] font-semibold cursor-pointer outline-none transition-colors"
                           >
                             Browse...
                           </button>
@@ -445,7 +445,7 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
                           value={passphrase}
                           onChange={(e) => setPassphrase(e.target.value)}
                           placeholder="Optional"
-                          className="w-full h-8 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-[3px] px-3 text-[var(--text-main)] outline-none focus:border-[var(--input-focus-border)] text-xs"
+                          className="w-full h-8 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-[4px] px-3 text-[var(--text-main)] outline-none focus:border-[var(--input-focus-border)] text-[12px]"
                         />
                       </div>
                     </div>
@@ -453,7 +453,7 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
                 </div>
 
                 {/* Method Option: Password */}
-                <div className={`p-4 border rounded-[4px] transition-all cursor-pointer ${
+                <div className={`p-4 border rounded-[6px] transition-all cursor-pointer ${
                   authMethod === 'PASSWORD' ? 'border-[var(--color-primary)] bg-[var(--glow-color)]/20' : 'border-[var(--border-color)] bg-transparent hover:bg-[var(--bg-panel-header)]'
                 }`} onClick={() => setAuthMethod('PASSWORD')}>
                   <div className="flex items-center gap-3.5">
@@ -464,8 +464,8 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
                       className="accent-[var(--color-primary)]"
                     />
                     <div>
-                      <div className="font-semibold text-[var(--text-main)]">Password</div>
-                      <div className="text-[11px] text-[var(--text-muted)] mt-0.5">SSH username + secret password</div>
+                      <div className="font-semibold text-[var(--text-main)] text-[13px]">Password</div>
+                      <div className="text-[11.5px] text-[var(--text-muted)] mt-0.5">SSH username + secret password</div>
                     </div>
                   </div>
                   {authMethod === 'PASSWORD' && (
@@ -476,14 +476,14 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="Enter SSH password"
-                        className="w-full h-8 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-[3px] px-3 text-[var(--text-main)] outline-none focus:border-[var(--input-focus-border)] text-xs"
+                        className="w-full h-8 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-[4px] px-3 text-[var(--text-main)] outline-none focus:border-[var(--input-focus-border)] text-[12px]"
                       />
                     </div>
                   )}
                 </div>
 
                 {/* Method Option: Keyboard Interactive */}
-                <div className={`p-4 border rounded-[4px] transition-all cursor-pointer ${
+                <div className={`p-4 border rounded-[6px] transition-all cursor-pointer ${
                   authMethod === 'KEYBOARD_INTERACTIVE' ? 'border-[var(--color-primary)] bg-[var(--glow-color)]/20' : 'border-[var(--border-color)] bg-transparent hover:bg-[var(--bg-panel-header)]'
                 }`} onClick={() => setAuthMethod('KEYBOARD_INTERACTIVE')}>
                   <div className="flex items-center gap-3.5">
@@ -494,8 +494,8 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
                       className="accent-[var(--color-primary)]"
                     />
                     <div>
-                      <div className="font-semibold text-[var(--text-main)]">Keyboard Interactive</div>
-                      <div className="text-[11px] text-[var(--text-muted)] mt-0.5">2FA / TOTP challenge authentication</div>
+                      <div className="font-semibold text-[var(--text-main)] text-[13px]">Keyboard Interactive</div>
+                      <div className="text-[11.5px] text-[var(--text-muted)] mt-0.5">2FA / TOTP challenge authentication</div>
                     </div>
                   </div>
                   {authMethod === 'KEYBOARD_INTERACTIVE' && (
@@ -507,7 +507,7 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
                           value={totpSecret}
                           onChange={(e) => setTotpSecret(e.target.value)}
                           placeholder="Optional token secret for automated response"
-                          className="w-full h-8 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-[3px] px-3 text-[var(--text-main)] outline-none focus:border-[var(--input-focus-border)] text-xs"
+                          className="w-full h-8 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-[4px] px-3 text-[var(--text-main)] outline-none focus:border-[var(--input-focus-border)] text-[12px]"
                         />
                       </div>
                       <div>
@@ -517,7 +517,7 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           placeholder="Password prompt fallback"
-                          className="w-full h-8 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-[3px] px-3 text-[var(--text-main)] outline-none focus:border-[var(--input-focus-border)] text-xs"
+                          className="w-full h-8 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-[4px] px-3 text-[var(--text-main)] outline-none focus:border-[var(--input-focus-border)] text-[12px]"
                         />
                       </div>
                     </div>
@@ -531,11 +531,11 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
           {step === 3 && (
             <div className="space-y-4 animate-fade-in">
               <div>
-                <label className="block text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">Connection Type</label>
+                <label className="block text-[10.5px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">Connection Type</label>
                 <select 
                   value={connectionTypeId} 
                   onChange={(e) => setConnectionTypeId(Number(e.target.value))}
-                  className="w-full h-8 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-[3px] px-2 text-[var(--text-main)] outline-none focus:border-[var(--input-focus-border)] text-xs"
+                  className="w-full h-8 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-[4px] px-2.5 text-[var(--text-main)] outline-none focus:border-[var(--input-focus-border)] text-[12px]"
                 >
                   <option value={1}>Direct SSH/SFTP Connection</option>
                   <option value={2}>Bastion Jump Proxy (Can act as gateway)</option>
@@ -544,11 +544,11 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
 
               {connectionTypeId === 1 && (
                 <div>
-                  <label className="block text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">Tunnel via Jump Host</label>
+                  <label className="block text-[10.5px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">Tunnel via Jump Host</label>
                   <select 
                     value={tunnelViaConnectionId || ''} 
                     onChange={(e) => setTunnelViaConnectionId(e.target.value ? Number(e.target.value) : null)}
-                    className="w-full h-8 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-[3px] px-2 text-[var(--text-main)] outline-none focus:border-[var(--input-focus-border)] text-xs"
+                    className="w-full h-8 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-[4px] px-2.5 text-[var(--text-main)] outline-none focus:border-[var(--input-focus-border)] text-[12px]"
                   >
                     <option value="">None (Direct Connection)</option>
                     {bastionProfiles.map((b) => (
@@ -557,7 +557,7 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
                       </option>
                     ))}
                   </select>
-                  <p className="text-[10.5px] text-[var(--text-muted)] mt-1.5 leading-relaxed">
+                  <p className="text-[11px] text-[var(--text-muted)] mt-1.5 leading-relaxed">
                     If selected, the connection will tunnel through this gateway using netcat/TCP duplex relay streams dynamically.
                   </p>
                 </div>
@@ -569,42 +569,42 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
           {step === 4 && (
             <div className="space-y-4 animate-fade-in">
               <div>
-                <label className="block text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">Default Remote Path</label>
+                <label className="block text-[10.5px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">Default Remote Path</label>
                 <input 
                   type="text" 
                   value={workingDir}
                   onChange={(e) => setWorkingDir(e.target.value)}
                   placeholder="~ (Home directory)" 
-                  className="w-full h-8 bg-[var(--input-bg)] border border-[var(--input-border)] hover:border-[var(--text-subtle)] focus:border-[var(--input-focus-border)] rounded-[3px] px-3 text-[var(--text-main)] placeholder-[var(--text-subtle)] outline-none transition-colors text-xs"
+                  className="w-full h-8 bg-[var(--input-bg)] border border-[var(--input-border)] hover:border-[var(--text-subtle)] focus:border-[var(--input-focus-border)] rounded-[4px] px-3 text-[var(--text-main)] placeholder-[var(--text-subtle)] outline-none transition-colors text-[12px]"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">Default Local Path</label>
+                <label className="block text-[10.5px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">Default Local Path</label>
                 <input 
                   type="text" 
                   placeholder="~ (Home directory)" 
-                  className="w-full h-8 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-[3px] px-3 text-[var(--text-main)] placeholder-[var(--text-subtle)] outline-none transition-colors text-xs"
+                  className="w-full h-8 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-[4px] px-3 text-[var(--text-main)] placeholder-[var(--text-subtle)] outline-none transition-colors text-[12px]"
                   disabled
                 />
               </div>
 
-              <div className="p-3.5 bg-[var(--bg-panel-header)] border border-[var(--border-color)] rounded-[4px] flex items-center justify-between">
+              <div className="p-4 bg-[var(--bg-panel-header)] border border-[var(--border-color)] rounded-[var(--radius-md)] flex items-center justify-between">
                 <div>
                   <h4 className="text-xs font-semibold text-[var(--text-main)]">Test Connection</h4>
-                  <p className="text-[10px] text-[var(--text-muted)] mt-0.5">Verify connection parameters and credentials</p>
+                  <p className="text-[11px] text-[var(--text-muted)] mt-0.5">Verify connection parameters and credentials</p>
                 </div>
                 <button 
                   onClick={handleTestConnection}
                   disabled={testing}
-                  className="h-7 px-4 rounded-[3px] text-xs font-semibold border border-[var(--border-color)] bg-[var(--bg-panel)] hover:bg-[var(--bg-panel-header)] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed outline-none select-none transition-colors"
+                  className="h-8 px-5 rounded-[4px] text-[12px] font-semibold border border-[var(--border-color)] bg-[var(--bg-panel)] hover:bg-[var(--bg-panel-header)] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed outline-none select-none transition-colors"
                 >
                   {testing ? 'Testing...' : '✓ Test'}
                 </button>
               </div>
 
               {testResult && (
-                <div className={`p-3 text-xs rounded-[3px] border ${
+                <div className={`p-3 text-[12px] rounded-[4px] border ${
                   testResult.success 
                     ? 'bg-emerald-950/20 border-emerald-900/60 text-emerald-400' 
                     : 'bg-rose-950/20 border-rose-900/60 text-rose-400'
@@ -618,10 +618,10 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
         </div>
 
         {/* Dialog Footer Actions */}
-        <div className="h-14 border-t border-[var(--border-color)] bg-[var(--bg-panel-header)] px-4 flex items-center justify-between shrink-0 rounded-b-[4px]">
+        <div className="h-[60px] border-t border-[var(--border-color)] bg-[var(--bg-panel-header)] px-4 flex items-center justify-between shrink-0 rounded-b-[8px]">
           <button 
             onClick={onClose}
-            className="border border-[var(--border-color)] bg-transparent hover:bg-[var(--bg-app)] text-[var(--text-muted)] hover:text-[var(--text-main)] text-xs px-4 py-1.5 rounded-[3px] transition-all cursor-pointer outline-none"
+            className="border border-[var(--border-color)] bg-transparent hover:bg-[var(--bg-app)] text-[var(--text-muted)] hover:text-[var(--text-main)] text-[12.5px] px-5 py-2 rounded-[5px] transition-all cursor-pointer outline-none"
           >
             Cancel
           </button>
@@ -630,7 +630,7 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
             {step > 1 && (
               <button 
                 onClick={prevStep}
-                className="border border-[var(--border-color)] bg-transparent hover:bg-[var(--bg-app)] text-[var(--text-main)] text-xs px-4 py-1.5 rounded-[3px] mr-2 transition-all cursor-pointer outline-none"
+                className="border border-[var(--border-color)] bg-transparent hover:bg-[var(--bg-app)] text-[var(--text-main)] text-[12.5px] px-5 py-2 rounded-[5px] mr-2 transition-all cursor-pointer outline-none"
               >
                 ← Back
               </button>
@@ -639,14 +639,14 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
             {step < 4 ? (
               <button 
                 onClick={nextStep}
-                className="bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white text-xs font-semibold px-5 py-1.5 rounded-[3px] transition-all cursor-pointer outline-none"
+                className="bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white text-[12.5px] font-semibold px-6 py-2 rounded-[5px] transition-all cursor-pointer outline-none"
               >
                 Next →
               </button>
             ) : (
               <button 
                 onClick={handleSave}
-                className="bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white text-xs font-semibold px-5 py-1.5 rounded-[3px] transition-all cursor-pointer outline-none"
+                className="bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white text-[12.5px] font-semibold px-6 py-2 rounded-[5px] transition-all cursor-pointer outline-none"
               >
                 Save Connection
               </button>

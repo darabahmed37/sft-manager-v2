@@ -62,10 +62,10 @@ export const PropertiesModal: React.FC<PropertiesModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[100] text-[13px] text-[var(--text-main)] font-sans">
-      <div className="w-[450px] bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-[4px] flex flex-col shadow-[0_24px_60px_rgba(0,0,0,0.45)] overflow-hidden">
+      <div className="w-[450px] bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-[8px] flex flex-col shadow-[var(--shadow-modal)] overflow-hidden">
         
         {/* Header */}
-        <div className="h-[36px] bg-[var(--bg-panel-header)] border-b border-[var(--border-color)] flex items-center px-4.5 justify-between">
+        <div className="h-[40px] bg-[var(--bg-panel-header)] border-b border-[var(--border-color)] flex items-center px-4.5 justify-between">
           <span className="font-bold text-[11.5px] uppercase tracking-wider text-[var(--text-muted)]">
             Properties — {file.name}
           </span>
@@ -78,11 +78,11 @@ export const PropertiesModal: React.FC<PropertiesModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="p-5 flex flex-col gap-4 overflow-y-auto max-h-[480px]">
+        <div className="p-6 flex flex-col gap-4 overflow-y-auto max-h-[480px]">
           
           {/* Main Info Row */}
           <div className="flex gap-4 items-start pb-4 border-b border-[var(--border-color)]/50">
-            <div className="p-3 bg-[var(--bg-panel-header)] border border-[var(--border-color)] rounded-[4px] text-[var(--color-primary)] shrink-0">
+            <div className="p-3 bg-[var(--bg-panel-header)] border border-[var(--border-color)] rounded-[6px] text-[var(--color-primary)] shrink-0">
               {file.isDirectory ? <FaFolder size={28} /> : <FaFile size={28} />}
             </div>
             <div className="flex-1 overflow-hidden">
@@ -99,14 +99,14 @@ export const PropertiesModal: React.FC<PropertiesModalProps> = ({
           <div className="flex flex-col gap-3 text-xs leading-relaxed">
             
             <div className="flex items-start">
-              <span className="w-24 text-[var(--text-muted)] font-semibold shrink-0">Location:</span>
+              <span className="w-28 text-[var(--text-muted)] font-semibold shrink-0">Location:</span>
               <span className="flex-1 font-mono break-all select-all text-[var(--text-subtle)]" title={file.path}>
                 {file.path}
               </span>
             </div>
 
             <div className="flex items-center">
-              <span className="w-24 text-[var(--text-muted)] font-semibold shrink-0">
+              <span className="w-28 text-[var(--text-muted)] font-semibold shrink-0">
                 <FaHdd className="inline mr-1 text-[11px]" /> Size:
               </span>
               <span className="flex-1 font-mono text-[var(--text-main)]">
@@ -121,7 +121,7 @@ export const PropertiesModal: React.FC<PropertiesModalProps> = ({
             </div>
 
             <div className="flex items-center">
-              <span className="w-24 text-[var(--text-muted)] font-semibold shrink-0">
+              <span className="w-28 text-[var(--text-muted)] font-semibold shrink-0">
                 <FaCalendarAlt className="inline mr-1 text-[11px]" /> Modified:
               </span>
               <span className="flex-1 font-mono text-[var(--text-subtle)]">
@@ -132,7 +132,7 @@ export const PropertiesModal: React.FC<PropertiesModalProps> = ({
             {pane === 'remote' && (
               <>
                 <div className="flex items-center">
-                  <span className="w-24 text-[var(--text-muted)] font-semibold shrink-0">
+                  <span className="w-28 text-[var(--text-muted)] font-semibold shrink-0">
                     <FaUser className="inline mr-1 text-[11px]" /> Owner / Group:
                   </span>
                   <span className="flex-1 font-mono text-[var(--text-subtle)]">
@@ -141,7 +141,7 @@ export const PropertiesModal: React.FC<PropertiesModalProps> = ({
                 </div>
 
                 <div className="flex items-center">
-                  <span className="w-24 text-[var(--text-muted)] font-semibold shrink-0">
+                  <span className="w-28 text-[var(--text-muted)] font-semibold shrink-0">
                     <FaLock className="inline mr-1 text-[11px]" /> Permissions:
                   </span>
                   <span className="flex-1 font-mono text-[var(--text-subtle)]">
@@ -156,10 +156,10 @@ export const PropertiesModal: React.FC<PropertiesModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="h-[44px] bg-[var(--bg-panel-header)] border-t border-[var(--border-color)] flex items-center px-4 justify-end">
+        <div className="h-[48px] bg-[var(--bg-panel-header)] border-t border-[var(--border-color)] flex items-center px-4 justify-end">
           <button 
             onClick={onClose}
-            className="bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white border-none rounded-[3px] px-5 py-1.5 text-xs font-semibold cursor-pointer outline-none transition-all"
+            className="bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white border-none rounded-[5px] px-6 py-2 text-[12.5px] font-semibold cursor-pointer outline-none transition-all"
           >
             Close
           </button>

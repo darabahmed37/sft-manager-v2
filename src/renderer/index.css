@@ -22,30 +22,46 @@
   --color-primary: #4f46e5;
   --color-primary-hover: #3730a3;
   --glow-color: rgba(79, 70, 229, 0.15);
+
+  /* New design tokens */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --shadow-dropdown: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --shadow-modal: 0 24px 48px rgba(0, 0, 0, 0.18);
+  --font-size-xs: 11.5px;
+  --font-size-sm: 12.5px;
+  --font-size-md: 13.5px;
+  --spacing-panel: 12px;
+  --row-height: 34px;
 }
 
 .dark {
-  --bg-app: #080a0f;
-  --bg-panel: #0f121d;
-  --bg-panel-header: #151a29;
-  --border-color: #1e2433;
+  --bg-app: #0c0e14;
+  --bg-panel: #12151f;
+  --bg-panel-header: #181d2c;
+  --border-color: #232a3a;
   --text-main: #f1f5f9;
   --text-muted: #94a3b8;
   --text-subtle: #64748b;
-  --active-tab-bg: #0f121d;
-  --inactive-tab-bg: #151a29;
+  --active-tab-bg: #12151f;
+  --inactive-tab-bg: #181d2c;
   --active-tab-text: #818cf8;
-  --card-bg: #121624;
-  --card-border: #1e2433;
-  --card-hover-border: #2b3348;
-  --input-bg: #161c2b;
-  --input-border: #222a3d;
+  --card-bg: #151928;
+  --card-border: #232a3a;
+  --card-hover-border: #3a4562;
+  --input-bg: #171d2e;
+  --input-border: #2c354a;
   --input-focus-border: #818cf8;
-  --scroll-thumb: #222a3d;
-  --scroll-thumb-hover: #323d58;
+  --scroll-thumb: #2a3350;
+  --scroll-thumb-hover: #3c496e;
   --color-primary: #6366f1;
   --color-primary-hover: #4f46e5;
   --glow-color: rgba(99, 102, 241, 0.25);
+
+  /* Shadows for dark mode */
+  --shadow-dropdown: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-modal: 0 24px 48px rgba(0, 0, 0, 0.5);
 }
 
 @layer base {
@@ -64,15 +80,15 @@
 
 /* Custom global scrollbar styles */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
   background: var(--scroll-thumb);
-  border-radius: 3px;
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--scroll-thumb-hover);

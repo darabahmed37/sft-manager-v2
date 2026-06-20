@@ -169,12 +169,12 @@ export const ExplorerPanel: React.FC<ExplorerPanelProps> = ({
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       {/* Panel Label & Info Header */}
-      <div className="h-[28px] bg-[var(--bg-panel-header)] border-b border-[var(--border-color)] flex items-center px-2.5 gap-1.5 shrink-0 theme-transition">
-        <span className="text-[10px] font-bold text-[var(--text-subtle)] uppercase tracking-widest flex-shrink-0">
+      <div className="h-[32px] bg-[var(--bg-panel-header)] border-b border-[var(--border-color)] flex items-center px-2.5 gap-1.5 shrink-0 theme-transition">
+        <span className="text-[11.5px] font-bold text-[var(--text-subtle)] uppercase tracking-widest flex-shrink-0">
           {pane === 'local' ? 'Local' : 'Remote'}
         </span>
         <span 
-          className="text-[11px] font-mono text-[var(--text-muted)] overflow-hidden text-ellipsis whitespace-nowrap flex-1" 
+          className="text-[12px] font-mono text-[var(--text-muted)] overflow-hidden text-ellipsis whitespace-nowrap flex-1" 
           title={pane === 'local' ? currentDir : `${connectionName} — ${username}@${host}:${currentDir}`}
         >
           {pane === 'local' ? currentDir : `${connectionName} — ${username}@${host}:${currentDir}`}
@@ -194,7 +194,7 @@ export const ExplorerPanel: React.FC<ExplorerPanelProps> = ({
 
       {/* Tabs (Remote specific when local panel is collapsed) */}
       {pane === 'remote' && localCollapsed && remoteTabs && activeRemoteTabIdx !== undefined && onSelectTab && onCloseTab && onTabContextMenu && onAddTab && (
-        <div className="h-[26px] bg-[var(--bg-panel-header)] border-b border-[var(--border-color)] flex items-end overflow-hidden shrink-0 theme-transition select-none">
+        <div className="h-[30px] bg-[var(--bg-panel-header)] border-b border-[var(--border-color)] flex items-end overflow-hidden shrink-0 theme-transition select-none">
           {remoteTabs.map((tab, i) => {
             const isActive = activeRemoteTabIdx === i;
             const pathParts = tab.path.split('/').filter(Boolean);
@@ -204,7 +204,7 @@ export const ExplorerPanel: React.FC<ExplorerPanelProps> = ({
                 key={i}
                 onClick={() => onSelectTab(i)} 
                 onContextMenu={(e) => onTabContextMenu(e, i)}
-                className={`h-6 px-2.5 flex items-center gap-1.5 text-[11.5px] cursor-pointer border-r border-[var(--border-color)] shrink-0 border-t transition-all ${
+                className={`h-7 px-3.5 flex items-center gap-1.5 text-[12px] cursor-pointer border-r border-[var(--border-color)] shrink-0 border-t transition-all ${
                   isActive 
                     ? 'bg-[var(--bg-panel)] text-[var(--active-tab-text)] border-t border-t-[var(--color-primary)] font-semibold' 
                     : 'bg-transparent text-[var(--text-muted)] border-t-transparent hover:text-[var(--text-main)] hover:bg-[var(--bg-panel)]/40'
@@ -214,7 +214,7 @@ export const ExplorerPanel: React.FC<ExplorerPanelProps> = ({
                 <span>{tab.isPinned ? '📌 ' : ''}{folderName}</span>
                 <span 
                   onClick={(e) => onCloseTab(i, e)}
-                  className="text-[var(--text-subtle)] hover:text-[var(--text-main)] text-[13px] font-bold ml-1 cursor-pointer"
+                  className="text-[var(--text-subtle)] hover:text-[var(--text-main)] text-[14px] font-bold ml-1 cursor-pointer"
                 >
                   ×
                 </span>
@@ -223,7 +223,7 @@ export const ExplorerPanel: React.FC<ExplorerPanelProps> = ({
           })}
           <div 
             onClick={onAddTab}
-            className="w-6 h-6 flex items-center justify-center cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] text-[16px] shrink-0 border-b border-b-[var(--border-color)]"
+            className="w-7 h-7 flex items-center justify-center cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] text-[18px] shrink-0 border-b border-b-[var(--border-color)]"
             title="New Remote Tab"
           >
             +
@@ -271,25 +271,31 @@ export const ExplorerPanel: React.FC<ExplorerPanelProps> = ({
         onDrop={handleDropInternal}
       >
         {dragCount > 0 && (
-          <div className="absolute inset-0 bg-[var(--bg-app)]/90 backdrop-blur-[3px] flex flex-col items-center justify-center border-2 border-dashed border-[var(--color-primary)] m-2 rounded-[6px] z-50 pointer-events-none transition-all duration-200">
+          <div className="absolute inset-0 bg-[var(--bg-app)]/90 backdrop-blur-[3px] flex flex-col items-center justify-center border-2 border-dashed border-[var(--color-primary)] m-3 rounded-[8px] z-50 pointer-events-none transition-all duration-200">
             {pane === 'local' ? (
               <>
-                <FaCloudDownloadAlt className="text-[var(--color-primary)] text-5xl mb-3 animate-pulse" />
-                <div className="text-sm font-semibold text-[var(--text-main)]">Drop files to download</div>
-                <div className="text-xs text-[var(--text-muted)] mt-1">Copying/downloading files into local folder</div>
+                <FaCloudDownloadAlt className="text-[var(--color-primary)] text-4xl mb-3 animate-pulse" />
+                <div className="text-[14px] font-semibold text-[var(--text-main)]">Drop files to download</div>
+                <div className="text-[11.5px] text-[var(--text-muted)] mt-1">Copying/downloading files into local folder</div>
               </>
             ) : (
               <>
-                <FaCloudUploadAlt className="text-[var(--color-primary)] text-5xl mb-3 animate-pulse" />
-                <div className="text-sm font-semibold text-[var(--text-main)]">Drop files to upload</div>
-                <div className="text-xs text-[var(--text-muted)] mt-1">Uploading files into remote folder</div>
+                <FaCloudUploadAlt className="text-[var(--color-primary)] text-4xl mb-3 animate-pulse" />
+                <div className="text-[14px] font-semibold text-[var(--text-main)]">Drop files to upload</div>
+                <div className="text-[11.5px] text-[var(--text-muted)] mt-1">Uploading files into remote folder</div>
               </>
             )}
           </div>
         )}
 
         {loading ? (
-          <div className="h-full flex items-center justify-center text-xs text-[var(--text-muted)] font-mono">Loading...</div>
+          <div className="h-full flex flex-col items-center justify-center gap-3 text-sm text-[var(--text-muted)] select-none">
+            <svg className="animate-spin h-5 w-5 text-[var(--color-primary)]" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span className="font-medium text-[13px]">Loading directories and files...</span>
+          </div>
         ) : viewMode === 'list' ? (
           <ExplorerTable 
             pane={pane}
@@ -343,8 +349,8 @@ export const ExplorerPanel: React.FC<ExplorerPanelProps> = ({
       </div>
 
       {/* Bottom Panel Status Bar */}
-      <div className="h-5 bg-[var(--bg-panel-header)] border-t border-[var(--border-color)] flex items-center px-2 shrink-0 text-[11px] text-[var(--text-muted)] theme-transition">
-        <span>{files.length} items</span>
+      <div className="h-6 bg-[var(--bg-panel-header)] border-t border-[var(--border-color)] flex items-center px-3 shrink-0 text-[11.5px] text-[var(--text-muted)] theme-transition">
+        <span>{files.length} items · {selectedFiles.length} selected</span>
       </div>
     </div>
   );
