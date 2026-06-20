@@ -24,10 +24,9 @@ interface HopConfig {
   totpSecret?: string;
 }
 
-// ─── Terminal Window Management ───────────────────────────────────────────────
+// ─── Terminal Management ───────────────────────────────────────────────────
 
 const activeShells = new Map<string, import('ssh2').Channel>(); // shellId → ssh2 shell stream
-let terminalWindow: BrowserWindow | null = null;
 let mainBrowserWindow: BrowserWindow | null = null;
 let shellCounter = 0;
 
@@ -51,9 +50,6 @@ function flushShellBuffer(shellId: string): void {
   if (mainBrowserWindow && !mainBrowserWindow.isDestroyed()) {
     mainBrowserWindow.webContents.send('terminal-shell-data', shellId, combined);
   }
-  if (terminalWindow && !terminalWindow.isDestroyed()) {
-    terminalWindow.webContents.send('terminal-shell-data', shellId, combined);
-  }
 }
 
 function scheduleShellFlush(shellId: string): void {
@@ -68,75 +64,6 @@ function clearShellFlush(shellId: string): void {
   shellBuffers.delete(shellId);
 }
 
-function getOrCreateTerminalWindow(mainWindow: BrowserWindow, sessionId: string, username: string, host: string): BrowserWindow {
-  if (terminalWindow && !terminalWindow.isDestroyed()) {
-    terminalWindow.focus();
-    // Window already open — signal it to open a new tab
-    terminalWindow.webContents.send('terminal-open-tab', sessionId, username, host);
-    return terminalWindow;
-  }
-
-  const win = new BrowserWindow({
-    width: 900,
-    height: 620,
-    minWidth: 500,
-    minHeight: 360,
-    titleBarStyle: 'hidden',
-    titleBarOverlay: {
-      color: '#0c0f14',
-      symbolColor: '#8892a4',
-      height: 40,
-    },
-    resizable: true,
-    backgroundColor: '#0c0f14',
-    title: 'SSH Terminal',
-    // Child of mainWindow so closing the terminal does NOT quit the app,
-    // but closing the main app DOES auto-close the terminal (triggering shell cleanup).
-    parent: mainWindow,
-    webPreferences: {
-      preload: path.join(__dirname, '../../preload/preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      // Keep timer resolution at full rate even when window is backgrounded.
-      // Without this, Chrome throttles setTimeout to 1s which breaks the 8ms IPC flush.
-      backgroundThrottling: false,
-    },
-    show: false,
-  });
-
-  // Pass the first session via URL params so the renderer opens the initial shell
-  const params = new URLSearchParams({ sessionId, username, host });
-
-  if (!mainWindow.webContents.getURL().startsWith('http')) {
-    win.loadFile(path.join(__dirname, '../../../terminal.html'), { search: params.toString() });
-  } else {
-    win.loadURL(`http://localhost:5173/terminal.html?${params.toString()}`);
-  }
-
-  win.on('maximize', () => {
-    win.webContents.send('window-maximized-state', true);
-  });
-  win.on('unmaximize', () => {
-    win.webContents.send('window-maximized-state', false);
-  });
-
-  win.once('ready-to-show', () => win.show());
-
-  // When the window is actually closed, kill every active shell immediately.
-  // This is the hard rule: no leaked connections.
-  win.on('closed', () => {
-    log.info(`[Terminal] Window closed — terminating ${activeShells.size} active shell(s)`);
-    for (const [shellId, stream] of activeShells.entries()) {
-      try { stream.end(); } catch (err: unknown) { log.debug('Failed to close shell stream', err); }
-      log.info(`[Terminal] Shell ${shellId} closed on window exit`);
-    }
-    activeShells.clear();
-    terminalWindow = null;
-  });
-
-  terminalWindow = win;
-  return win;
-}
 
 async function buildHopChain(connectionId: number): Promise<HopConfig[]> {
   const chain: HopConfig[] = [];
@@ -217,17 +144,6 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
     }
   });
 
-  // Terminal window: update native overlay colors when user switches terminal themes
-  ipcMain.on('terminal-set-overlay-color', (event, bgColor: string, symbolColor: string) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    if (win && win.setTitleBarOverlay) {
-      win.setTitleBarOverlay({
-        color: bgColor,
-        symbolColor: symbolColor,
-        height: 40,
-      });
-    }
-  });
 
   ipcMain.on('window-minimize', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
@@ -540,12 +456,6 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
     return await client.mkdir(pathStr);
   });
 
-  // ─── Terminal: Open New Window ────────────────────────────────────────────
-
-  ipcMain.on('terminal-open-window', (event, sessionId: string, username: string, host: string) => {
-    getOrCreateTerminalWindow(mainWindow, sessionId, username, host);
-  });
-
   // ─── Terminal: Open SSH Shell Channel ────────────────────────────────────
 
   ipcMain.handle('terminal-open-shell', async (event, sessionId: string, _tabId: string) => {
@@ -569,16 +479,33 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
       shellBuffers.set(shellId, []);
 
       // Buffer SSH output chunks → batched IPC (dramatically reduces IPC overhead on large output)
+      // BUT bypass queue for small interactive typing echoes (<128 bytes) to achieve 0ms latency.
       stream.on('data', (data: Buffer) => {
         const buf = shellBuffers.get(shellId);
-        if (buf) buf.push(data);
-        scheduleShellFlush(shellId);
+        if (buf) {
+          if (data.length < 128 && buf.length === 0 && !shellTimers.has(shellId)) {
+            if (mainBrowserWindow && !mainBrowserWindow.isDestroyed()) {
+              mainBrowserWindow.webContents.send('terminal-shell-data', shellId, data);
+            }
+          } else {
+            buf.push(data);
+            scheduleShellFlush(shellId);
+          }
+        }
       });
 
       stream.stderr?.on('data', (data: Buffer) => {
         const buf = shellBuffers.get(shellId);
-        if (buf) buf.push(data);
-        scheduleShellFlush(shellId);
+        if (buf) {
+          if (data.length < 128 && buf.length === 0 && !shellTimers.has(shellId)) {
+            if (mainBrowserWindow && !mainBrowserWindow.isDestroyed()) {
+              mainBrowserWindow.webContents.send('terminal-shell-data', shellId, data);
+            }
+          } else {
+            buf.push(data);
+            scheduleShellFlush(shellId);
+          }
+        }
       });
 
       stream.on('close', () => {
@@ -589,9 +516,6 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
         if (mainBrowserWindow && !mainBrowserWindow.isDestroyed()) {
           mainBrowserWindow.webContents.send('terminal-shell-close', shellId);
         }
-        if (terminalWindow && !terminalWindow.isDestroyed()) {
-          terminalWindow.webContents.send('terminal-shell-close', shellId);
-        }
       });
 
       stream.on('error', (err: Error) => {
@@ -599,9 +523,6 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
         const errMsg = `\r\n\x1b[31mShell error: ${(err as Error).message}\x1b[0m\r\n`;
         if (mainBrowserWindow && !mainBrowserWindow.isDestroyed()) {
           mainBrowserWindow.webContents.send('terminal-shell-data', shellId, errMsg);
-        }
-        if (terminalWindow && !terminalWindow.isDestroyed()) {
-          terminalWindow.webContents.send('terminal-shell-data', shellId, errMsg);
         }
       });
 
