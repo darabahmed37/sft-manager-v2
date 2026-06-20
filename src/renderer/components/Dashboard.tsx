@@ -44,7 +44,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     <div className="flex-1 flex flex-col overflow-hidden bg-[var(--bg-app)] select-none text-[13px] text-[var(--text-main)] font-sans theme-transition">
       
       {/* Search Toolbar */}
-      <div className="h-[40px] bg-[var(--bg-panel)] border-b border-[var(--border-color)] flex items-center px-5 gap-2 shrink-0 select-none">
+      <div className="h-[48px] bg-[var(--bg-panel)] border-b border-[var(--border-color)] flex items-center px-5 gap-2.5 shrink-0 select-none">
         <span className="text-[11.5px] font-bold text-[var(--text-muted)] uppercase tracking-widest">Connections</span>
         
         <div className="flex-1"></div>
@@ -68,16 +68,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search connections..." 
-            className="bg-[var(--input-bg)] border border-[var(--input-border)] hover:border-[var(--text-subtle)] focus:border-[var(--input-focus-border)] rounded-[var(--radius-sm)] py-1.5 pl-7 pr-2.5 text-[12px] text-[var(--text-main)] placeholder-[var(--text-subtle)] outline-none w-[200px] transition-colors"
+            className="bg-[var(--input-bg)] border border-[var(--input-border)] hover:border-[var(--text-subtle)] focus:border-[var(--input-focus-border)] rounded-[var(--radius-md)] h-9 pl-8 pr-2.5 text-[12px] text-[var(--text-main)] placeholder-[var(--text-subtle)] outline-none w-[200px] transition-colors"
           />
         </div>
 
         {/* Action Button */}
         <button 
           onClick={onNewConnection}
-          className="bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] border-none rounded-[5px] px-4 h-7 text-white text-[12px] font-semibold flex items-center gap-1 cursor-pointer shrink-0 transition-all outline-none"
+          className="bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] border-none rounded-[var(--radius-md)] px-4 h-9 text-white text-[12.5px] font-bold flex items-center gap-1.5 cursor-pointer shrink-0 transition-all outline-none"
         >
-          <span className="text-base font-normal mt-[-2px] leading-none">+</span>
+          <span className="text-lg font-normal mt-[-2px] leading-none">+</span>
           New Connection
         </button>
       </div>

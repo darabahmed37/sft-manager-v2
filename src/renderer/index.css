@@ -1,27 +1,27 @@
 @import "tailwindcss";
 
 :root {
-  --bg-app: #f8fafc;
+  --bg-app: #f4f5f8;
   --bg-panel: #ffffff;
-  --bg-panel-header: #f1f5f9;
-  --border-color: #e2e8f0;
-  --text-main: #0f172a;
-  --text-muted: #64748b;
-  --text-subtle: #94a3b8;
+  --bg-panel-header: #ebeef5;
+  --border-color: #dbe0eb;
+  --text-main: #1a1f2c;
+  --text-muted: #5c6479;
+  --text-subtle: #8f98a9;
   --active-tab-bg: #ffffff;
-  --inactive-tab-bg: #f8fafc;
-  --active-tab-text: #4f46e5;
+  --inactive-tab-bg: #f4f5f8;
+  --active-tab-text: #2563eb;
   --card-bg: #ffffff;
-  --card-border: #e2e8f0;
+  --card-border: #dbe0eb;
   --card-hover-border: #cbd5e1;
   --input-bg: #ffffff;
   --input-border: #cbd5e1;
-  --input-focus-border: #4f46e5;
+  --input-focus-border: #2563eb;
   --scroll-thumb: #cbd5e1;
-  --scroll-thumb-hover: #94a3b8;
-  --color-primary: #4f46e5;
-  --color-primary-hover: #3730a3;
-  --glow-color: rgba(79, 70, 229, 0.15);
+  --scroll-thumb-hover: #8f98a9;
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --glow-color: rgba(37, 99, 235, 0.12);
 
   /* New design tokens */
   --radius-sm: 4px;
@@ -33,33 +33,33 @@
   --font-size-sm: 12.5px;
   --font-size-md: 13.5px;
   --spacing-panel: 12px;
-  --row-height: 34px;
+  --row-height: 42px;
   --skeleton-bg: rgba(0, 0, 0, 0.05);
   --skeleton-pulse-bg: rgba(0, 0, 0, 0.1);
 }
 
 .dark {
-  --bg-app: #0c0e14;
-  --bg-panel: #12151f;
-  --bg-panel-header: #181d2c;
-  --border-color: #232a3a;
+  --bg-app: #080b11;
+  --bg-panel: #0f131a;
+  --bg-panel-header: #171c26;
+  --border-color: #222b3c;
   --text-main: #f1f5f9;
   --text-muted: #94a3b8;
   --text-subtle: #64748b;
-  --active-tab-bg: #12151f;
-  --inactive-tab-bg: #181d2c;
-  --active-tab-text: #818cf8;
-  --card-bg: #151928;
-  --card-border: #232a3a;
-  --card-hover-border: #3a4562;
-  --input-bg: #171d2e;
-  --input-border: #2c354a;
-  --input-focus-border: #818cf8;
-  --scroll-thumb: #2a3350;
-  --scroll-thumb-hover: #3c496e;
-  --color-primary: #6366f1;
-  --color-primary-hover: #4f46e5;
-  --glow-color: rgba(99, 102, 241, 0.25);
+  --active-tab-bg: #0f131a;
+  --inactive-tab-bg: #171c26;
+  --active-tab-text: #60a5fa;
+  --card-bg: #131822;
+  --card-border: #222b3c;
+  --card-hover-border: #334059;
+  --input-bg: #151c27;
+  --input-border: #2a374d;
+  --input-focus-border: #60a5fa;
+  --scroll-thumb: #222b3c;
+  --scroll-thumb-hover: #334059;
+  --color-primary: #3b82f6;
+  --color-primary-hover: #60a5fa;
+  --glow-color: rgba(59, 130, 246, 0.2);
 
   /* Shadows for dark mode */
   --shadow-dropdown: 0 8px 24px rgba(0, 0, 0, 0.4);

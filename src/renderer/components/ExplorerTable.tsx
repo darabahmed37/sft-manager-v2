@@ -193,7 +193,7 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
           </colgroup>
 
           <thead className="sticky top-0 bg-[var(--bg-panel-header)] z-10 border-b border-[var(--border-color)]">
-            <tr className="h-[34px] text-[12px] text-[var(--text-muted)] border-b border-[var(--border-color)]">
+            <tr className="h-[42px] text-[12px] text-[var(--text-muted)] border-b border-[var(--border-color)]">
 
               {/* Icon col — no header text */}
               <th className="py-1 pl-2 border-r border-[var(--border-color)]/30" />
@@ -256,7 +256,7 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
               Array.from({ length: 12 }).map((_, i) => (
                 <tr 
                   key={`skeleton-${i}`} 
-                  className="h-[34px] border-b border-[var(--border-color)]/20 hover:bg-transparent"
+                  className="h-[42px] border-b border-[var(--border-color)]/20 hover:bg-transparent"
                 >
                   {/* Icon */}
                   <td className="py-1.5 pl-2 flex items-center justify-center">
@@ -329,7 +329,7 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
                     rowBg,
                     isDragOver ? 'bg-[var(--color-primary)]/20 border-y border-dashed border-[var(--color-primary)]' : '',
                     isCut ? 'opacity-40' : '',
-                    'cursor-default h-[34px] transition-colors duration-75',
+                    'cursor-default h-[42px] transition-colors duration-75',
                   ].join(' ')}
                 >
                   {/* Icon */}
@@ -339,13 +339,14 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
                     onContextMenu={(e) => { e.stopPropagation(); onSelect(file); onContextMenu(e, file); }}
                   >
                     {file.isDirectory ? (
-                      <svg className="mx-auto" width="14" height="12" viewBox="0 0 16 14" fill="none">
-                        <path d="M0 2.5h7l1.5 2H16v9H0z" fill="var(--color-primary)" opacity="0.9" />
+                      <svg className="mx-auto" width="18" height="15" viewBox="0 0 18 16" fill="none">
+                        <path d="M1.5 3a1.5 1.5 0 0 1 1.5-1.5h3.586a1 1 0 0 1 .707.293l1.414 1.414a1 1 0 0 0 .707.293H15a1.5 1.5 0 0 1 1.5 1.5v1.5H1.5V3z" fill="var(--color-primary)" opacity="0.75" />
+                        <path d="M1.5 5.5C1.5 4.67 2.17 4 3 4h12c.83 0 1.5.67 1.5 1.5v7c0 .83-.67 1.5-1.5 1.5H3c-.83 0-1.5-.67-1.5-1.5v-7z" fill="var(--color-primary)" />
                       </svg>
                     ) : (
-                      <svg className="mx-auto" width="11" height="13" viewBox="0 0 11 13" fill="none">
-                        <path d="M0 0h7l4 4v9H0z" fill="currentColor" opacity="0.45" />
-                        <path d="M7 0l4 4H7z" fill="currentColor" opacity="0.3" />
+                      <svg className="mx-auto" width="13" height="15" viewBox="0 0 14 16" fill="none">
+                        <path d="M2 1a1 1 0 0 1 1-1h6.586a1 1 0 0 1 .707.293l2.414 2.414a1 1 0 0 1 .293.707V15a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V1z" fill="var(--bg-panel)" stroke="var(--text-subtle)" strokeWidth="1.2" />
+                        <path d="M9 0v3.5a.5.5 0 0 0 .5.5H13" fill="var(--bg-panel-header)" stroke="var(--text-subtle)" strokeWidth="1.2" />
                       </svg>
                     )}
                   </td>
@@ -430,7 +431,7 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
             {Array.from({ length: 4 }).map((_, i) => (
               <tr
                 key={`ghost-${i}`}
-                className="h-[34px]"
+                className="h-[42px]"
                 onContextMenu={(e) => { e.stopPropagation(); onEmptyContextMenu(e); }}
               >
                 <td colSpan={colSpanAll} />

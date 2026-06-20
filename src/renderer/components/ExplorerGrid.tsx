@@ -170,9 +170,9 @@ export const ExplorerGrid: React.FC<ExplorerGridProps> = ({
               >
                 {/* Icon Placeholder */}
                 {isFolder ? (
-                  <div className="w-[40px] h-[34px] rounded-[4px] skeleton-placeholder mb-0.5" />
+                  <div className="w-[44px] h-[38px] rounded-[6px] skeleton-placeholder mb-0.5" />
                 ) : (
-                  <div className="w-[32px] h-[40px] rounded-[4px] skeleton-placeholder mb-0.5" />
+                  <div className="w-[34px] h-[42px] rounded-[4px] skeleton-placeholder mb-0.5" />
                 )}
 
                 {/* Name Placeholder */}
@@ -244,33 +244,21 @@ export const ExplorerGrid: React.FC<ExplorerGridProps> = ({
                 isCut ? 'opacity-40' : '',
               ].join(' ')}
             >
-              {pane === 'local' ? (
-                file.isDirectory ? (
-                  <svg width="40" height="34" viewBox="0 0 44 38" fill="none">
-                    <path d="M0 6h20l4 5H44v27H0z" fill="var(--color-primary)" opacity="0.85"/>
-                    <path d="M0 6h20l4 5H44v4H0z" fill="white" opacity="0.15"/>
-                  </svg>
-                ) : (
-                  <svg width="32" height="40" viewBox="0 0 32 40" fill="none">
-                    <path d="M0 0h22l10 10v30H0z" fill="currentColor" opacity="0.55"/>
-                    <path d="M22 0l10 10H22z" fill="currentColor" opacity="0.35"/>
-                  </svg>
-                )
+              {file.isDirectory ? (
+                <svg className="mx-auto transition-transform duration-100 group-hover:scale-105" width="44" height="38" viewBox="0 0 24 20" fill="none">
+                  <path d="M2 4a2 2 0 0 1 2-2h4.586a1 1 0 0 1 .707.293l1.414 1.414a1 1 0 0 0 .707.293H20a2 2 0 0 1 2 2v1H2V4z" fill="var(--color-primary)" opacity="0.75" />
+                  <path d="M4 5h16v6H4V5z" fill="var(--bg-panel)" opacity="0.9" />
+                  <path d="M2 6.5C2 5.67 2.67 5 3.5 5h17c.83 0 1.5.67 1.5 1.5v10c0 .83-.67 1.5-1.5 1.5h-17C2.67 18 2 17.33 2 16.5v-10z" fill="var(--color-primary)" />
+                  <path d="M3.5 6h17c.28 0 .5.22.5.5s-.22.5-.5.5h-17a.5.5 0 0 1-.5-.5c0-.28.22-.5.5-.5z" fill="white" opacity="0.18" />
+                </svg>
               ) : (
-                file.isDirectory ? (
-                  <svg width="48" height="40" viewBox="0 0 52 44" fill="none">
-                    <path d="M0 8h22l5 6H52v30H0z" fill="var(--color-primary)" opacity="0.9"/>
-                    <path d="M0 8h22l5 6H52v5H0z" fill="white" opacity="0.15"/>
-                  </svg>
-                ) : (
-                  <svg width="38" height="48" viewBox="0 0 38 48" fill="none">
-                    <path d="M0 0h26l12 12v36H0z" fill="currentColor" opacity="0.55"/>
-                    <path d="M26 0l12 12H26z" fill="currentColor" opacity="0.35"/>
-                    <line x1="7" y1="20" x2="31" y2="20" stroke="var(--border-color)" strokeWidth="2"/>
-                    <line x1="7" y1="26" x2="28" y2="26" stroke="var(--border-color)" strokeWidth="2"/>
-                    <line x1="7" y1="32" x2="24" y2="32" stroke="var(--border-color)" strokeWidth="2"/>
-                  </svg>
-                )
+                <svg className="mx-auto" width="34" height="42" viewBox="0 0 24 28" fill="none">
+                  <path d="M3 2c0-1.1.9-2 2-2h10l6 6v20a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V2z" fill="var(--bg-panel)" stroke="var(--text-subtle)" strokeWidth="1.5" />
+                  <path d="M15 0.5v5.5a.5.5 0 0 0 .5.5h5" fill="var(--bg-panel-header)" stroke="var(--text-subtle)" strokeWidth="1.5" strokeLinejoin="round" />
+                  <line x1="7" y1="12" x2="17" y2="12" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
+                  <line x1="7" y1="17" x2="17" y2="17" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
+                  <line x1="7" y1="22" x2="13" y2="22" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
+                </svg>
               )}
               <div className={`text-center overflow-hidden text-ellipsis whitespace-nowrap w-full block leading-normal ${pane === 'local' ? 'text-[11.5px] text-[var(--text-main)]' : 'text-[12px] text-[var(--text-main)]'}`}>
                 {file.name}

@@ -67,7 +67,7 @@ export const ConnectionCard: React.FC<ConnectionCardProps> = ({
           <div className="relative">
             <button 
               onClick={() => setMenuOpen(!menuOpen)}
-              className="text-[var(--text-muted)] hover:text-[var(--text-main)] font-bold px-1.5 text-base leading-none shrink-0 outline-none cursor-pointer"
+              className="w-8 h-8 flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)] rounded-full shrink-0 outline-none cursor-pointer transition-colors"
             >
               ⋮
             </button>
@@ -129,18 +129,18 @@ export const ConnectionCard: React.FC<ConnectionCardProps> = ({
         </div>
 
         {/* Action Button Row */}
-        <div className="mt-3 flex gap-4 items-center">
+        <div className="mt-3.5 flex gap-4 items-center">
           {isActive ? (
             <button 
               onClick={() => onDisconnect(connection.id)}
-              className="bg-[var(--bg-panel-header)] hover:bg-[var(--bg-app)] active:bg-[var(--bg-panel-header)] border border-[var(--border-color)] text-[var(--text-main)] text-xs px-5 py-1.5 rounded-[5px] cursor-pointer font-medium select-none transition-all outline-none"
+              className="bg-[var(--bg-panel-header)] hover:bg-[var(--bg-app)] active:bg-[var(--bg-panel-header)] border border-[var(--border-color)] text-[var(--text-main)] text-[12.5px] h-9 px-5 rounded-[var(--radius-md)] cursor-pointer font-semibold select-none transition-all outline-none"
             >
               Disconnect
             </button>
           ) : (
             <button 
               onClick={() => onConnect(connection.id)}
-              className="bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white text-xs px-5 py-1.5 rounded-[5px] cursor-pointer font-semibold select-none transition-all outline-none"
+              className="bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white text-[12.5px] h-9 px-5 rounded-[var(--radius-md)] cursor-pointer font-bold select-none transition-all outline-none"
             >
               Connect
             </button>

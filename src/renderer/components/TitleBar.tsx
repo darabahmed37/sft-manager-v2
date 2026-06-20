@@ -96,7 +96,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
           <div
             key={tab.id}
             onClick={() => setActiveTabId?.(tab.id)}
-            className={`h-8 px-3.5 flex items-center gap-1.5 text-[12.5px] cursor-pointer border-t border-r border-l shrink-0 transition-all select-none ${
+            className={`h-[38px] px-3.5 flex items-center gap-1.5 text-[12.5px] cursor-pointer border-t border-r border-l shrink-0 transition-all select-none ${
               isActive
                 ? 'bg-[var(--bg-panel)] text-[var(--active-tab-text)] border-[var(--border-color)] border-b-[var(--bg-panel)] font-semibold'
                 : 'bg-transparent text-[var(--text-muted)] border-transparent hover:text-[var(--text-main)] hover:bg-white/5'
@@ -104,7 +104,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
             style={{
               boxShadow: isActive ? 'inset 0 2px 0 var(--color-primary)' : 'none',
               borderBottom: isActive ? '1px solid var(--bg-panel)' : 'none',
-              marginTop: '4px',
+              marginTop: '8px',
               borderRadius: '6px 6px 0 0',
               marginLeft: '2px',
               marginRight: '2px',
@@ -145,7 +145,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
       {onNewConnection && (
         <button
           onClick={onNewConnection}
-          className="h-[28px] w-[28px] flex items-center justify-center cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-white/5 rounded-[4px] border-none bg-transparent text-[16px] mb-0.5 outline-none"
+          className="h-[34px] w-[34px] flex items-center justify-center cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-white/5 rounded-[6px] border-none bg-transparent text-[18px] mb-1 outline-none"
           title="New Connection"
         >
           +
@@ -156,7 +156,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
 
   return (
     <div 
-      className="h-10 bg-[var(--bg-app)] flex items-center border-b border-[var(--border-color)] shrink-0 relative select-none theme-transition"
+      className="h-[46px] bg-[var(--bg-app)] flex items-center border-b border-[var(--border-color)] shrink-0 relative select-none theme-transition"
       style={{ WebkitAppRegion: 'drag', boxShadow: '0 1px 0 var(--border-color)' } as React.CSSProperties}
     >
       {platform === 'darwin' ? (

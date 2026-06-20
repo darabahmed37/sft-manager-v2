@@ -308,6 +308,10 @@ function App() {
     }
   }
 
+  useEffect(() => {
+    document.title = title;
+  }, [title]);
+
   return (
     <div className="h-screen flex flex-col bg-[var(--bg-app)] text-[var(--text-main)] overflow-hidden theme-transition">
       {/* Title Bar */}
@@ -355,6 +359,7 @@ function App() {
                   hasJump={currentTab.hasJump}
                   jumpHost={currentTab.jumpHost}
                   onCancel={() => handleCloseTab(currentTab.id)}
+                  theme={theme}
                 />
               );
             }
@@ -373,6 +378,7 @@ function App() {
                       handleDisconnect(currentTab.connectionId);
                     }
                   }}
+                  onOpenSettings={() => setIsSettingsOpen(true)}
                 />
               );
             }

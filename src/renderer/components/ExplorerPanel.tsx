@@ -179,7 +179,7 @@ export const ExplorerPanel: React.FC<ExplorerPanelProps> = ({
     <div className="flex flex-col flex-1 overflow-hidden">
       {/* Panel Label & Info Header (hidden on remote panel if local is collapsed to avoid redundancy) */}
       {!(pane === 'remote' && localCollapsed) && (
-        <div className="h-[32px] bg-[var(--bg-panel-header)] border-b border-[var(--border-color)] flex items-center px-2.5 gap-1.5 shrink-0 theme-transition">
+        <div className="h-[38px] bg-[var(--bg-panel-header)] border-b border-[var(--border-color)] flex items-center px-2.5 gap-1.5 shrink-0 theme-transition">
           <span className="text-[11.5px] font-bold text-[var(--text-subtle)] uppercase tracking-widest flex-shrink-0">
             {pane === 'local' ? 'Local' : 'Remote'}
           </span>
@@ -193,9 +193,9 @@ export const ExplorerPanel: React.FC<ExplorerPanelProps> = ({
             <button 
               onClick={onCollapse} 
               title="Collapse" 
-              className="bg-transparent border-none p-0.5 cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] flex items-center shrink-0 outline-none"
+              className="w-8 h-8 flex items-center justify-center bg-transparent border-none cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel)] rounded-full shrink-0 outline-none transition-colors"
             >
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <svg width="14" height="14" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <polyline points="8,2 3,6 8,10"/>
               </svg>
             </button>
@@ -205,7 +205,7 @@ export const ExplorerPanel: React.FC<ExplorerPanelProps> = ({
 
       {/* Tabs (Remote specific when local panel is collapsed) */}
       {pane === 'remote' && localCollapsed && remoteTabs && activeRemoteTabIdx !== undefined && onSelectTab && onCloseTab && onTabContextMenu && onAddTab && (
-        <div className="h-[34px] bg-[var(--bg-panel-header)] border-b border-[var(--border-color)] flex items-end overflow-hidden shrink-0 theme-transition select-none">
+        <div className="h-[40px] bg-[var(--bg-panel-header)] border-b border-[var(--border-color)] flex items-end overflow-hidden shrink-0 theme-transition select-none">
           <div className="flex items-end h-full pl-2">
             {remoteTabs.map((tab, i) => {
               const isActive = activeRemoteTabIdx === i;
@@ -216,14 +216,16 @@ export const ExplorerPanel: React.FC<ExplorerPanelProps> = ({
                   key={i}
                   onClick={() => onSelectTab(i)} 
                   onContextMenu={(e) => onTabContextMenu(e, i)}
-                  className={`h-[28px] px-3 flex items-center gap-1.5 text-[12px] cursor-pointer border-t border-r border-l shrink-0 transition-all select-none ${
+                  className={`h-[34px] px-3 flex items-center gap-1.5 text-[12px] cursor-pointer border-t border-r border-l shrink-0 transition-all select-none ${
                     isActive 
                       ? 'bg-[var(--bg-panel)] text-[var(--active-tab-text)] border-[var(--border-color)] border-b-[var(--bg-panel)] font-semibold' 
                       : 'bg-transparent text-[var(--text-muted)] border-transparent hover:text-[var(--text-main)] hover:bg-white/5'
                   }`}
                   style={{
+                    boxShadow: isActive ? 'inset 0 1.5px 0 var(--color-primary)' : 'none',
                     borderBottom: isActive ? '1px solid var(--bg-panel)' : 'none',
-                    borderRadius: '5px 5px 0 0',
+                    marginTop: '6px',
+                    borderRadius: '4px 4px 0 0',
                     marginRight: '2px',
                   }}
                   title={tab.path}
