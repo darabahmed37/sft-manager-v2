@@ -7,6 +7,7 @@ export interface ElectronAPI {
     isMaximized: () => Promise<boolean>;
     onMaximizedState: (callback: (event: any, isMaximized: boolean) => void) => () => void;
     openFile: () => Promise<string | null>;
+    startDrag: (filePath: string, iconName?: string) => void;
   };
   fs: {
     readFile: (filePath: string) => Promise<string>;
@@ -20,6 +21,7 @@ export interface ElectronAPI {
     compress: (dirPath: string, tarPath: string) => Promise<{ success: boolean }>;
     extract: (archivePath: string, destDir: string) => Promise<{ success: boolean }>;
     calculateSize: (pathStr: string) => Promise<number>;
+    isDirectory: (pathStr: string) => Promise<boolean>;
   };
   db: {
     getConnections: () => Promise<any[]>;

@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       };
     },
     openFile: () => ipcRenderer.invoke('dialog-open-file'),
+    startDrag: (filePath: string, iconName?: string) => ipcRenderer.send('window-start-drag', filePath, iconName),
   },
   fs: {
     readFile: (filePath: string) => ipcRenderer.invoke('fs-read-file', filePath),
@@ -27,6 +28,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     compress: (dirPath: string, tarPath: string) => ipcRenderer.invoke('fs-compress', dirPath, tarPath),
     extract: (archivePath: string, destDir: string) => ipcRenderer.invoke('fs-extract', archivePath, destDir),
     calculateSize: (pathStr: string) => ipcRenderer.invoke('fs-calculate-size', pathStr),
+    isDirectory: (pathStr: string) => ipcRenderer.invoke('fs-is-directory', pathStr),
   },
   db: {
     getConnections: () => ipcRenderer.invoke('db-get-connections'),

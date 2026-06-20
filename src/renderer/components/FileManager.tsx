@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { PropertiesModal } from './PropertiesModal';
+import { FaCloudUploadAlt, FaCloudDownloadAlt } from 'react-icons/fa';
 
 interface FileManagerProps {
   connectionId?: number;
@@ -84,6 +85,12 @@ export const FileManager: React.FC<FileManagerProps> = ({
   const [activePanel, setActivePanel] = useState<'local' | 'remote'>('local');
   const [selectedLocalFile, setSelectedLocalFile] = useState<LocalFile | null>(null);
   const [selectedRemoteFile, setSelectedRemoteFile] = useState<RemoteFile | null>(null);
+
+  // Drag and drop states
+  const [localDragCount, setLocalDragCount] = useState(0);
+  const [remoteDragCount, setRemoteDragCount] = useState(0);
+  const [dragOverLocalRow, setDragOverLocalRow] = useState<string | null>(null);
+  const [dragOverRemoteRow, setDragOverRemoteRow] = useState<string | null>(null);
 
   // Directory history state
   const [localHistory, setLocalHistory] = useState<string[]>([]);
@@ -458,6 +465,160 @@ export const FileManager: React.FC<FileManagerProps> = ({
       setRemoteHistoryIdx(nextIdx);
       loadRemoteDirectory(remoteHistory[nextIdx]);
       setSelectedRemoteFile(null);
+    }
+  };
+
+  const handleLocalDragStart = (e: React.DragEvent, file: LocalFile) => {
+    e.dataTransfer.setData('application/json', JSON.stringify({
+      source: 'local',
+      name: file.name,
+      isDirectory: file.isDirectory
+    }));
+    const absolutePath = joinLocalPath(localCurrentDir, file.name);
+    window.electronAPI.window.startDrag(absolutePath, 'favicon.png');
+  };
+
+  const handleRemoteDragStart = (e: React.DragEvent, file: RemoteFile) => {
+    e.dataTransfer.setData('application/json', JSON.stringify({
+      source: 'remote',
+      name: file.name,
+      isDirectory: file.isDirectory
+    }));
+  };
+
+  const handleLocalDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setLocalDragCount(0);
+
+    const targetDir = dragOverLocalRow || localCurrentDir;
+    setDragOverLocalRow(null);
+
+    const dataStr = e.dataTransfer.getData('application/json');
+    if (dataStr) {
+      try {
+        const data = JSON.parse(dataStr);
+        if (data.source === 'remote') {
+          setRemoteLoading(true);
+          setLocalLoading(true);
+          try {
+            const src = joinRemotePath(remoteCurrentDir, data.name);
+            if (data.isDirectory) {
+              await window.electronAPI.ssh.downloadFolder(sessionId, src, targetDir);
+            } else {
+              await window.electronAPI.ssh.download(sessionId, src, targetDir);
+            }
+          } catch (err: any) {
+            setErrorMsg(`Download failed: ${err.message}`);
+          } finally {
+            await loadLocalDirectory(localCurrentDir);
+            await loadRemoteDirectory(remoteCurrentDir);
+          }
+          return;
+        } else if (data.source === 'local') {
+          const src = joinLocalPath(localCurrentDir, data.name);
+          const dest = joinLocalPath(targetDir, data.name);
+          if (src !== dest) {
+            setLocalLoading(true);
+            try {
+              await window.electronAPI.fs.copy(src, dest);
+            } catch (err: any) {
+              setErrorMsg(`Copy failed: ${err.message}`);
+            } finally {
+              await loadLocalDirectory(localCurrentDir);
+            }
+          }
+          return;
+        }
+      } catch (err) {}
+    }
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      setLocalLoading(true);
+      try {
+        for (let i = 0; i < e.dataTransfer.files.length; i++) {
+          const file = e.dataTransfer.files[i];
+          const localPath = (file as any).path;
+          if (!localPath) continue;
+
+          const targetPath = joinLocalPath(targetDir, file.name);
+          await window.electronAPI.fs.copy(localPath, targetPath);
+        }
+      } catch (err: any) {
+        setErrorMsg(`Copy failed: ${err.message}`);
+      } finally {
+        await loadLocalDirectory(localCurrentDir);
+      }
+    }
+  };
+
+  const handleRemoteDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setRemoteDragCount(0);
+
+    const targetDir = dragOverRemoteRow || remoteCurrentDir;
+    setDragOverRemoteRow(null);
+
+    const dataStr = e.dataTransfer.getData('application/json');
+    if (dataStr) {
+      try {
+        const data = JSON.parse(dataStr);
+        if (data.source === 'local') {
+          setRemoteLoading(true);
+          setLocalLoading(true);
+          try {
+            const src = joinLocalPath(localCurrentDir, data.name);
+            if (data.isDirectory) {
+              await window.electronAPI.ssh.uploadFolder(sessionId, src, targetDir);
+            } else {
+              await window.electronAPI.ssh.upload(sessionId, src, targetDir);
+            }
+          } catch (err: any) {
+            setErrorMsg(`Upload failed: ${err.message}`);
+          } finally {
+            await loadLocalDirectory(localCurrentDir);
+            await loadRemoteDirectory(remoteCurrentDir);
+          }
+          return;
+        } else if (data.source === 'remote') {
+          const src = joinRemotePath(remoteCurrentDir, data.name);
+          const dest = joinRemotePath(targetDir, data.name);
+          if (src !== dest) {
+            setRemoteLoading(true);
+            try {
+              await window.electronAPI.ssh.copy(sessionId, src, dest);
+            } catch (err: any) {
+              setErrorMsg(`Copy failed: ${err.message}`);
+            } finally {
+              await loadRemoteDirectory(remoteCurrentDir);
+            }
+          }
+          return;
+        }
+      } catch (err) {}
+    }
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      setRemoteLoading(true);
+      setLocalLoading(true);
+      try {
+        for (let i = 0; i < e.dataTransfer.files.length; i++) {
+          const file = e.dataTransfer.files[i];
+          const localPath = (file as any).path;
+          if (!localPath) continue;
+
+          const isDir = await window.electronAPI.fs.isDirectory(localPath);
+          if (isDir) {
+            await window.electronAPI.ssh.uploadFolder(sessionId, localPath, targetDir);
+          } else {
+            await window.electronAPI.ssh.upload(sessionId, localPath, targetDir);
+          }
+        }
+      } catch (err: any) {
+        setErrorMsg(`Upload failed: ${err.message}`);
+      } finally {
+        await loadLocalDirectory(localCurrentDir);
+        await loadRemoteDirectory(remoteCurrentDir);
+      }
     }
   };
 
@@ -1210,7 +1371,31 @@ export const FileManager: React.FC<FileManagerProps> = ({
 
 
             {/* Local Files View */}
-            <div className="flex-1 overflow-y-auto" onContextMenu={(e) => handleBlankContextMenu(e, 'local')} onClick={() => setActivePanel('local')}>
+            <div 
+              className="flex-1 overflow-y-auto relative" 
+              onContextMenu={(e) => handleBlankContextMenu(e, 'local')} 
+              onClick={() => setActivePanel('local')}
+              onDragEnter={(e) => {
+                e.preventDefault();
+                if (e.dataTransfer.types.includes('Files') || e.dataTransfer.types.includes('application/json')) {
+                  setLocalDragCount(c => c + 1);
+                }
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
+              }}
+              onDragLeave={() => setLocalDragCount(c => Math.max(0, c - 1))}
+              onDrop={handleLocalDrop}
+            >
+              {localDragCount > 0 && (
+                <div className="absolute inset-0 bg-[var(--bg-app)]/90 backdrop-blur-[3px] flex flex-col items-center justify-center border-2 border-dashed border-[var(--color-primary)] m-2 rounded-[6px] z-50 pointer-events-none transition-all duration-200">
+                  <FaCloudDownloadAlt className="text-[var(--color-primary)] text-5xl mb-3 animate-pulse" />
+                  <div className="text-sm font-semibold text-[var(--text-main)]">Drop files to download</div>
+                  <div className="text-xs text-[var(--text-muted)] mt-1">Copying/downloading files into local folder</div>
+                </div>
+              )}
+
               {localLoading ? (
                 <div className="h-full flex items-center justify-center text-xs text-[var(--text-muted)] font-mono">Loading...</div>
               ) : localView === 'list' ? (
@@ -1273,7 +1458,24 @@ export const FileManager: React.FC<FileManagerProps> = ({
                             setSelectedLocalFile(lf);
                             handleItemContextMenu(e, 'local', lf);
                           }}
-                          className={`${selectedLocalFile?.name === lf.name ? 'bg-[var(--glow-color)]/30 text-[var(--active-tab-text)] font-semibold' : 'hover:bg-[var(--glow-color)]/25'} cursor-default h-[30px] transition-colors duration-75 border-b border-[var(--border-color)]/50`}
+                          draggable={true}
+                          onDragStart={(e) => handleLocalDragStart(e, lf)}
+                          onDragEnter={(e) => {
+                            e.stopPropagation();
+                            if (lf.isDirectory) {
+                              setDragOverLocalRow(joinLocalPath(localCurrentDir, lf.name));
+                            }
+                          }}
+                          onDragLeave={(e) => {
+                            e.stopPropagation();
+                            setDragOverLocalRow(null);
+                          }}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                          }}
+                          onDrop={handleLocalDrop}
+                          className={`${selectedLocalFile?.name === lf.name ? 'bg-[var(--glow-color)]/30 text-[var(--active-tab-text)] font-semibold' : 'hover:bg-[var(--glow-color)]/25'} ${dragOverLocalRow === joinLocalPath(localCurrentDir, lf.name) ? 'bg-[var(--color-primary)]/20 border-y border-dashed border-[var(--color-primary)]' : ''} cursor-default h-[30px] transition-colors duration-75 border-b border-[var(--border-color)]/50`}
                         >
                           <td className="pl-1.5 text-center align-middle">
                             {lf.isDirectory ? (
@@ -1307,7 +1509,24 @@ export const FileManager: React.FC<FileManagerProps> = ({
                         setSelectedLocalFile(lf);
                         handleItemContextMenu(e, 'local', lf);
                       }}
-                      className={`w-20 p-1.5 flex flex-col items-center gap-1 cursor-default border rounded-[2px] ${selectedLocalFile?.name === lf.name ? 'bg-[var(--glow-color)]/40 border-[var(--color-primary)]' : 'border-transparent hover:bg-[var(--glow-color)]/20'}`}
+                      draggable={true}
+                      onDragStart={(e) => handleLocalDragStart(e, lf)}
+                      onDragEnter={(e) => {
+                        e.stopPropagation();
+                        if (lf.isDirectory) {
+                          setDragOverLocalRow(joinLocalPath(localCurrentDir, lf.name));
+                        }
+                      }}
+                      onDragLeave={(e) => {
+                        e.stopPropagation();
+                        setDragOverLocalRow(null);
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      onDrop={handleLocalDrop}
+                      className={`w-20 p-1.5 flex flex-col items-center gap-1 cursor-default border rounded-[2px] ${selectedLocalFile?.name === lf.name ? 'bg-[var(--glow-color)]/40 border-[var(--color-primary)]' : 'border-transparent hover:bg-[var(--glow-color)]/20'} ${dragOverLocalRow === joinLocalPath(localCurrentDir, lf.name) ? 'bg-[var(--color-primary)]/20 border-[var(--color-primary)] border-dashed' : ''}`}
                     >
                       {lf.isDirectory ? (
                         <svg width="40" height="34" viewBox="0 0 44 38" fill="none"><path d="M0 6h20l4 5H44v27H0z" fill="var(--color-primary)" opacity="0.85"/><path d="M0 6h20l4 5H44v4H0z" fill="white" opacity="0.15"/></svg>
@@ -1571,7 +1790,31 @@ export const FileManager: React.FC<FileManagerProps> = ({
 
 
           {/* Remote Files list content */}
-          <div className="flex-1 overflow-auto h-full" onContextMenu={(e) => handleBlankContextMenu(e, 'remote')} onClick={() => setActivePanel('remote')}>
+          <div 
+            className="flex-1 overflow-auto h-full relative" 
+            onContextMenu={(e) => handleBlankContextMenu(e, 'remote')} 
+            onClick={() => setActivePanel('remote')}
+            onDragEnter={(e) => {
+              e.preventDefault();
+              if (e.dataTransfer.types.includes('Files') || e.dataTransfer.types.includes('application/json')) {
+                setRemoteDragCount(c => c + 1);
+              }
+            }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'copy';
+            }}
+            onDragLeave={() => setRemoteDragCount(c => Math.max(0, c - 1))}
+            onDrop={handleRemoteDrop}
+          >
+            {remoteDragCount > 0 && (
+              <div className="absolute inset-0 bg-[var(--bg-app)]/90 backdrop-blur-[3px] flex flex-col items-center justify-center border-2 border-dashed border-[var(--color-primary)] m-2 rounded-[6px] z-50 pointer-events-none transition-all duration-200">
+                <FaCloudUploadAlt className="text-[var(--color-primary)] text-5xl mb-3 animate-pulse" />
+                <div className="text-sm font-semibold text-[var(--text-main)]">Drop files to upload</div>
+                <div className="text-xs text-[var(--text-muted)] mt-1">Uploading files into remote folder</div>
+              </div>
+            )}
+
             {remoteLoading ? (
               <div className="h-full flex items-center justify-center text-xs text-[var(--text-muted)] font-mono">Loading...</div>
             ) : remoteView === 'list' ? (
@@ -1656,7 +1899,24 @@ export const FileManager: React.FC<FileManagerProps> = ({
                           setSelectedRemoteFile(rf);
                           handleItemContextMenu(e, 'remote', rf);
                         }}
-                        className={`${selectedRemoteFile?.name === rf.name ? 'bg-[var(--glow-color)]/30 text-[var(--active-tab-text)] font-semibold' : 'hover:bg-[var(--glow-color)]/25'} cursor-default h-[30px] transition-colors duration-75 border-b border-[var(--border-color)]/50`}
+                        draggable={true}
+                        onDragStart={(e) => handleRemoteDragStart(e, rf)}
+                        onDragEnter={(e) => {
+                          e.stopPropagation();
+                          if (rf.isDirectory) {
+                            setDragOverRemoteRow(joinRemotePath(remoteCurrentDir, rf.name));
+                          }
+                        }}
+                        onDragLeave={(e) => {
+                          e.stopPropagation();
+                          setDragOverRemoteRow(null);
+                        }}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onDrop={handleRemoteDrop}
+                        className={`${selectedRemoteFile?.name === rf.name ? 'bg-[var(--glow-color)]/30 text-[var(--active-tab-text)] font-semibold' : 'hover:bg-[var(--glow-color)]/25'} ${dragOverRemoteRow === joinRemotePath(remoteCurrentDir, rf.name) ? 'bg-[var(--color-primary)]/20 border-y border-dashed border-[var(--color-primary)]' : ''} cursor-default h-[30px] transition-colors duration-75 border-b border-[var(--border-color)]/50`}
                       >
                         <td className="pl-2 align-middle">
                           <input 
@@ -1701,7 +1961,24 @@ export const FileManager: React.FC<FileManagerProps> = ({
                       setSelectedRemoteFile(rf);
                       handleItemContextMenu(e, 'remote', rf);
                     }}
-                    className={`w-[88px] p-2 flex flex-col items-center gap-1 cursor-default border rounded-[2px] ${selectedRemoteFile?.name === rf.name ? 'bg-[var(--glow-color)]/40 border-[var(--color-primary)]' : 'border-transparent hover:bg-[var(--glow-color)]/20'}`}
+                    draggable={true}
+                    onDragStart={(e) => handleRemoteDragStart(e, rf)}
+                    onDragEnter={(e) => {
+                      e.stopPropagation();
+                      if (rf.isDirectory) {
+                        setDragOverRemoteRow(joinRemotePath(remoteCurrentDir, rf.name));
+                      }
+                    }}
+                    onDragLeave={(e) => {
+                      e.stopPropagation();
+                      setDragOverRemoteRow(null);
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onDrop={handleRemoteDrop}
+                    className={`w-[88px] p-2 flex flex-col items-center gap-1 cursor-default border rounded-[2px] ${selectedRemoteFile?.name === rf.name ? 'bg-[var(--glow-color)]/40 border-[var(--color-primary)]' : 'border-transparent hover:bg-[var(--glow-color)]/20'} ${dragOverRemoteRow === joinRemotePath(remoteCurrentDir, rf.name) ? 'bg-[var(--color-primary)]/20 border-[var(--color-primary)] border-dashed' : ''}`}
                   >
                     {rf.isDirectory ? (
                       <svg width="48" height="40" viewBox="0 0 52 44" fill="none">

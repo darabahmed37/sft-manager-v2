@@ -724,6 +724,26 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
     return { success: true };
   });
 
+  ipcMain.handle('fs-is-directory', async (event, pathStr: string) => {
+    const fs = require('fs');
+    try {
+      return fs.statSync(pathStr).isDirectory();
+    } catch (e) {
+      return false;
+    }
+  });
+
+  ipcMain.on('window-start-drag', (event, filePath: string, iconName: string) => {
+    const fs = require('fs');
+    const path = require('path');
+    if (fs.existsSync(filePath)) {
+      event.sender.startDrag({
+        file: filePath,
+        icon: path.join(process.cwd(), 'public', iconName || 'favicon.png'),
+      });
+    }
+  });
+
   ipcMain.handle('fs-rename', async (event, from: string, to: string) => {
     const fs = require('fs');
     fs.renameSync(from, to);
