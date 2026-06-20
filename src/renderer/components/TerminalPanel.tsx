@@ -3,7 +3,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { SearchAddon } from '@xterm/addon-search';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import {
   VscTerminal,
   VscAdd,
@@ -17,8 +17,7 @@ import { LuX, LuKeyboard } from 'react-icons/lu';
 import type { TermTab, TerminalTheme } from './terminalTypes';
 import {
   getThemeById,
-  xtermTheme,
-  TERMINAL_THEMES
+  xtermTheme
 } from './terminalThemes';
 import ThemePicker from './ThemePicker';
 import XtermPane from './XtermPane';
@@ -135,10 +134,7 @@ export const TerminalPanel: React.FC<TerminalPanelProps> = ({
       scrollback: 50000,
       allowTransparency: false,
       convertEol: false,
-      fastScrollModifier: 'shift',
-      fastScrollSensitivity: 5,
       scrollSensitivity: 2,
-      overviewRulerWidth: 8,
       minimumContrastRatio: 1,
     });
 
