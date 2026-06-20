@@ -34,6 +34,8 @@
   --font-size-md: 13.5px;
   --spacing-panel: 12px;
   --row-height: 34px;
+  --skeleton-bg: rgba(0, 0, 0, 0.05);
+  --skeleton-pulse-bg: rgba(0, 0, 0, 0.1);
 }
 
 .dark {
@@ -62,6 +64,8 @@
   /* Shadows for dark mode */
   --shadow-dropdown: 0 8px 24px rgba(0, 0, 0, 0.4);
   --shadow-modal: 0 24px 48px rgba(0, 0, 0, 0.5);
+  --skeleton-bg: rgba(255, 255, 255, 0.05);
+  --skeleton-pulse-bg: rgba(255, 255, 255, 0.12);
 }
 
 @layer base {
@@ -112,3 +116,16 @@
   writing-mode: vertical-rl;
   text-orientation: mixed;
 }
+
+@keyframes skeleton-pulse {
+  0% { background-color: var(--skeleton-bg); }
+  50% { background-color: var(--skeleton-pulse-bg); }
+  100% { background-color: var(--skeleton-bg); }
+}
+
+.skeleton-placeholder {
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+  display: inline-block;
+  vertical-align: middle;
+}
+

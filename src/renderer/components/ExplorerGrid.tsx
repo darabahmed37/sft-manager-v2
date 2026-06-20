@@ -4,6 +4,7 @@ import type { LocalFile, RemoteFile } from '../global';
 interface ExplorerGridProps {
   pane: 'local' | 'remote';
   files: (LocalFile | RemoteFile)[];
+  loading: boolean;
   selectedFile: LocalFile | RemoteFile | null;
   selectedFiles: (LocalFile | RemoteFile)[];
   onSelect: (file: LocalFile | RemoteFile) => void;
@@ -31,6 +32,7 @@ interface ExplorerGridProps {
 export const ExplorerGrid: React.FC<ExplorerGridProps> = ({
   pane,
   files,
+  loading,
   selectedFile,
   selectedFiles,
   onSelect,
@@ -153,7 +155,45 @@ export const ExplorerGrid: React.FC<ExplorerGridProps> = ({
           if (e.target === e.currentTarget) onEmptySpaceClick();
         }}
       >
-        {files.map((file, i) => {
+        {loading ? (
+          Array.from({ length: 24 }).map((_, i) => {
+            const isFolder = i % 2 === 0;
+            return (
+              <div
+                key={`skeleton-${i}`}
+                className={[
+                  'flex flex-col items-center gap-1.5 cursor-default border border-transparent rounded-[5px]',
+                  pane === 'local'
+                    ? 'w-[88px] p-2.5 bg-transparent'
+                    : 'w-[96px] p-3 bg-transparent',
+                ].join(' ')}
+              >
+                {/* Icon Placeholder */}
+                {isFolder ? (
+                  <div className="w-[40px] h-[34px] rounded-[4px] skeleton-placeholder mb-0.5" />
+                ) : (
+                  <div className="w-[32px] h-[40px] rounded-[4px] skeleton-placeholder mb-0.5" />
+                )}
+
+                {/* Name Placeholder */}
+                <div 
+                  className="h-3 rounded-[4px] skeleton-placeholder mt-1" 
+                  style={{ width: `${Math.max(45, Math.min(65, (45 + (i % 4) * 8)))}px` }}
+                />
+
+                {/* Size Placeholder */}
+                {!isFolder && (
+                  <div className="h-2.5 w-8 rounded-[3px] skeleton-placeholder mt-0.5" />
+                )}
+
+                {/* Modified Placeholder (Remote only) */}
+                {pane === 'remote' && (
+                  <div className="h-2.5 w-12 rounded-[3px] skeleton-placeholder mt-0.5 opacity-55" />
+                )}
+              </div>
+            );
+          })
+        ) : files.map((file, i) => {
           const targetPath = joinPath(currentDir, file.name);
           const isSelected  = selectedFile?.name === file.name;
           const isMultiSel  = selectedFiles.some(f => f.name === file.name);

@@ -4,6 +4,7 @@ import type { LocalFile, RemoteFile } from '../global';
 interface ExplorerTableProps {
   pane: 'local' | 'remote';
   files: (LocalFile | RemoteFile)[];
+  loading: boolean;
   selectedFile: LocalFile | RemoteFile | null;
   selectedFiles: (LocalFile | RemoteFile)[];
   onSelect: (file: LocalFile | RemoteFile) => void;
@@ -41,6 +42,7 @@ interface ExplorerTableProps {
 export const ExplorerTable: React.FC<ExplorerTableProps> = ({
   pane,
   files,
+  loading,
   selectedFile,
   selectedFiles,
   onSelect,
@@ -250,7 +252,51 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
           </thead>
 
           <tbody>
-            {files.flatMap((file, i) => {
+            {loading ? (
+              Array.from({ length: 12 }).map((_, i) => (
+                <tr 
+                  key={`skeleton-${i}`} 
+                  className="h-[34px] border-b border-[var(--border-color)]/20 hover:bg-transparent"
+                >
+                  {/* Icon */}
+                  <td className="py-1.5 pl-2 flex items-center justify-center">
+                    <div className="w-4 h-4 rounded-[4px] skeleton-placeholder" />
+                  </td>
+
+                  {/* Name */}
+                  <td className="px-3 truncate">
+                    <div 
+                      className="h-3.5 rounded-[4px] skeleton-placeholder" 
+                      style={{ width: `${Math.max(80, Math.min(colWidths.name - 40, (120 + (i % 3) * 30)))}px` }}
+                    />
+                  </td>
+
+                  {/* Size */}
+                  <td className="px-3 text-right">
+                    {!i || i % 3 === 0 ? (
+                      <div className="h-3.5 w-10 rounded-[4px] skeleton-placeholder ml-auto" />
+                    ) : (
+                      <div className="text-[var(--text-subtle)] opacity-40">-</div>
+                    )}
+                  </td>
+
+                  {/* Modified */}
+                  <td className="px-3 text-left">
+                    <div className="h-3.5 w-20 rounded-[4px] skeleton-placeholder" />
+                  </td>
+
+                  {/* Owner */}
+                  {pane === 'remote' && (
+                    <td className="px-3 text-left">
+                      <div className="h-3.5 w-14 rounded-[4px] skeleton-placeholder" />
+                    </td>
+                  )}
+
+                  {/* Filler */}
+                  <td />
+                </tr>
+              ))
+            ) : files.flatMap((file, i) => {
               const targetPath = joinPath(currentDir, file.name);
               const isSelected = selectedFile?.name === file.name;
               const isMultiSel = selectedFiles.some(f => f.name === file.name);
