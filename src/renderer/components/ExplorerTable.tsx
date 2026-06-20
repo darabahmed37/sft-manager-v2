@@ -72,6 +72,7 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const rowRefs = useRef<(HTMLTableRowElement | null)[]>([]);
   const lassoStartRef = useRef<{ x: number; y: number } | null>(null);
+  const prevSelectedRef = useRef<string>(''); // serialised names for change-detection
   const [lassoBox, setLassoBox] = useState<{
     left: number; top: number; width: number; height: number;
   } | null>(null);
@@ -80,27 +81,14 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
     const handleMouseMove = (e: MouseEvent) => {
       if (!lassoStartRef.current) return;
       const s = lassoStartRef.current;
-      setLassoBox({
-        left:   Math.min(s.x, e.clientX),
-        top:    Math.min(s.y, e.clientY),
-        width:  Math.abs(e.clientX - s.x),
-        height: Math.abs(e.clientY - s.y),
-      });
-    };
-
-    const handleMouseUp = (e: MouseEvent) => {
-      if (!lassoStartRef.current) return;
-      const s = lassoStartRef.current;
       const left   = Math.min(s.x, e.clientX);
       const right  = Math.max(s.x, e.clientX);
       const top    = Math.min(s.y, e.clientY);
       const bottom = Math.max(s.y, e.clientY);
 
-      lassoStartRef.current = null;
-      setLassoBox(null);
+      setLassoBox({ left, top, width: right - left, height: bottom - top });
 
-      if (right - left < 5 && bottom - top < 5) return;
-
+      // ── Real-time selection: hit-test every row on each mousemove ──
       const selected: (LocalFile | RemoteFile)[] = [];
       rowRefs.current.forEach((rowEl, idx) => {
         if (!rowEl || idx >= files.length) return;
@@ -109,7 +97,28 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
           selected.push(files[idx]);
         }
       });
-      if (selected.length > 0) onMultiSelectChange(selected);
+
+      // Only fire if selection actually changed (avoids flood of re-renders)
+      const key = selected.map(f => f.name).join('\0');
+      if (key !== prevSelectedRef.current) {
+        prevSelectedRef.current = key;
+        onMultiSelectChange(selected);
+      }
+    };
+
+    const handleMouseUp = (e: MouseEvent) => {
+      if (!lassoStartRef.current) return;
+      const s = lassoStartRef.current;
+      const dx = Math.abs(e.clientX - s.x);
+      const dy = Math.abs(e.clientY - s.y);
+
+      lassoStartRef.current = null;
+      prevSelectedRef.current = '';
+      setLassoBox(null);
+
+      // If it was just a click (no real drag) clear multi-selection
+      if (dx < 5 && dy < 5) onMultiSelectChange([]);
+      // Otherwise the selection is already live from the last mousemove — leave it.
     };
 
     document.addEventListener('mousemove', handleMouseMove);
