@@ -148,8 +148,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
       {onNewConnection && (
         <button
           onClick={onNewConnection}
-          className="h-[34px] w-[34px] flex items-center justify-center cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-white/5 rounded-[6px] border-none bg-transparent outline-none ml-1 shrink-0 transition-colors"
-          style={{ marginBottom: '2px' }}
+          className="h-[38px] w-[38px] flex items-center justify-center cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-white/5 rounded-[6px] border-none bg-transparent outline-none ml-1 shrink-0 transition-colors"
           title="New Connection"
         >
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
@@ -172,7 +171,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
       ) : (
         // Windows/Linux App Icon & Menu items style on Left
         <div 
-          className="flex items-center gap-2 pl-3 text-[var(--text-subtle)] text-xs font-semibold select-none shrink-0"
+          className="flex items-center gap-2 pl-3 text-[var(--text-subtle)] text-xs font-semibold select-none shrink-0 h-[38px] self-end pb-1"
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
         >
           <svg className="w-4 h-4 text-[var(--color-primary)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4">
