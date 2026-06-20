@@ -1,4 +1,4 @@
-import { Server, HopSession, SshSessionState } from './types';
+import { Server, SshSessionState } from './types';
 import { Config } from '../config/Config';
 import { SshConnector } from './SshConnector';
 import { SshExecutor, CmdResult } from './SshExecutor';
@@ -35,6 +35,10 @@ export class SshClient {
 
   get targetServer(): Server {
     return this.state.targetServer;
+  }
+
+  get targetClient(): import('ssh2').Client {
+    return this.state.targetClient;
   }
 
   static async connect(
@@ -176,11 +180,11 @@ export class SshClient {
     const resolvedTo = await this.resolveRemotePath(to);
     try {
       await this.browser.rename(resolvedFrom, resolvedTo);
-    } catch (ex: any) {
-      log.warn(`RENAME SFTP failed (${ex.message}); falling back to exec mv`);
+    } catch (ex: unknown) {
+      log.warn(`RENAME SFTP failed (${(ex as Error).message}); falling back to exec mv`);
       const r = await this.exec(`mv ${this.q(resolvedFrom)} ${this.q(resolvedTo)}`);
       if (r.exitCode !== 0) {
-        throw new Error(`Rename failed: ${r.stderr}`);
+        throw new Error(`Rename failed: ${r.stderr}`, { cause: ex });
       }
     }
   }

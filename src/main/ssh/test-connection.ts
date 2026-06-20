@@ -86,7 +86,7 @@ async function main() {
     client.close();
     console.log('Session closed successfully.');
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('\n--- Connection Failed! ---');
     console.error(error);
     process.exit(1);

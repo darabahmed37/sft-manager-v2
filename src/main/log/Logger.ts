@@ -22,7 +22,7 @@ export class Logger {
     Logger.minLevel = level;
   }
 
-  private format(levelStr: string, message: string, ...args: any[]): string {
+  private format(levelStr: string, message: string, ...args: unknown[]): string {
     const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19) + '.' + 
       String(new Date().getMilliseconds()).padStart(3, '0');
     
@@ -35,41 +35,41 @@ export class Logger {
     return `[${timestamp}] [${levelStr}] [${this.context}] ${formattedMsg}`;
   }
 
-  trace(message: string, ...args: any[]) {
+  trace(message: string, ...args: unknown[]) {
     if (Logger.minLevel <= LogLevel.TRACE) {
       console.log(this.format('TRACE', message, ...args));
     }
   }
 
-  debug(message: string, ...args: any[]) {
+  debug(message: string, ...args: unknown[]) {
     if (Logger.minLevel <= LogLevel.DEBUG) {
       console.log(this.format('DEBUG', message, ...args));
     }
   }
 
-  info(message: string, ...args: any[]) {
+  info(message: string, ...args: unknown[]) {
     if (Logger.minLevel <= LogLevel.INFO) {
       console.log(this.format('INFO ', message, ...args));
     }
   }
 
-  warn(message: string, ...args: any[]) {
+  warn(message: string, ...args: unknown[]) {
     if (Logger.minLevel <= LogLevel.WARN) {
       console.warn(this.format('WARN ', message, ...args));
     }
   }
 
-  error(message: string, error?: any, ...args: any[]) {
+  error(message: string, error?: unknown, ...args: unknown[]) {
     if (Logger.minLevel <= LogLevel.ERROR) {
       let msg = message;
-      if (error && error.message) {
-        msg += ` - Error: ${error.message}`;
+      if (error && (error as Error).message) {
+        msg += ` - Error: ${(error as Error).message}`;
       } else if (error) {
         msg += ` - Error: ${String(error)}`;
       }
       console.error(this.format('ERROR', msg, ...args));
-      if (error && error.stack) {
-        console.error(error.stack);
+      if (error && typeof error === 'object' && 'stack' in error) {
+        console.error((error as { stack: unknown }).stack);
       }
     }
   }

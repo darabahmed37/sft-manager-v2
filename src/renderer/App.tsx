@@ -6,6 +6,7 @@ import { FileManager } from './components/FileManager';
 import { NewConnectionWizard } from './components/NewConnectionWizard';
 import { SettingsModal } from './components/SettingsModal';
 import type { Connection } from './components/ConnectionCard';
+import type { ConnectionProfile, StoredCredential } from './global';
 
 interface Tab {
   id: string; // 'connections' or `conn-${connectionId}`
@@ -59,7 +60,7 @@ function App() {
       })
       .catch(() => {});
 
-    let timeoutId: any;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
     const resetTimer = () => {
       clearTimeout(timeoutId);
@@ -116,9 +117,9 @@ function App() {
       const conns = await window.electronAPI.db.getConnections();
       const creds = await window.electronAPI.db.getCredentials();
 
-      const mapped = conns.map((c: any) => {
-        const cred = creds.find((cr: any) => cr.id === c.credentialId);
-        const tunnel = conns.find((cn: any) => cn.id === c.tunnelViaConnectionId);
+      const mapped = conns.map((c: ConnectionProfile) => {
+        const cred = creds.find((cr: StoredCredential) => cr.id === c.credentialId);
+        const tunnel = conns.find((cn: ConnectionProfile) => cn.id === c.tunnelViaConnectionId);
         return {
           ...c,
           credentialUsername: cred ? cred.username : 'root',
@@ -127,7 +128,7 @@ function App() {
         };
       });
       setConnections(mapped);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to load connections', err);
     }
   };
@@ -169,8 +170,8 @@ function App() {
       } else {
         setTabs(prev => prev.map(t => t.id === tabId ? { ...t, status: 'failed', error: res.error || 'Unknown error' } : t));
       }
-    } catch (err: any) {
-      setTabs(prev => prev.map(t => t.id === tabId ? { ...t, status: 'failed', error: err.message } : t));
+    } catch (err: unknown) {
+      setTabs(prev => prev.map(t => t.id === tabId ? { ...t, status: 'failed', error: (err as Error).message } : t));
     }
   };
 
@@ -230,8 +231,8 @@ function App() {
       // Update corresponding tab if it exists
       const tabId = `conn-${id}`;
       setTabs(prev => prev.map(t => t.id === tabId ? { ...t, status: 'failed', error: 'Session disconnected by user' } : t));
-    } catch (err: any) {
-      alert(`Disconnect failed: ${err.message}`);
+    } catch (err: unknown) {
+      alert(`Disconnect failed: ${(err as Error).message}`);
     }
   };
 
@@ -268,8 +269,8 @@ function App() {
         refreshConnections();
         // Close tab if open
         handleCloseTab(`conn-${id}`);
-      } catch (err: any) {
-        alert(`Delete failed: ${err.message}`);
+      } catch (err: unknown) {
+        alert(`Delete failed: ${(err as Error).message}`);
       }
     }
   };
@@ -289,8 +290,8 @@ function App() {
         tunnelViaConnectionId: conn.tunnelViaConnectionId,
       });
       refreshConnections();
-    } catch (err: any) {
-      alert(`Duplicate failed: ${err.message}`);
+    } catch (err: unknown) {
+      alert(`Duplicate failed: ${(err as Error).message}`);
     }
   };
 

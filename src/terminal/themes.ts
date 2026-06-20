@@ -203,7 +203,9 @@ export function loadThemeId(): string {
 export function saveThemeId(id: string) {
   try {
     localStorage.setItem(THEME_KEY, id);
-  } catch {}
+  } catch (err: unknown) {
+    console.warn('[Themes] Failed to save theme to localStorage:', err);
+  }
 }
 
 export function xtermTheme(t: TerminalTheme) {

@@ -1,5 +1,8 @@
-import { ipcMain, BrowserWindow } from 'electron';
+import { ipcMain, BrowserWindow, dialog, app, shell } from 'electron';
 import * as path from 'path';
+import * as fs from 'fs';
+import * as os from 'os';
+import { execSync } from 'child_process';
 import { ConnectionDao } from '../dao/ConnectionDao';
 import { StoredCredentialDao } from '../dao/StoredCredentialDao';
 import { SettingsDao } from '../dao/SettingsDao';
@@ -11,9 +14,19 @@ import { Logger } from '../log/Logger';
 const log = Logger.getLogger('ipcHandlers');
 const activeSessions = new Map<string, SshClient>();
 
+interface HopConfig {
+  host: string;
+  port: number;
+  username: string;
+  privateKey?: string | Buffer;
+  passphrase?: string;
+  password?: string;
+  totpSecret?: string;
+}
+
 // ─── Terminal Window Management ───────────────────────────────────────────────
 
-const activeShells = new Map<string, any>(); // shellId → ssh2 shell stream
+const activeShells = new Map<string, import('ssh2').Channel>(); // shellId → ssh2 shell stream
 let terminalWindow: BrowserWindow | null = null;
 let shellCounter = 0;
 
@@ -69,7 +82,7 @@ function getOrCreateTerminalWindow(mainWindow: BrowserWindow, sessionId: string,
   win.on('closed', () => {
     log.info(`[Terminal] Window closed — terminating ${activeShells.size} active shell(s)`);
     for (const [shellId, stream] of activeShells.entries()) {
-      try { stream.end(); } catch (_) {}
+      try { stream.end(); } catch (err: unknown) { log.debug('Failed to close shell stream', err); }
       log.info(`[Terminal] Shell ${shellId} closed on window exit`);
     }
     activeShells.clear();
@@ -80,8 +93,8 @@ function getOrCreateTerminalWindow(mainWindow: BrowserWindow, sessionId: string,
   return win;
 }
 
-async function buildHopChain(connectionId: number): Promise<any[]> {
-  const chain: any[] = [];
+async function buildHopChain(connectionId: number): Promise<HopConfig[]> {
+  const chain: HopConfig[] = [];
   let currentId: number | null = connectionId;
   const visited = new Set<number>();
 
@@ -96,7 +109,7 @@ async function buildHopChain(connectionId: number): Promise<any[]> {
       throw new Error(`Connection profile not found: ${currentId}`);
     }
 
-    const serverConf: any = {
+    const serverConf: HopConfig = {
       host: conn.host,
       port: conn.port,
       username: '',
@@ -114,14 +127,13 @@ async function buildHopChain(connectionId: number): Promise<any[]> {
             }
           } else {
             try {
-              const fs = require('fs');
-              serverConf.privateKey = fs.readFileSync(cred.password, 'utf8');
+              serverConf.privateKey = fs.readFileSync(cred.password || '', 'utf8');
               if (cred.totpSecret) {
                 serverConf.passphrase = cred.totpSecret;
               }
-            } catch (fileErr: any) {
+            } catch (fileErr: unknown) {
               log.error(`Failed to read private key fallback at ${cred.password}`, fileErr);
-              throw new Error(`Failed to read private key file: ${fileErr.message}`);
+              throw new Error(`Failed to read private key file: ${(fileErr as Error).message}`, { cause: fileErr });
             }
           }
         } else {
@@ -171,7 +183,6 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
   });
 
   ipcMain.handle('dialog-open-file', async () => {
-    const { dialog } = require('electron');
     const result = await dialog.showOpenDialog(mainWindow, {
       properties: ['openFile'],
       filters: [
@@ -186,9 +197,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
 
   ipcMain.handle('fs-read-file', async (event, filePath: string) => {
     try {
-      const fs = require('fs');
       return fs.readFileSync(filePath, 'utf8');
-    } catch (err: any) {
+    } catch (err: unknown) {
       log.error(`Failed to read file ${filePath}`, err);
       throw err;
     }
@@ -359,9 +369,9 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
       ConnectionDao.touchConnection(connectionId);
       
       return { success: true, sessionId };
-    } catch (err: any) {
+    } catch (err: unknown) {
       log.error(`[IPC] ssh-connect failed for connectionId=${connectionId}`, err);
-      return { success: false, error: err.message };
+      return { success: false, error: (err as Error).message };
     }
   });
 
@@ -370,8 +380,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
     if (client) {
       try {
         client.close();
-      } catch (err: any) {
-        log.warn(`[IPC] Error during ssh session close: ${err.message}`);
+      } catch (err: unknown) {
+        log.warn(`[IPC] Error during ssh session close: ${(err as Error).message}`);
       }
       activeSessions.delete(sessionId);
       return { success: true };
@@ -382,10 +392,6 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
   // ─── Local Filesystem Operations ───
   ipcMain.handle('fs-list-directory', async (event, pathStr: string) => {
     try {
-      const fs = require('fs');
-      const path = require('path');
-      const os = require('os');
-      
       let targetPath = pathStr;
       if (!targetPath || targetPath === '~') {
         targetPath = os.homedir();
@@ -400,14 +406,14 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
       }
       
       const files = fs.readdirSync(targetPath, { withFileTypes: true });
-      return files.map((f: any) => {
+      return files.map((f: fs.Dirent) => {
         let size = 0;
         let mtime = new Date();
         try {
           const stats = fs.statSync(path.join(targetPath, f.name));
           size = stats.size;
           mtime = stats.mtime;
-        } catch (e) {}
+        } catch { /* ignore */ }
         
         return {
           name: f.name,
@@ -416,14 +422,13 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
           modified: mtime.toISOString().substring(0, 10), // YYYY-MM-DD
         };
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       log.error(`Local LS failed for path="${pathStr}"`, err);
       throw err;
     }
   });
 
   ipcMain.handle('fs-get-home-dir', () => {
-    const os = require('os');
     return os.homedir();
   });
 
@@ -466,22 +471,18 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
 
   // ─── Terminal: Open SSH Shell Channel ────────────────────────────────────
 
-  ipcMain.handle('terminal-open-shell', async (event, sessionId: string, tabId: string) => {
+  ipcMain.handle('terminal-open-shell', async (event, sessionId: string, _tabId: string) => {
+    void _tabId;
     const client = activeSessions.get(sessionId);
     if (!client) return { success: false, error: 'Session not found or disconnected' };
 
     const shellId = `shell-${++shellCounter}-${Date.now()}`;
 
     try {
-      const sshClient = (client as any);
-      // Access underlying ssh2 client from state
-      const state = sshClient['state'];
-      if (!state) return { success: false, error: 'Internal state unavailable' };
+      const targetClient = client.targetClient;
 
-      const targetClient = state.targetClient;
-
-      const stream = await new Promise<any>((resolve, reject) => {
-        targetClient.shell({ term: 'xterm-256color', rows: 24, cols: 80 }, (err: any, s: any) => {
+      const stream = await new Promise<import('ssh2').Channel>((resolve, reject) => {
+        targetClient.shell({ term: 'xterm-256color', rows: 24, cols: 80 }, (err: Error | undefined, s: import('ssh2').Channel) => {
           if (err) reject(err);
           else resolve(s);
         });
@@ -513,20 +514,20 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
         }
       });
 
-      stream.on('error', (err: any) => {
-        log.error(`Shell error for ${shellId}: ${err.message}`);
+      stream.on('error', (err: Error) => {
+        log.error(`Shell error for ${shellId}: ${(err as Error).message}`);
         const win = terminalWindow;
         if (win && !win.isDestroyed()) {
-          win.webContents.send('terminal-shell-data', shellId, `\r\n\x1b[31mShell error: ${err.message}\x1b[0m\r\n`);
+          win.webContents.send('terminal-shell-data', shellId, `\r\n\x1b[31mShell error: ${(err as Error).message}\x1b[0m\r\n`);
         }
       });
 
 
       log.info(`[Terminal] Shell opened: shellId=${shellId} sessionId=${sessionId}`);
       return { success: true, shellId };
-    } catch (err: any) {
+    } catch (err: unknown) {
       log.error(`[Terminal] Failed to open shell for session ${sessionId}:`, err);
-      return { success: false, error: err.message };
+      return { success: false, error: (err as Error).message };
     }
   });
 
@@ -535,8 +536,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
   ipcMain.on('terminal-shell-write', (event, shellId: string, data: string) => {
     const stream = activeShells.get(shellId);
     if (stream) {
-      try { stream.write(data); } catch (err: any) {
-        log.warn(`Shell write error for ${shellId}: ${err.message}`);
+      try { stream.write(data); } catch (err: unknown) {
+        log.warn(`Shell write error for ${shellId}: ${(err as Error).message}`);
       }
     }
   });
@@ -546,7 +547,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
   ipcMain.on('terminal-shell-resize', (event, shellId: string, cols: number, rows: number) => {
     const stream = activeShells.get(shellId);
     if (stream && stream.setWindow) {
-      try { stream.setWindow(rows, cols, 0, 0); } catch (_) {}
+      try { stream.setWindow(rows, cols, 0, 0); } catch (err: unknown) { log.debug('setWindow failed', err); }
     }
   });
 
@@ -555,7 +556,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
   ipcMain.on('terminal-shell-close', (event, shellId: string) => {
     const stream = activeShells.get(shellId);
     if (stream) {
-      try { stream.end(); } catch (_) {}
+      try { stream.end(); } catch (err: unknown) { log.debug('stream.end failed', err); }
       activeShells.delete(shellId);
     }
   });
@@ -614,7 +615,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
     return SettingsDao.getConnectionSettings(connectionId);
   });
 
-  ipcMain.handle('connection-settings-update', (event, connectionId: number, settings: any) => {
+  ipcMain.handle('connection-settings-update', (event, connectionId: number, settings: Partial<import('../dao/SettingsDao').ConnectionSettings>) => {
     SettingsDao.updateConnectionSettings(connectionId, settings);
     return { success: true };
   });
@@ -624,7 +625,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
     return SettingsDao.getRemoteTabs(connectionId);
   });
 
-  ipcMain.handle('remote-tabs-save', (event, connectionId: number, tabs: any[]) => {
+  ipcMain.handle('remote-tabs-save', (event, connectionId: number, tabs: import('../dao/SettingsDao').RemoteTab[]) => {
     SettingsDao.saveRemoteTabs(connectionId, tabs);
     return { success: true };
   });
@@ -634,22 +635,19 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
     const db = getDatabase();
     db.close();
 
-    const fs = require('fs');
-    const path = require('path');
     const dbPath = path.join(process.cwd(), 'data', 'settings.db');
     if (fs.existsSync(dbPath)) {
       try {
         fs.unlinkSync(dbPath);
-      } catch (err) {}
+      } catch (err: unknown) {
+        log.warn('Failed to unlink database on reset', err);
+      }
     }
     
-    const { app } = require('electron');
     app.quit();
   });
 
   ipcMain.handle('maintenance-clear-temp', async () => {
-    const fs = require('fs');
-    const path = require('path');
     const tempDir = path.join(process.cwd(), 'data', 'temp');
     let clearedCount = 0;
     if (fs.existsSync(tempDir)) {
@@ -664,15 +662,15 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
             fs.unlinkSync(fp);
           }
           clearedCount++;
-        } catch (err) {}
+        } catch (err: unknown) {
+          log.debug(`Failed to delete temp file ${f}`, err);
+        }
       }
     }
     return { success: true, clearedCount };
   });
 
   ipcMain.handle('maintenance-clear-logs', async () => {
-    const fs = require('fs');
-    const path = require('path');
     const logsDir = path.join(process.cwd(), 'logs');
     let clearedCount = 0;
     if (fs.existsSync(logsDir)) {
@@ -683,11 +681,13 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
             const fp = path.join(logsDir, f);
             fs.unlinkSync(fp);
             clearedCount++;
-          } catch (err) {
+          } catch {
             try {
               fs.writeFileSync(path.join(logsDir, f), '');
               clearedCount++;
-            } catch (inner) {}
+            } catch (innerErr: unknown) {
+              log.debug(`Failed to overwrite log file ${f}`, innerErr);
+            }
           }
         }
       }
@@ -696,9 +696,6 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
   });
 
   ipcMain.handle('maintenance-open-temp', async () => {
-    const { shell } = require('electron');
-    const path = require('path');
-    const fs = require('fs');
     const tempDir = path.join(process.cwd(), 'data', 'temp');
     if (!fs.existsSync(tempDir)) {
       fs.mkdirSync(tempDir, { recursive: true });
@@ -709,13 +706,11 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
 
   // ─── Local Filesystem Additional Operations ───
   ipcMain.handle('fs-mkdir', async (event, pathStr: string) => {
-    const fs = require('fs');
     fs.mkdirSync(pathStr, { recursive: true });
     return { success: true };
   });
 
   ipcMain.handle('fs-delete', async (event, pathStr: string, recursive: boolean) => {
-    const fs = require('fs');
     if (recursive) {
       fs.rmSync(pathStr, { recursive: true, force: true });
     } else {
@@ -725,17 +720,14 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
   });
 
   ipcMain.handle('fs-is-directory', async (event, pathStr: string) => {
-    const fs = require('fs');
     try {
       return fs.statSync(pathStr).isDirectory();
-    } catch (e) {
+    } catch {
       return false;
     }
   });
 
   ipcMain.on('window-start-drag', (event, filePath: string, iconName: string) => {
-    const fs = require('fs');
-    const path = require('path');
     if (fs.existsSync(filePath)) {
       event.sender.startDrag({
         file: filePath,
@@ -745,26 +737,21 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
   });
 
   ipcMain.handle('fs-rename', async (event, from: string, to: string) => {
-    const fs = require('fs');
     fs.renameSync(from, to);
     return { success: true };
   });
 
   ipcMain.handle('fs-copy', async (event, from: string, to: string) => {
-    const fs = require('fs');
     fs.cpSync(from, to, { recursive: true });
     return { success: true };
   });
 
   ipcMain.handle('fs-create-file', async (event, filePath: string) => {
-    const fs = require('fs');
     fs.writeFileSync(filePath, '');
     return { success: true };
   });
 
   ipcMain.handle('fs-compress', async (event, dirPath: string, tarPath: string) => {
-    const { execSync } = require('child_process');
-    const path = require('path');
     const parentDir = path.dirname(dirPath);
     const baseName = path.basename(dirPath);
     const cmd = `tar -czf "${tarPath}" -C "${parentDir}" "${baseName}"`;
@@ -773,8 +760,6 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
   });
 
   ipcMain.handle('fs-extract', async (event, archivePath: string, destDir: string) => {
-    const { execSync } = require('child_process');
-    const fs = require('fs');
     if (!fs.existsSync(destDir)) {
       fs.mkdirSync(destDir, { recursive: true });
     }
@@ -784,31 +769,31 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
   });
 
   ipcMain.handle('fs-calculate-size', async (event, pathStr: string) => {
-    const fs = require('fs').promises;
+    const fsPromises = fs.promises;
     try {
       const getLocalFolderSize = async (dirPath: string): Promise<number> => {
         let totalSize = 0;
-        const files = await fs.readdir(dirPath, { withFileTypes: true });
+        const files = await fsPromises.readdir(dirPath, { withFileTypes: true });
         for (const file of files) {
-          const fullPath = require('path').join(dirPath, file.name);
+          const fullPath = path.join(dirPath, file.name);
           if (file.isDirectory()) {
             totalSize += await getLocalFolderSize(fullPath);
           } else {
             try {
-              const stat = await fs.stat(fullPath);
+              const stat = await fsPromises.stat(fullPath);
               totalSize += stat.size;
-            } catch (e) {}
+            } catch { /* ignore */ }
           }
         }
         return totalSize;
       };
 
-      const stat = await fs.stat(pathStr);
+      const stat = await fsPromises.stat(pathStr);
       if (stat.isFile()) {
         return stat.size;
       }
       return await getLocalFolderSize(pathStr);
-    } catch (err: any) {
+    } catch (err: unknown) {
       log.error(`Failed to calculate size for ${pathStr}`, err);
       return 0;
     }
@@ -841,9 +826,9 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
   ipcMain.handle('ssh-compress', async (event, sessionId: string, dirPath: string, tarPath: string) => {
     const client = activeSessions.get(sessionId);
     if (!client) throw new Error('Session not found or disconnected');
-    const path = require('path').posix;
-    const parentDir = path.dirname(dirPath);
-    const baseName = path.basename(dirPath);
+    const posixPath = path.posix;
+    const parentDir = posixPath.dirname(dirPath);
+    const baseName = posixPath.basename(dirPath);
     const qTar = `'${tarPath.replace(/'/g, "'\\''")}'`;
     const qParent = `'${parentDir.replace(/'/g, "'\\''")}'`;
     const qBase = `'${baseName.replace(/'/g, "'\\''")}'`;

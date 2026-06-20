@@ -92,8 +92,8 @@ export class SftpBrowser {
           resolve(entries);
         });
       });
-    } catch (ex: any) {
-      log.warn(`LS(SFTP) failed for ${pathStr} (${ex.message}); falling back to exec ls`);
+    } catch (ex: unknown) {
+      log.warn(`LS(SFTP) failed for ${pathStr} (${(ex as Error).message}); falling back to exec ls`);
       return null;
     }
   }
@@ -107,8 +107,8 @@ export class SftpBrowser {
           else resolve(absPath);
         });
       });
-    } catch (ex: any) {
-      log.debug(`realPath SFTP failed (${ex.message}); falling back to exec`);
+    } catch (ex: unknown) {
+      log.debug(`realPath SFTP failed (${(ex as Error).message}); falling back to exec`);
       return null;
     }
   }
@@ -121,8 +121,8 @@ export class SftpBrowser {
           resolve(!err);
         });
       });
-    } catch (ex: any) {
-      log.debug(`fileExists stat failed for ${pathStr}: ${ex.message}`);
+    } catch (ex: unknown) {
+      log.debug(`fileExists stat failed for ${pathStr}: ${(ex as Error).message}`);
       return false;
     }
   }
@@ -146,8 +146,8 @@ export class SftpBrowser {
           resolve(!err && stats.isSymbolicLink());
         });
       });
-    } catch (ex: any) {
-      log.debug(`isSymlink lstat failed for ${pathStr}: ${ex.message}`);
+    } catch (ex: unknown) {
+      log.debug(`isSymlink lstat failed for ${pathStr}: ${(ex as Error).message}`);
       return false;
     }
   }
@@ -160,8 +160,8 @@ export class SftpBrowser {
           resolve(!err && stats.isDirectory());
         });
       });
-    } catch (ex: any) {
-      log.debug(`resolveSymlinkIsDir stat failed for ${pathStr}: ${ex.message}`);
+    } catch (ex: unknown) {
+      log.debug(`resolveSymlinkIsDir stat failed for ${pathStr}: ${(ex as Error).message}`);
       return false;
     }
   }
@@ -172,7 +172,7 @@ export class SftpBrowser {
     return new Promise<void>((resolve, reject) => {
       sftp.lstat(pathStr, (err, stats) => {
         if (err) {
-          return reject(new Error(`Delete failed (${pathStr}): ${err.message}`));
+          return reject(new Error(`Delete failed (${pathStr}): ${(err as Error).message}`));
         }
         if (stats.isSymbolicLink()) {
           sftp.unlink(pathStr, (unlinkErr) => {
@@ -204,7 +204,7 @@ export class SftpBrowser {
       current = current ? `${current}/${part}` : part;
       const exists = await this.fileExists(current);
       if (!exists) {
-        await new Promise<void>((resolve, reject) => {
+        await new Promise<void>((resolve) => {
           sftp.mkdir(current, (err) => {
             if (err) {
               // Ignore failure if it's due to directory existing (e.g. race condition)
@@ -222,8 +222,8 @@ export class SftpBrowser {
     if (this.sftpWrapper) {
       try {
         this.sftpWrapper.end();
-      } catch (ex: any) {
-        log.warn(`SFTP channel close error: ${ex.message}`);
+      } catch (ex: unknown) {
+        log.warn(`SFTP channel close error: ${(ex as Error).message}`);
       }
       this.sftpWrapper = undefined;
     }

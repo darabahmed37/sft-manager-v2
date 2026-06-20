@@ -42,6 +42,26 @@ export interface ConnectionSettings {
   remoteColRights: number;
 }
 
+interface ConnectionSettingsDbRow {
+  connectionId: number;
+  localPanelCollapsed: number;
+  localPanelWidth: number;
+  localSortField: string;
+  localSortAsc: number;
+  localFilterText: string;
+  remoteSortField: string;
+  remoteSortAsc: number;
+  remoteFilterText: string;
+  localColName: number;
+  localColSize: number;
+  localColModified: number;
+  remoteColName: number;
+  remoteColSize: number;
+  remoteColModified: number;
+  remoteColOwner: number;
+  remoteColRights: number;
+}
+
 export interface RemoteTab {
   id: number;
   connectionId: number;
@@ -57,7 +77,7 @@ export class SettingsDao {
     try {
       const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined;
       return row ? row.value : defaultValue;
-    } catch (err: any) {
+    } catch (err: unknown) {
       log.error(`getSetting failed for key=${key}`, err);
       return defaultValue;
     }
@@ -70,7 +90,7 @@ export class SettingsDao {
         INSERT INTO settings (key, value) VALUES (?, ?)
         ON CONFLICT(key) DO UPDATE SET value = excluded.value
       `).run(key, value);
-    } catch (err: any) {
+    } catch (err: unknown) {
       log.error(`setSetting failed for key=${key}`, err);
     }
   }
@@ -79,7 +99,7 @@ export class SettingsDao {
     const db = getDatabase();
     try {
       db.prepare('DELETE FROM settings WHERE key = ?').run(key);
-    } catch (err: any) {
+    } catch (err: unknown) {
       log.error(`deleteSetting failed for key=${key}`, err);
     }
   }
@@ -93,7 +113,7 @@ export class SettingsDao {
         res[r.key] = r.value;
       }
       return res;
-    } catch (err: any) {
+    } catch (err: unknown) {
       log.error('getAllSettings failed', err);
       return {};
     }
@@ -103,13 +123,18 @@ export class SettingsDao {
   static getBookmarks(connectionId: number, pane: string): Bookmark[] {
     const db = getDatabase();
     try {
-      return db.prepare(`
+      const rows = db.prepare(`
         SELECT id, connection_id as connectionId, pane, path, is_default as isDefault, last_accessed as lastAccessed
         FROM bookmarks
         WHERE connection_id = ? AND pane = ?
         ORDER BY is_default DESC, last_accessed DESC, path ASC
-      `).all(connectionId, pane) as any[];
-    } catch (err: any) {
+      `).all(connectionId, pane) as { id: number; connectionId: number; pane: string; path: string; isDefault: number; lastAccessed: number }[];
+      
+      return rows.map(r => ({
+        ...r,
+        isDefault: r.isDefault === 1
+      }));
+    } catch (err: unknown) {
       log.error(`getBookmarks failed for connectionId=${connectionId}, pane=${pane}`, err);
       return [];
     }
@@ -128,7 +153,7 @@ export class SettingsDao {
         INSERT INTO bookmarks (connection_id, pane, path, last_accessed)
         VALUES (?, ?, ?, ?)
       `).run(connectionId, pane, path, Date.now());
-    } catch (err: any) {
+    } catch (err: unknown) {
       log.error(`addBookmark failed for path=${path}`, err);
     }
   }
@@ -137,7 +162,7 @@ export class SettingsDao {
     const db = getDatabase();
     try {
       db.prepare('DELETE FROM bookmarks WHERE id = ?').run(id);
-    } catch (err: any) {
+    } catch (err: unknown) {
       log.error(`deleteBookmark failed for id=${id}`, err);
     }
   }
@@ -150,7 +175,7 @@ export class SettingsDao {
       if (id >= 0) {
         db.prepare('UPDATE bookmarks SET is_default = 1 WHERE id = ?').run(id);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       log.error(`setDefaultBookmark failed for id=${id}`, err);
     }
   }
@@ -160,7 +185,7 @@ export class SettingsDao {
     try {
       const row = db.prepare('SELECT path FROM bookmarks WHERE connection_id = ? AND pane = ? AND is_default = 1').get(connectionId, pane) as { path: string } | undefined;
       return row ? row.path : null;
-    } catch (err: any) {
+    } catch (err: unknown) {
       log.error(`getDefaultBookmark failed for conn=${connectionId}`, err);
       return null;
     }
@@ -174,8 +199,8 @@ export class SettingsDao {
         SELECT id, host, port, key_type as keyType, public_key as publicKey, fingerprint, added_at as addedAt
         FROM known_hosts
         ORDER BY host ASC
-      `).all() as any[];
-    } catch (err: any) {
+      `).all() as KnownHost[];
+    } catch (err: unknown) {
       log.error('getKnownHosts failed', err);
       return [];
     }
@@ -185,7 +210,7 @@ export class SettingsDao {
     const db = getDatabase();
     try {
       db.prepare('DELETE FROM known_hosts WHERE id = ?').run(id);
-    } catch (err: any) {
+    } catch (err: unknown) {
       log.error(`deleteKnownHost failed for id=${id}`, err);
     }
   }
@@ -198,7 +223,7 @@ export class SettingsDao {
         VALUES (?, ?, ?, ?, ?, ?)
         ON CONFLICT(host, port, key_type) DO UPDATE SET public_key = excluded.public_key, fingerprint = excluded.fingerprint, added_at = excluded.added_at
       `).run(host, port, keyType, publicKey, fingerprint, Date.now());
-    } catch (err: any) {
+    } catch (err: unknown) {
       log.error(`addKnownHost failed for host=${host}`, err);
     }
   }
@@ -217,7 +242,7 @@ export class SettingsDao {
                remote_col_owner as remoteColOwner, remote_col_rights as remoteColRights
         FROM connection_settings
         WHERE connection_id = ?
-      `).get(connectionId) as any;
+      `).get(connectionId) as ConnectionSettingsDbRow | undefined;
       if (!row) return null;
       return {
         ...row,
@@ -225,7 +250,7 @@ export class SettingsDao {
         localSortAsc: row.localSortAsc === 1,
         remoteSortAsc: row.remoteSortAsc === 1,
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       log.error(`getConnectionSettings failed for connectionId=${connectionId}`, err);
       return null;
     }
@@ -238,7 +263,7 @@ export class SettingsDao {
       db.prepare('INSERT OR IGNORE INTO connection_settings (connection_id) VALUES (?)').run(connectionId);
       
       const fields: string[] = [];
-      const values: any[] = [];
+      const values: unknown[] = [];
       
       if (settings.localPanelCollapsed !== undefined) {
         fields.push('local_panel_collapsed = ?');
@@ -313,7 +338,7 @@ export class SettingsDao {
         SET ${fields.join(', ')}
         WHERE connection_id = ?
       `).run(...values);
-    } catch (err: any) {
+    } catch (err: unknown) {
       log.error(`updateConnectionSettings failed for connectionId=${connectionId}`, err);
     }
   }
@@ -322,13 +347,18 @@ export class SettingsDao {
   static getRemoteTabs(connectionId: number): RemoteTab[] {
     const db = getDatabase();
     try {
-      return db.prepare(`
+      const rows = db.prepare(`
         SELECT id, connection_id as connectionId, path, tab_order as tabOrder, is_active as isActive
         FROM remote_tabs
         WHERE connection_id = ?
         ORDER BY tab_order ASC
-      `).all(connectionId) as any[];
-    } catch (err: any) {
+      `).all(connectionId) as { id: number; connectionId: number; path: string; tabOrder: number; isActive: number }[];
+      
+      return rows.map(r => ({
+        ...r,
+        isActive: r.isActive === 1
+      }));
+    } catch (err: unknown) {
       log.error(`getRemoteTabs failed for connectionId=${connectionId}`, err);
       return [];
     }
@@ -350,7 +380,7 @@ export class SettingsDao {
         }
       });
       transaction();
-    } catch (err: any) {
+    } catch (err: unknown) {
       log.error(`saveRemoteTabs failed for connectionId=${connectionId}`, err);
     }
   }

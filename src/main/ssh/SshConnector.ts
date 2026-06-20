@@ -1,8 +1,10 @@
-import { Client } from 'ssh2';
+import { Client, Channel, ConnectConfig } from 'ssh2';
 import { generateTOTP } from './totp';
 import { Server, HopSession, SshSessionState } from './types';
 import { Config } from '../config/Config';
 import { Logger } from '../log/Logger';
+import { SettingsDao, KnownHost } from '../dao/SettingsDao';
+import * as crypto from 'crypto';
 
 const log = Logger.getLogger('SshConnector');
 
@@ -29,7 +31,7 @@ export class SshConnector {
         this.notify(listener, `Connecting to ${hopLabel}...`);
         log.info(`[Hop ${i + 1}/${chain.length}] Connecting ${server.username}@${server.host}:${server.port}`);
 
-        let sock: any = undefined;
+        let sock: Channel | undefined = undefined;
 
         if (i > 0) {
           const prevClient = completedHops[completedHops.length - 1].client;
@@ -68,13 +70,13 @@ export class SshConnector {
       log.info(`Session READY — ${state.targetDisplay()}`);
       return state;
 
-    } catch (ex: any) {
+    } catch (ex: unknown) {
       log.error('Connection failed, rolling back active connections', ex);
       for (let i = completedHops.length - 1; i >= 0; i--) {
         try {
           completedHops[i].client.end();
-        } catch (cleanupErr: any) {
-          log.debug(`Failed to close connection on rollback: ${cleanupErr.message}`);
+        } catch (cleanupErr: unknown) {
+          log.debug(`Failed to close connection on rollback: ${(cleanupErr as Error).message}`);
         }
       }
       throw ex;
@@ -84,7 +86,7 @@ export class SshConnector {
   private static connectHop(
     server: Server,
     config: Config,
-    sock?: any,
+    sock?: Channel,
     verifyHostKey?: (hostKeyData: { host: string; port: number; keyType: string; fingerprint: string; publicKey: string }) => Promise<{ trust: boolean; save: boolean }>
   ): Promise<Client> {
     return new Promise((resolve, reject) => {
@@ -101,8 +103,8 @@ export class SshConnector {
       client.on('ready', () => {
         try {
           client.setNoDelay(true);
-        } catch (err: any) {
-          log.warn(`Failed to set setNoDelay: ${err.message}`);
+        } catch (err: unknown) {
+          log.warn(`Failed to set setNoDelay: ${(err as Error).message}`);
         }
         handleSettled(() => resolve(client));
       });
@@ -143,7 +145,7 @@ export class SshConnector {
                 const code = generateTOTP(server.totpSecret);
                 log.info('[Auth] -> generating and sending TOTP code');
                 responses.push(code);
-              } catch (ex: any) {
+              } catch (ex: unknown) {
                 log.error('[Auth] Failed to generate TOTP code', ex);
                 responses.push('');
               }
@@ -163,7 +165,7 @@ export class SshConnector {
       const keepaliveInterval = parseInt(config.get('ssh.keepalive.interval', '180'), 10);
       const keepaliveMaxFailures = parseInt(config.get('ssh.keepalive.max.failures', '3'), 10);
 
-      const connOpts: any = {
+      const connOpts: ConnectConfig = {
         username: server.username,
         tryKeyboard: true,
         readyTimeout: connectTimeout * 1000,
@@ -194,14 +196,12 @@ export class SshConnector {
         try {
           const len = key.readUInt32BE(0);
           const keyType = key.toString('ascii', 4, 4 + len);
-          const crypto = require('crypto');
           const fingerprint = 'SHA256:' + crypto.createHash('sha256').update(key).digest('base64').replace(/=+$/, '');
           const publicKey = key.toString('base64');
 
-          const SettingsDao = require('../dao/SettingsDao').SettingsDao;
           const knownHosts = SettingsDao.getKnownHosts();
           const match = knownHosts.find(
-            (kh: any) => kh.host === server.host && kh.port === server.port && kh.keyType === keyType
+            (kh: KnownHost) => kh.host === server.host && kh.port === server.port && kh.keyType === keyType
           );
 
           if (match) {
@@ -249,8 +249,8 @@ export class SshConnector {
     for (let i = state.hops.length - 1; i >= 0; i--) {
       try {
         state.hops[i].client.end();
-      } catch (ex: any) {
-        log.debug(`Session disconnect error: ${ex.message}`);
+      } catch (ex: unknown) {
+        log.debug('Session disconnect error', ex);
       }
     }
     state.isConnected = false;
@@ -261,7 +261,7 @@ export class SshConnector {
     if (listener) {
       try {
         listener(msg);
-      } catch (ex) {
+      } catch {
         // Ignore listener exceptions
       }
     }

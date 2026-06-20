@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { PropertiesModal } from './PropertiesModal';
-import { FaCloudUploadAlt, FaCloudDownloadAlt } from 'react-icons/fa';
+import { ExplorerPanel } from './ExplorerPanel';
+import { useFolderHistory } from '../hooks/useFolderHistory';
+import type { LocalFile, RemoteFile, Bookmark, ConnectionSettings } from '../global';
 
 interface FileManagerProps {
   connectionId?: number;
@@ -9,23 +11,6 @@ interface FileManagerProps {
   host: string;
   sessionId: string;
   onDisconnect: () => void;
-}
-
-interface LocalFile {
-  name: string;
-  isDirectory: boolean;
-  size: number;
-  modified: string;
-}
-
-interface RemoteFile {
-  name: string;
-  isDirectory: boolean;
-  isSymlink: boolean;
-  size: number;
-  date: string;
-  permissions: string;
-  owner: string;
 }
 
 export const FileManager: React.FC<FileManagerProps> = ({
@@ -39,6 +24,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
   const [localCollapsed, setLocalCollapsed] = useState(false);
   const [localView, setLocalView] = useState<'list' | 'grid'>('list');
   const [remoteView, setRemoteView] = useState<'list' | 'grid'>('list');
+  
   const [remoteTabs, setRemoteTabs] = useState<{ path: string; isPinned: boolean }[]>([]);
   const [activeRemoteTabIdx, setActiveRemoteTabIdx] = useState(0);
   const [tabContextMenu, setTabContextMenu] = useState<{ x: number; y: number; tabIdx: number } | null>(null);
@@ -56,18 +42,26 @@ export const FileManager: React.FC<FileManagerProps> = ({
     x: number;
     y: number;
     pane: 'local' | 'remote';
-    item: any | null; // null for blank space click
+    item: LocalFile | RemoteFile | null; // null for blank space click
   } | null>(null);
 
   // Properties modal trigger state
   const [propertiesFile, setPropertiesFile] = useState<{
     pane: 'local' | 'remote';
-    file: any;
+    file: {
+      name: string;
+      path: string;
+      isDirectory: boolean;
+      size: number;
+      modified: string;
+      owner?: string;
+      permissions?: string;
+    };
   } | null>(null);
 
   // Bookmarks state
-  const [localBookmarks, setLocalBookmarks] = useState<any[]>([]);
-  const [remoteBookmarks, setRemoteBookmarks] = useState<any[]>([]);
+  const [localBookmarks, setLocalBookmarks] = useState<Bookmark[]>([]);
+  const [remoteBookmarks, setRemoteBookmarks] = useState<Bookmark[]>([]);
   const [isLocalBookmarksOpen, setIsLocalBookmarksOpen] = useState(false);
   const [isRemoteBookmarksOpen, setIsRemoteBookmarksOpen] = useState(false);
 
@@ -86,17 +80,11 @@ export const FileManager: React.FC<FileManagerProps> = ({
   const [selectedLocalFile, setSelectedLocalFile] = useState<LocalFile | null>(null);
   const [selectedRemoteFile, setSelectedRemoteFile] = useState<RemoteFile | null>(null);
 
-  // Drag and drop states
-  const [localDragCount, setLocalDragCount] = useState(0);
-  const [remoteDragCount, setRemoteDragCount] = useState(0);
+  // Drag and drop target states
   const [dragOverLocalRow, setDragOverLocalRow] = useState<string | null>(null);
   const [dragOverRemoteRow, setDragOverRemoteRow] = useState<string | null>(null);
 
-  // Directory history state
-  const [localHistory, setLocalHistory] = useState<string[]>([]);
-  const [localHistoryIdx, setLocalHistoryIdx] = useState(-1);
-  const [remoteHistory, setRemoteHistory] = useState<string[]>([]);
-  const [remoteHistoryIdx, setRemoteHistoryIdx] = useState(-1);
+  // Column resizing state
   const [localColWidths, setLocalColWidths] = useState({
     name: 160,
     size: 70,
@@ -116,30 +104,37 @@ export const FileManager: React.FC<FileManagerProps> = ({
     startWidth: number;
   } | null>(null);
 
+  // Directory hooks
+  const localHistory = useFolderHistory('');
+  const remoteHistory = useFolderHistory('');
+
+  // Files lists
+  const [localFiles, setLocalFiles] = useState<LocalFile[]>([]);
+  const [localSearch, setLocalSearch] = useState('');
+  const [remoteFiles, setRemoteFiles] = useState<RemoteFile[]>([]);
+  const [remoteSearch, setRemoteSearch] = useState('');
+
+  // Loading states
+  const [localLoading, setLocalLoading] = useState(false);
+  const [remoteLoading, setRemoteLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+
   const localColWidthsRef = React.useRef(localColWidths);
   const remoteColWidthsRef = React.useRef(remoteColWidths);
   const localWidthPercentRef = React.useRef(localWidthPercent);
 
-  useEffect(() => {
-    localColWidthsRef.current = localColWidths;
-  }, [localColWidths]);
+  useEffect(() => { localColWidthsRef.current = localColWidths; }, [localColWidths]);
+  useEffect(() => { remoteColWidthsRef.current = remoteColWidths; }, [remoteColWidths]);
+  useEffect(() => { localWidthPercentRef.current = localWidthPercent; }, [localWidthPercent]);
 
-  useEffect(() => {
-    remoteColWidthsRef.current = remoteColWidths;
-  }, [remoteColWidths]);
-
-  useEffect(() => {
-    localWidthPercentRef.current = localWidthPercent;
-  }, [localWidthPercent]);
-
-  const saveLayoutSettings = async (updates: any) => {
+  const saveLayoutSettings = React.useCallback(async (updates: Partial<ConnectionSettings>) => {
     if (!connectionId) return;
     try {
       await window.electronAPI.settings.updateConnectionSettings(connectionId, updates);
     } catch (err) {
       console.error('Failed to update connection settings', err);
     }
-  };
+  }, [connectionId]);
 
   // Load layout settings and bookmarks
   useEffect(() => {
@@ -148,12 +143,12 @@ export const FileManager: React.FC<FileManagerProps> = ({
       try {
         const settings = await window.electronAPI.settings.getConnectionSettings(connectionId);
         if (settings) {
-          setLocalCollapsed(settings.localPanelCollapsed);
+          setLocalCollapsed(settings.localPanelCollapsed === true || settings.localPanelCollapsed === 1);
           setLocalSortField(settings.localSortField || 'name');
-          setLocalSortAsc(settings.localSortAsc !== undefined ? settings.localSortAsc : true);
+          setLocalSortAsc(settings.localSortAsc === true || settings.localSortAsc === 1);
           setLocalSearch(settings.localFilterText || '');
           setRemoteSortField(settings.remoteSortField || 'name');
-          setRemoteSortAsc(settings.remoteSortAsc !== undefined ? settings.remoteSortAsc : true);
+          setRemoteSortAsc(settings.remoteSortAsc === true || settings.remoteSortAsc === 1);
           setRemoteSearch(settings.remoteFilterText || '');
           
           if (settings.localColName) {
@@ -179,7 +174,6 @@ export const FileManager: React.FC<FileManagerProps> = ({
           }
         }
 
-        // Load Bookmarks
         const lBookmarks = await window.electronAPI.settings.getBookmarks(connectionId, 'LOCAL');
         setLocalBookmarks(lBookmarks);
         const rBookmarks = await window.electronAPI.settings.getBookmarks(connectionId, 'REMOTE');
@@ -212,7 +206,6 @@ export const FileManager: React.FC<FileManagerProps> = ({
     if (!isDraggingSeparator) return;
     const handleMouseMove = (e: MouseEvent) => {
       const percent = (e.clientX / window.innerWidth) * 100;
-      // Allow visual dragging between 5% and 95%
       const newPercent = Math.max(5, Math.min(95, percent));
       setLocalWidthPercent(newPercent);
     };
@@ -221,7 +214,6 @@ export const FileManager: React.FC<FileManagerProps> = ({
       const finalPercent = localWidthPercentRef.current;
       const finalPixels = (finalPercent / 100) * window.innerWidth;
       
-      // If dragged below 120px threshold, collapse the local panel
       if (finalPixels < 120) {
         setLocalCollapsed(true);
         saveLayoutSettings({ localPanelCollapsed: true });
@@ -235,7 +227,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDraggingSeparator]);
+  }, [isDraggingSeparator, saveLayoutSettings]);
 
   useEffect(() => {
     if (!activeResizeCol) return;
@@ -280,24 +272,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [activeResizeCol]);
-
-
-  // Dynamic directory states
-  const [localHome, setLocalHome] = useState('');
-  const [localCurrentDir, setLocalCurrentDir] = useState('');
-  const [localFiles, setLocalFiles] = useState<LocalFile[]>([]);
-  const [localSearch, setLocalSearch] = useState('');
-
-  const [remoteHome, setRemoteHome] = useState('');
-  const [remoteCurrentDir, setRemoteCurrentDir] = useState('');
-  const [remoteFiles, setRemoteFiles] = useState<RemoteFile[]>([]);
-  const [remoteSearch, setRemoteSearch] = useState('');
-
-  // Loading states
-  const [localLoading, setLocalLoading] = useState(false);
-  const [remoteLoading, setRemoteLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
+  }, [activeResizeCol, saveLayoutSettings]);
 
   // Size formatter
   const formatSize = (bytes: number): string => {
@@ -309,8 +284,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
     return `${mb.toFixed(1)} MB`;
   };
 
-
-  // Directory navigation helpers (platform independent string parsing)
+  // Directory path utilities
   const getParentLocal = (curPath: string) => {
     if (curPath.includes('\\')) {
       const parts = curPath.split('\\');
@@ -345,34 +319,31 @@ export const FileManager: React.FC<FileManagerProps> = ({
     return parent.endsWith('/') ? `${parent}${child}` : `${parent}/${child}`;
   };
 
-  // Fetch local file list
-  const loadLocalDirectory = async (dirPath: string) => {
+  // Directory loaders
+  const loadLocalDirectory = React.useCallback(async (dirPath: string) => {
     setLocalLoading(true);
     try {
       const filesList = await window.electronAPI.fs.listDirectory(dirPath);
-      // Sort: folders first, then files alphabetically
       const sorted = [...filesList].sort((a, b) => {
         if (a.isDirectory && !b.isDirectory) return -1;
         if (!a.isDirectory && b.isDirectory) return 1;
         return a.name.localeCompare(b.name);
       });
       setLocalFiles(sorted);
-      setLocalCurrentDir(dirPath);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to load local directory', err);
-      setErrorMsg(`Local error: ${err.message}`);
+      setErrorMsg(`Local error: ${(err as Error).message}`);
     } finally {
       setLocalLoading(false);
     }
-  };
+  }, []);
 
   const activeRemoteTabIdxRef = React.useRef(activeRemoteTabIdx);
   useEffect(() => {
     activeRemoteTabIdxRef.current = activeRemoteTabIdx;
   }, [activeRemoteTabIdx]);
 
-  // Fetch remote file list
-  const loadRemoteDirectory = async (dirPath: string) => {
+  const loadRemoteDirectory = React.useCallback(async (dirPath: string) => {
     setRemoteLoading(true);
     try {
       const filesList = await window.electronAPI.ssh.listDirectory(sessionId, dirPath);
@@ -382,7 +353,6 @@ export const FileManager: React.FC<FileManagerProps> = ({
         return a.name.localeCompare(b.name);
       });
       setRemoteFiles(sorted);
-      setRemoteCurrentDir(dirPath);
 
       setRemoteTabs(prev => {
         const next = [...prev];
@@ -398,83 +368,52 @@ export const FileManager: React.FC<FileManagerProps> = ({
         }
         return next;
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to load remote directory', err);
-      setErrorMsg(`Remote error: ${err.message}`);
+      setErrorMsg(`Remote error: ${(err as Error).message}`);
     } finally {
       setRemoteLoading(false);
     }
-  };
+  }, [sessionId, connectionId]);
 
-  const changeLocalDirectory = async (dirPath: string, pushState = true) => {
-    setSelectedLocalFile(null); // Clear selection on navigate
-    await loadLocalDirectory(dirPath);
-    if (pushState) {
-      setLocalHistory(prev => {
-        const next = prev.slice(0, localHistoryIdx + 1);
-        next.push(dirPath);
-        return next;
-      });
-      setLocalHistoryIdx(prev => prev + 1);
-    }
-  };
+  const changeLocalDirectory = React.useCallback(async (dirPath: string, pushState = true) => {
+    setSelectedLocalFile(null);
+    await localHistory.changeDirectory(dirPath, loadLocalDirectory, pushState);
+  }, [localHistory, loadLocalDirectory]);
 
-  const changeRemoteDirectory = async (dirPath: string, pushState = true) => {
-    setSelectedRemoteFile(null); // Clear selection on navigate
-    await loadRemoteDirectory(dirPath);
-    if (pushState) {
-      setRemoteHistory(prev => {
-        const next = prev.slice(0, remoteHistoryIdx + 1);
-        next.push(dirPath);
-        return next;
-      });
-      setRemoteHistoryIdx(prev => prev + 1);
-    }
-  };
+  const changeRemoteDirectory = React.useCallback(async (dirPath: string, pushState = true) => {
+    setSelectedRemoteFile(null);
+    await remoteHistory.changeDirectory(dirPath, loadRemoteDirectory, pushState);
+  }, [remoteHistory, loadRemoteDirectory]);
 
-  const handleLocalHistoryBack = () => {
-    if (localHistoryIdx > 0) {
-      const prevIdx = localHistoryIdx - 1;
-      setLocalHistoryIdx(prevIdx);
-      loadLocalDirectory(localHistory[prevIdx]);
-      setSelectedLocalFile(null);
-    }
-  };
+  const handleLocalHistoryBack = React.useCallback(() => {
+    setSelectedLocalFile(null);
+    localHistory.goBack(loadLocalDirectory);
+  }, [localHistory, loadLocalDirectory]);
 
-  const handleLocalHistoryForward = () => {
-    if (localHistoryIdx < localHistory.length - 1) {
-      const nextIdx = localHistoryIdx + 1;
-      setLocalHistoryIdx(nextIdx);
-      loadLocalDirectory(localHistory[nextIdx]);
-      setSelectedLocalFile(null);
-    }
-  };
+  const handleLocalHistoryForward = React.useCallback(() => {
+    setSelectedLocalFile(null);
+    localHistory.goForward(loadLocalDirectory);
+  }, [localHistory, loadLocalDirectory]);
 
-  const handleRemoteHistoryBack = () => {
-    if (remoteHistoryIdx > 0) {
-      const prevIdx = remoteHistoryIdx - 1;
-      setRemoteHistoryIdx(prevIdx);
-      loadRemoteDirectory(remoteHistory[prevIdx]);
-      setSelectedRemoteFile(null);
-    }
-  };
+  const handleRemoteHistoryBack = React.useCallback(() => {
+    setSelectedRemoteFile(null);
+    remoteHistory.goBack(loadRemoteDirectory);
+  }, [remoteHistory, loadRemoteDirectory]);
 
-  const handleRemoteHistoryForward = () => {
-    if (remoteHistoryIdx < remoteHistory.length - 1) {
-      const nextIdx = remoteHistoryIdx + 1;
-      setRemoteHistoryIdx(nextIdx);
-      loadRemoteDirectory(remoteHistory[nextIdx]);
-      setSelectedRemoteFile(null);
-    }
-  };
+  const handleRemoteHistoryForward = React.useCallback(() => {
+    setSelectedRemoteFile(null);
+    remoteHistory.goForward(loadRemoteDirectory);
+  }, [remoteHistory, loadRemoteDirectory]);
 
+  // Drag handles
   const handleLocalDragStart = (e: React.DragEvent, file: LocalFile) => {
     e.dataTransfer.setData('application/json', JSON.stringify({
       source: 'local',
       name: file.name,
       isDirectory: file.isDirectory
     }));
-    const absolutePath = joinLocalPath(localCurrentDir, file.name);
+    const absolutePath = joinLocalPath(localHistory.currentDir, file.name);
     window.electronAPI.window.startDrag(absolutePath, 'favicon.png');
   };
 
@@ -486,11 +425,9 @@ export const FileManager: React.FC<FileManagerProps> = ({
     }));
   };
 
-  const handleLocalDrop = async (e: React.DragEvent) => {
+  const handleLocalDrop = async (e: React.DragEvent, folderPath?: string) => {
     e.preventDefault();
-    setLocalDragCount(0);
-
-    const targetDir = dragOverLocalRow || localCurrentDir;
+    const targetDir = folderPath || dragOverLocalRow || localHistory.currentDir;
     setDragOverLocalRow(null);
 
     const dataStr = e.dataTransfer.getData('application/json');
@@ -501,35 +438,35 @@ export const FileManager: React.FC<FileManagerProps> = ({
           setRemoteLoading(true);
           setLocalLoading(true);
           try {
-            const src = joinRemotePath(remoteCurrentDir, data.name);
+            const src = joinRemotePath(remoteHistory.currentDir, data.name);
             if (data.isDirectory) {
               await window.electronAPI.ssh.downloadFolder(sessionId, src, targetDir);
             } else {
               await window.electronAPI.ssh.download(sessionId, src, targetDir);
             }
-          } catch (err: any) {
-            setErrorMsg(`Download failed: ${err.message}`);
+          } catch (err: unknown) {
+            setErrorMsg(`Download failed: ${(err as Error).message}`);
           } finally {
-            await loadLocalDirectory(localCurrentDir);
-            await loadRemoteDirectory(remoteCurrentDir);
+            await loadLocalDirectory(localHistory.currentDir);
+            await loadRemoteDirectory(remoteHistory.currentDir);
           }
           return;
         } else if (data.source === 'local') {
-          const src = joinLocalPath(localCurrentDir, data.name);
+          const src = joinLocalPath(localHistory.currentDir, data.name);
           const dest = joinLocalPath(targetDir, data.name);
           if (src !== dest) {
             setLocalLoading(true);
             try {
               await window.electronAPI.fs.copy(src, dest);
-            } catch (err: any) {
-              setErrorMsg(`Copy failed: ${err.message}`);
+            } catch (err: unknown) {
+              setErrorMsg(`Copy failed: ${(err as Error).message}`);
             } finally {
-              await loadLocalDirectory(localCurrentDir);
+              await loadLocalDirectory(localHistory.currentDir);
             }
           }
           return;
         }
-      } catch (err) {}
+      } catch { /* ignore */ }
     }
 
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
@@ -537,25 +474,23 @@ export const FileManager: React.FC<FileManagerProps> = ({
       try {
         for (let i = 0; i < e.dataTransfer.files.length; i++) {
           const file = e.dataTransfer.files[i];
-          const localPath = (file as any).path;
+          const localPath = (file as File & { path: string }).path;
           if (!localPath) continue;
 
           const targetPath = joinLocalPath(targetDir, file.name);
           await window.electronAPI.fs.copy(localPath, targetPath);
         }
-      } catch (err: any) {
-        setErrorMsg(`Copy failed: ${err.message}`);
+      } catch (err: unknown) {
+        setErrorMsg(`Copy failed: ${(err as Error).message}`);
       } finally {
-        await loadLocalDirectory(localCurrentDir);
+        await loadLocalDirectory(localHistory.currentDir);
       }
     }
   };
 
-  const handleRemoteDrop = async (e: React.DragEvent) => {
+  const handleRemoteDrop = async (e: React.DragEvent, folderPath?: string) => {
     e.preventDefault();
-    setRemoteDragCount(0);
-
-    const targetDir = dragOverRemoteRow || remoteCurrentDir;
+    const targetDir = folderPath || dragOverRemoteRow || remoteHistory.currentDir;
     setDragOverRemoteRow(null);
 
     const dataStr = e.dataTransfer.getData('application/json');
@@ -566,35 +501,35 @@ export const FileManager: React.FC<FileManagerProps> = ({
           setRemoteLoading(true);
           setLocalLoading(true);
           try {
-            const src = joinLocalPath(localCurrentDir, data.name);
+            const src = joinLocalPath(localHistory.currentDir, data.name);
             if (data.isDirectory) {
               await window.electronAPI.ssh.uploadFolder(sessionId, src, targetDir);
             } else {
               await window.electronAPI.ssh.upload(sessionId, src, targetDir);
             }
-          } catch (err: any) {
-            setErrorMsg(`Upload failed: ${err.message}`);
+          } catch (err: unknown) {
+            setErrorMsg(`Upload failed: ${(err as Error).message}`);
           } finally {
-            await loadLocalDirectory(localCurrentDir);
-            await loadRemoteDirectory(remoteCurrentDir);
+            await loadLocalDirectory(localHistory.currentDir);
+            await loadRemoteDirectory(remoteHistory.currentDir);
           }
           return;
         } else if (data.source === 'remote') {
-          const src = joinRemotePath(remoteCurrentDir, data.name);
+          const src = joinRemotePath(remoteHistory.currentDir, data.name);
           const dest = joinRemotePath(targetDir, data.name);
           if (src !== dest) {
             setRemoteLoading(true);
             try {
               await window.electronAPI.ssh.copy(sessionId, src, dest);
-            } catch (err: any) {
-              setErrorMsg(`Copy failed: ${err.message}`);
+            } catch (err: unknown) {
+              setErrorMsg(`Copy failed: ${(err as Error).message}`);
             } finally {
-              await loadRemoteDirectory(remoteCurrentDir);
+              await loadRemoteDirectory(remoteHistory.currentDir);
             }
           }
           return;
         }
-      } catch (err) {}
+      } catch { /* ignore */ }
     }
 
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
@@ -603,7 +538,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
       try {
         for (let i = 0; i < e.dataTransfer.files.length; i++) {
           const file = e.dataTransfer.files[i];
-          const localPath = (file as any).path;
+          const localPath = (file as File & { path: string }).path;
           if (!localPath) continue;
 
           const isDir = await window.electronAPI.fs.isDirectory(localPath);
@@ -613,16 +548,16 @@ export const FileManager: React.FC<FileManagerProps> = ({
             await window.electronAPI.ssh.upload(sessionId, localPath, targetDir);
           }
         }
-      } catch (err: any) {
-        setErrorMsg(`Upload failed: ${err.message}`);
+      } catch (err: unknown) {
+        setErrorMsg(`Upload failed: ${(err as Error).message}`);
       } finally {
-        await loadLocalDirectory(localCurrentDir);
-        await loadRemoteDirectory(remoteCurrentDir);
+        await loadLocalDirectory(localHistory.currentDir);
+        await loadRemoteDirectory(remoteHistory.currentDir);
       }
     }
   };
 
-  // Initialize directories on mount
+  // Init folders
   useEffect(() => {
     const initDirs = async () => {
       try {
@@ -630,10 +565,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
         setRemoteLoading(true);
 
         const lHome = await window.electronAPI.fs.getHomeDir();
-        setLocalHome(lHome);
-
         const rHome = await window.electronAPI.ssh.getHomeDir(sessionId);
-        setRemoteHome(rHome);
 
         let localPath = lHome;
         let remotePath = rHome;
@@ -641,13 +573,13 @@ export const FileManager: React.FC<FileManagerProps> = ({
         if (connectionId) {
           try {
             const lBookmarks = await window.electronAPI.settings.getBookmarks(connectionId, 'LOCAL');
-            const defaultLocal = lBookmarks.find((b: any) => b.isDefault);
+            const defaultLocal = lBookmarks.find((b) => b.isDefault);
             if (defaultLocal) {
               localPath = defaultLocal.path;
             }
             
             const rBookmarks = await window.electronAPI.settings.getBookmarks(connectionId, 'REMOTE');
-            const defaultRemote = rBookmarks.find((b: any) => b.isDefault);
+            const defaultRemote = rBookmarks.find((b) => b.isDefault);
             if (defaultRemote) {
               remotePath = defaultRemote.path;
             }
@@ -661,13 +593,10 @@ export const FileManager: React.FC<FileManagerProps> = ({
           loadRemoteDirectory(remotePath),
         ]);
 
-        // Initialize history arrays on mount
-        setLocalHistory([localPath]);
-        setLocalHistoryIdx(0);
-        setRemoteHistory([remotePath]);
-        setRemoteHistoryIdx(0);
-      } catch (err: any) {
-        setErrorMsg(`Initialization failed: ${err.message}`);
+        localHistory.resetHistory(localPath);
+        remoteHistory.resetHistory(remotePath);
+      } catch (err: unknown) {
+        setErrorMsg(`Initialization failed: ${(err as Error).message}`);
       } finally {
         setLocalLoading(false);
         setRemoteLoading(false);
@@ -675,32 +604,30 @@ export const FileManager: React.FC<FileManagerProps> = ({
     };
 
     initDirs();
-  }, [sessionId, connectionId]);
+  }, [sessionId, connectionId, loadLocalDirectory, loadRemoteDirectory, localHistory, remoteHistory]);
 
   const handleLocalDblClick = (file: LocalFile) => {
     if (file.isDirectory) {
-      const nextDir = joinLocalPath(localCurrentDir, file.name);
-      changeLocalDirectory(nextDir);
+      changeLocalDirectory(joinLocalPath(localHistory.currentDir, file.name));
     }
   };
 
   const handleRemoteDblClick = (file: RemoteFile) => {
     if (file.isDirectory) {
-      const nextDir = joinRemotePath(remoteCurrentDir, file.name);
-      changeRemoteDirectory(nextDir);
+      changeRemoteDirectory(joinRemotePath(remoteHistory.currentDir, file.name));
     }
   };
 
   const handleLocalUp = () => {
-    const parent = getParentLocal(localCurrentDir);
-    if (parent !== localCurrentDir) {
+    const parent = getParentLocal(localHistory.currentDir);
+    if (parent !== localHistory.currentDir) {
       changeLocalDirectory(parent);
     }
   };
 
   const handleRemoteUp = () => {
-    const parent = getParentRemote(remoteCurrentDir);
-    if (parent !== remoteCurrentDir) {
+    const parent = getParentRemote(remoteHistory.currentDir);
+    if (parent !== remoteHistory.currentDir) {
       changeRemoteDirectory(parent);
     }
   };
@@ -717,25 +644,26 @@ export const FileManager: React.FC<FileManagerProps> = ({
     }
   };
 
+  // Remote Tabs Load
   useEffect(() => {
     const initRemoteTabs = async () => {
       if (!connectionId) return;
       try {
         const savedTabs = await window.electronAPI.settings.getRemoteTabs(connectionId);
         if (savedTabs && savedTabs.length > 0) {
-          const mapped = savedTabs.map((t: any) => ({
+          const mapped = savedTabs.map((t) => ({
             path: t.path,
-            isPinned: true
+            isPinned: !!t.isPinned
           }));
           setRemoteTabs(mapped);
-          const activeIdx = savedTabs.findIndex((t: any) => t.isActive === 1);
+          const activeIdx = savedTabs.findIndex((t) => t.isActive === 1 || t.isActive === true);
           const finalIdx = activeIdx >= 0 ? activeIdx : 0;
           setActiveRemoteTabIdx(finalIdx);
           if (localCollapsed && mapped[finalIdx]) {
             changeRemoteDirectory(mapped[finalIdx].path, true);
           }
         } else {
-          const defaultPath = remoteCurrentDir || remoteHome || '/';
+          const defaultPath = remoteHistory.currentDir || '/';
           setRemoteTabs([{ path: defaultPath, isPinned: false }]);
           setActiveRemoteTabIdx(0);
         }
@@ -747,7 +675,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
     if (localCollapsed) {
       initRemoteTabs();
     }
-  }, [connectionId, localCollapsed]);
+  }, [connectionId, localCollapsed, changeRemoteDirectory, remoteHistory.currentDir]);
 
   const handleSelectTab = (idx: number) => {
     setActiveRemoteTabIdx(idx);
@@ -758,7 +686,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
   };
 
   const handleAddTab = () => {
-    const newPath = remoteCurrentDir || remoteHome || '/';
+    const newPath = remoteHistory.currentDir || '/';
     const nextTabs = [...remoteTabs, { path: newPath, isPinned: false }];
     setRemoteTabs(nextTabs);
     setActiveRemoteTabIdx(nextTabs.length - 1);
@@ -815,9 +743,114 @@ export const FileManager: React.FC<FileManagerProps> = ({
     return () => document.removeEventListener('click', hideMenus);
   }, []);
 
+
+
+  const handleItemContextMenu = (e: React.MouseEvent, pane: 'local' | 'remote', item: LocalFile | RemoteFile) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      pane,
+      item,
+    });
+  };
+
+  const handleBlankContextMenu = (e: React.MouseEvent, pane: 'local' | 'remote') => {
+    e.preventDefault();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      pane,
+      item: null,
+    });
+  };
+
+  const handleRefresh = React.useCallback((pane: 'local' | 'remote') => {
+    if (pane === 'local') {
+      loadLocalDirectory(localHistory.currentDir);
+    } else {
+      loadRemoteDirectory(remoteHistory.currentDir);
+    }
+  }, [loadLocalDirectory, localHistory.currentDir, loadRemoteDirectory, remoteHistory.currentDir]);
+
+  // CRUD File Operations
+  const handleNewFolder = async (pane: 'local' | 'remote') => {
+    const name = prompt('Enter new folder name:');
+    if (!name || !name.trim()) return;
+    try {
+      if (pane === 'local') {
+        const target = joinLocalPath(localHistory.currentDir, name.trim());
+        await window.electronAPI.fs.mkdir(target);
+        await loadLocalDirectory(localHistory.currentDir);
+      } else {
+        const target = joinRemotePath(remoteHistory.currentDir, name.trim());
+        await window.electronAPI.ssh.mkdir(sessionId, target);
+        await loadRemoteDirectory(remoteHistory.currentDir);
+      }
+    } catch (err: unknown) {
+      setErrorMsg(`New folder failed: ${(err as Error).message}`);
+    }
+  };
+
+  const handleNewFile = async (pane: 'local' | 'remote') => {
+    const name = prompt('Enter new file name:');
+    if (!name || !name.trim()) return;
+    try {
+      if (pane === 'local') {
+        const target = joinLocalPath(localHistory.currentDir, name.trim());
+        await window.electronAPI.fs.createFile(target);
+        await loadLocalDirectory(localHistory.currentDir);
+      } else {
+        const target = joinRemotePath(remoteHistory.currentDir, name.trim());
+        await window.electronAPI.ssh.createFile(sessionId, target);
+        await loadRemoteDirectory(remoteHistory.currentDir);
+      }
+    } catch (err: unknown) {
+      setErrorMsg(`New file failed: ${(err as Error).message}`);
+    }
+  };
+
+  const handleRename = React.useCallback(async (pane: 'local' | 'remote', item: LocalFile | RemoteFile) => {
+    const newName = prompt('Enter new name:', item.name);
+    if (!newName || !newName.trim() || newName.trim() === item.name) return;
+    try {
+      if (pane === 'local') {
+        const from = joinLocalPath(localHistory.currentDir, item.name);
+        const to = joinLocalPath(localHistory.currentDir, newName.trim());
+        await window.electronAPI.fs.rename(from, to);
+        await loadLocalDirectory(localHistory.currentDir);
+      } else {
+        const from = joinRemotePath(remoteHistory.currentDir, item.name);
+        const to = joinRemotePath(remoteHistory.currentDir, newName.trim());
+        await window.electronAPI.ssh.rename(sessionId, from, to);
+        await loadRemoteDirectory(remoteHistory.currentDir);
+      }
+    } catch (err: unknown) {
+      setErrorMsg(`Rename failed: ${(err as Error).message}`);
+    }
+  }, [sessionId, loadLocalDirectory, localHistory.currentDir, loadRemoteDirectory, remoteHistory.currentDir]);
+
+  const handleDelete = React.useCallback(async (pane: 'local' | 'remote', item: LocalFile | RemoteFile) => {
+    if (!confirm(`Are you sure you want to delete "${item.name}"?`)) return;
+    try {
+      if (pane === 'local') {
+        const target = joinLocalPath(localHistory.currentDir, item.name);
+        await window.electronAPI.fs.delete(target, true);
+        await loadLocalDirectory(localHistory.currentDir);
+      } else {
+        const target = joinRemotePath(remoteHistory.currentDir, item.name);
+        await window.electronAPI.ssh.delete(sessionId, target, true);
+        await loadRemoteDirectory(remoteHistory.currentDir);
+      }
+    } catch (err: unknown) {
+      setErrorMsg(`Delete failed: ${(err as Error).message}`);
+    }
+  }, [sessionId, loadLocalDirectory, localHistory.currentDir, loadRemoteDirectory, remoteHistory.currentDir]);
+
+  // Global Keyboard Actions
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      // Don't intercept keybinds if the user is currently typing in an input/textarea
       const activeEl = document.activeElement;
       if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.hasAttribute('contenteditable'))) {
         return;
@@ -859,162 +892,73 @@ export const FileManager: React.FC<FileManagerProps> = ({
 
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [activePanel, selectedLocalFile, selectedRemoteFile, localHistory, localHistoryIdx, remoteHistory, remoteHistoryIdx]);
+  }, [
+    activePanel,
+    selectedLocalFile,
+    selectedRemoteFile,
+    localHistory,
+    remoteHistory,
+    handleRefresh,
+    handleRename,
+    handleDelete,
+    handleLocalHistoryBack,
+    handleLocalHistoryForward,
+    handleRemoteHistoryBack,
+    handleRemoteHistoryForward,
+  ]);
 
-  const handleItemContextMenu = (e: React.MouseEvent, pane: 'local' | 'remote', item: any) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setContextMenu({
-      x: e.clientX,
-      y: e.clientY,
-      pane,
-      item,
-    });
-  };
-
-  const handleBlankContextMenu = (e: React.MouseEvent, pane: 'local' | 'remote') => {
-    e.preventDefault();
-    setContextMenu({
-      x: e.clientX,
-      y: e.clientY,
-      pane,
-      item: null,
-    });
-  };
-
-  const handleRefresh = (pane: 'local' | 'remote') => {
-    if (pane === 'local') {
-      loadLocalDirectory(localCurrentDir);
-    } else {
-      loadRemoteDirectory(remoteCurrentDir);
-    }
-  };
-
-  const handleNewFolder = async (pane: 'local' | 'remote') => {
-    const name = prompt('Enter new folder name:');
-    if (!name || !name.trim()) return;
-    try {
-      if (pane === 'local') {
-        const target = joinLocalPath(localCurrentDir, name.trim());
-        await window.electronAPI.fs.mkdir(target);
-        loadLocalDirectory(localCurrentDir);
-      } else {
-        const target = joinRemotePath(remoteCurrentDir, name.trim());
-        await window.electronAPI.ssh.mkdir(sessionId, target);
-        loadRemoteDirectory(remoteCurrentDir);
-      }
-    } catch (err: any) {
-      setErrorMsg(`New folder failed: ${err.message}`);
-    }
-  };
-
-  const handleNewFile = async (pane: 'local' | 'remote') => {
-    const name = prompt('Enter new file name:');
-    if (!name || !name.trim()) return;
-    try {
-      if (pane === 'local') {
-        const target = joinLocalPath(localCurrentDir, name.trim());
-        await window.electronAPI.fs.createFile(target);
-        loadLocalDirectory(localCurrentDir);
-      } else {
-        const target = joinRemotePath(remoteCurrentDir, name.trim());
-        await window.electronAPI.ssh.createFile(sessionId, target);
-        loadRemoteDirectory(remoteCurrentDir);
-      }
-    } catch (err: any) {
-      setErrorMsg(`New file failed: ${err.message}`);
-    }
-  };
-
-  const handleRename = async (pane: 'local' | 'remote', item: any) => {
-    const newName = prompt('Enter new name:', item.name);
-    if (!newName || !newName.trim() || newName.trim() === item.name) return;
-    try {
-      if (pane === 'local') {
-        const from = joinLocalPath(localCurrentDir, item.name);
-        const to = joinLocalPath(localCurrentDir, newName.trim());
-        await window.electronAPI.fs.rename(from, to);
-        loadLocalDirectory(localCurrentDir);
-      } else {
-        const from = joinRemotePath(remoteCurrentDir, item.name);
-        const to = joinRemotePath(remoteCurrentDir, newName.trim());
-        await window.electronAPI.ssh.rename(sessionId, from, to);
-        loadRemoteDirectory(remoteCurrentDir);
-      }
-    } catch (err: any) {
-      setErrorMsg(`Rename failed: ${err.message}`);
-    }
-  };
-
-  const handleDelete = async (pane: 'local' | 'remote', item: any) => {
-    if (!confirm(`Are you sure you want to delete "${item.name}"?`)) return;
-    try {
-      if (pane === 'local') {
-        const target = joinLocalPath(localCurrentDir, item.name);
-        await window.electronAPI.fs.delete(target, true);
-        loadLocalDirectory(localCurrentDir);
-      } else {
-        const target = joinRemotePath(remoteCurrentDir, item.name);
-        await window.electronAPI.ssh.delete(sessionId, target, true);
-        loadRemoteDirectory(remoteCurrentDir);
-      }
-    } catch (err: any) {
-      setErrorMsg(`Delete failed: ${err.message}`);
-    }
-  };
-
-  const handleCompress = async (pane: 'local' | 'remote', item: any) => {
+  const handleCompress = async (pane: 'local' | 'remote', item: LocalFile | RemoteFile) => {
     const tarName = `${item.name}.tar.gz`;
     try {
       if (pane === 'local') {
         setLocalLoading(true);
-        const src = joinLocalPath(localCurrentDir, item.name);
-        const dest = joinLocalPath(localCurrentDir, tarName);
+        const src = joinLocalPath(localHistory.currentDir, item.name);
+        const dest = joinLocalPath(localHistory.currentDir, tarName);
         await window.electronAPI.fs.compress(src, dest);
-        loadLocalDirectory(localCurrentDir);
+        await loadLocalDirectory(localHistory.currentDir);
       } else {
         setRemoteLoading(true);
-        const src = joinRemotePath(remoteCurrentDir, item.name);
-        const dest = joinRemotePath(remoteCurrentDir, tarName);
+        const src = joinRemotePath(remoteHistory.currentDir, item.name);
+        const dest = joinRemotePath(remoteHistory.currentDir, tarName);
         await window.electronAPI.ssh.compress(sessionId, src, dest);
-        loadRemoteDirectory(remoteCurrentDir);
+        await loadRemoteDirectory(remoteHistory.currentDir);
       }
-    } catch (err: any) {
-      setErrorMsg(`Compress failed: ${err.message}`);
+    } catch (err: unknown) {
+      setErrorMsg(`Compress failed: ${(err as Error).message}`);
     } finally {
       setLocalLoading(false);
       setRemoteLoading(false);
     }
   };
 
-  const handleExtract = async (pane: 'local' | 'remote', item: any) => {
+  const handleExtract = async (pane: 'local' | 'remote', item: LocalFile | RemoteFile) => {
     const destDirName = item.name.replace(/\.tar\.gz$/, '').replace(/\.tgz$/, '');
     try {
       if (pane === 'local') {
         setLocalLoading(true);
-        const src = joinLocalPath(localCurrentDir, item.name);
-        const dest = joinLocalPath(localCurrentDir, destDirName);
+        const src = joinLocalPath(localHistory.currentDir, item.name);
+        const dest = joinLocalPath(localHistory.currentDir, destDirName);
         await window.electronAPI.fs.extract(src, dest);
-        loadLocalDirectory(localCurrentDir);
+        await loadLocalDirectory(localHistory.currentDir);
       } else {
         setRemoteLoading(true);
-        const src = joinRemotePath(remoteCurrentDir, item.name);
-        const dest = joinRemotePath(remoteCurrentDir, destDirName);
+        const src = joinRemotePath(remoteHistory.currentDir, item.name);
+        const dest = joinRemotePath(remoteHistory.currentDir, destDirName);
         await window.electronAPI.ssh.extract(sessionId, src, dest);
-        loadRemoteDirectory(remoteCurrentDir);
+        await loadRemoteDirectory(remoteHistory.currentDir);
       }
-    } catch (err: any) {
-      setErrorMsg(`Extract failed: ${err.message}`);
+    } catch (err: unknown) {
+      setErrorMsg(`Extract failed: ${(err as Error).message}`);
     } finally {
       setLocalLoading(false);
       setRemoteLoading(false);
     }
   };
 
-  const handleProperties = (pane: 'local' | 'remote', item: any) => {
+  const handleProperties = (pane: 'local' | 'remote', item: LocalFile | RemoteFile) => {
     const fullPath = pane === 'local' 
-      ? joinLocalPath(localCurrentDir, item.name) 
-      : joinRemotePath(remoteCurrentDir, item.name);
+      ? joinLocalPath(localHistory.currentDir, item.name) 
+      : joinRemotePath(remoteHistory.currentDir, item.name);
     setPropertiesFile({
       pane,
       file: {
@@ -1022,27 +966,27 @@ export const FileManager: React.FC<FileManagerProps> = ({
         path: fullPath,
         isDirectory: item.isDirectory,
         size: item.size,
-        modified: pane === 'local' ? item.modified : item.date,
-        owner: item.owner,
-        permissions: item.permissions
+        modified: pane === 'local' ? (item as LocalFile).modified : (item as RemoteFile).date,
+        owner: (item as RemoteFile).owner,
+        permissions: (item as RemoteFile).permissions
       }
     });
   };
 
-  const handleCopy = (pane: 'local' | 'remote', item: any) => {
+  const handleCopy = (pane: 'local' | 'remote', item: LocalFile | RemoteFile) => {
     setClipboard({
       type: 'copy',
       pane,
-      dir: pane === 'local' ? localCurrentDir : remoteCurrentDir,
+      dir: pane === 'local' ? localHistory.currentDir : remoteHistory.currentDir,
       items: [{ name: item.name, isDirectory: item.isDirectory }]
     });
   };
 
-  const handleCut = (pane: 'local' | 'remote', item: any) => {
+  const handleCut = (pane: 'local' | 'remote', item: LocalFile | RemoteFile) => {
     setClipboard({
       type: 'cut',
       pane,
-      dir: pane === 'local' ? localCurrentDir : remoteCurrentDir,
+      dir: pane === 'local' ? localHistory.currentDir : remoteHistory.currentDir,
       items: [{ name: item.name, isDirectory: item.isDirectory }]
     });
   };
@@ -1058,7 +1002,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
       if (sourcePane === 'local' && targetPane === 'local') {
         for (const clItem of clipboard.items) {
           const src = joinLocalPath(clipboard.dir, clItem.name);
-          const dest = joinLocalPath(localCurrentDir, clItem.name);
+          const dest = joinLocalPath(localHistory.currentDir, clItem.name);
           if (clipboard.type === 'copy') {
             await window.electronAPI.fs.copy(src, dest);
           } else {
@@ -1068,7 +1012,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
       } else if (sourcePane === 'remote' && targetPane === 'remote') {
         for (const clItem of clipboard.items) {
           const src = joinRemotePath(clipboard.dir, clItem.name);
-          const dest = joinRemotePath(remoteCurrentDir, clItem.name);
+          const dest = joinRemotePath(remoteHistory.currentDir, clItem.name);
           if (clipboard.type === 'copy') {
             await window.electronAPI.ssh.copy(sessionId, src, dest);
           } else {
@@ -1079,18 +1023,18 @@ export const FileManager: React.FC<FileManagerProps> = ({
         for (const clItem of clipboard.items) {
           const src = joinLocalPath(clipboard.dir, clItem.name);
           if (clItem.isDirectory) {
-            await window.electronAPI.ssh.uploadFolder(sessionId, src, remoteCurrentDir);
+            await window.electronAPI.ssh.uploadFolder(sessionId, src, remoteHistory.currentDir);
           } else {
-            await window.electronAPI.ssh.upload(sessionId, src, remoteCurrentDir);
+            await window.electronAPI.ssh.upload(sessionId, src, remoteHistory.currentDir);
           }
         }
       } else if (sourcePane === 'remote' && targetPane === 'local') {
         for (const clItem of clipboard.items) {
           const src = joinRemotePath(clipboard.dir, clItem.name);
           if (clItem.isDirectory) {
-            await window.electronAPI.ssh.downloadFolder(sessionId, src, localCurrentDir);
+            await window.electronAPI.ssh.downloadFolder(sessionId, src, localHistory.currentDir);
           } else {
-            await window.electronAPI.ssh.download(sessionId, src, localCurrentDir);
+            await window.electronAPI.ssh.download(sessionId, src, localHistory.currentDir);
           }
         }
       }
@@ -1109,85 +1053,56 @@ export const FileManager: React.FC<FileManagerProps> = ({
         }
         setClipboard(null);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Paste operation failed', err);
-      setErrorMsg(`Paste failed: ${err.message}`);
+      setErrorMsg(`Paste failed: ${(err as Error).message}`);
     } finally {
-      await loadLocalDirectory(localCurrentDir);
-      await loadRemoteDirectory(remoteCurrentDir);
+      await loadLocalDirectory(localHistory.currentDir);
+      await loadRemoteDirectory(remoteHistory.currentDir);
     }
   };
-
-  const toggleLocalSort = (field: 'name' | 'size' | 'modified') => {
-    let nextAsc = true;
-    if (localSortField === field) {
-      nextAsc = !localSortAsc;
-    }
+  // Sort states helpers
+  const toggleLocalSort = (field: 'name' | 'size' | 'modified' | 'owner' | 'permissions') => {
+    if (field === 'owner' || field === 'permissions') return;
+    const nextAsc = localSortField === field ? !localSortAsc : true;
     setLocalSortField(field);
     setLocalSortAsc(nextAsc);
     saveLayoutSettings({ localSortField: field, localSortAsc: nextAsc });
   };
 
   const toggleRemoteSort = (field: 'name' | 'size' | 'modified' | 'owner' | 'permissions') => {
-    let nextAsc = true;
-    if (remoteSortField === field) {
-      nextAsc = !remoteSortAsc;
-    }
+    const nextAsc = remoteSortField === field ? !remoteSortAsc : true;
     setRemoteSortField(field);
     setRemoteSortAsc(nextAsc);
     saveLayoutSettings({ remoteSortField: field, remoteSortAsc: nextAsc });
   };
 
-  const sortLocalFiles = (files: LocalFile[], field: 'name' | 'size' | 'modified', asc: boolean) => {
-    return [...files].sort((a, b) => {
+  // Sorting logics
+  const sortedLocalFiles = [...localFiles]
+    .filter(f => f.name.toLowerCase().includes(localSearch.toLowerCase()))
+    .sort((a, b) => {
       if (a.isDirectory && !b.isDirectory) return -1;
       if (!a.isDirectory && b.isDirectory) return 1;
-
-      let comparison = 0;
-      if (field === 'name') {
-        comparison = a.name.localeCompare(b.name);
-      } else if (field === 'size') {
-        comparison = a.size - b.size;
-      } else if (field === 'modified') {
-        comparison = new Date(a.modified).getTime() - new Date(b.modified).getTime();
-      }
-      return asc ? comparison : -comparison;
+      let comp = 0;
+      if (localSortField === 'name') comp = a.name.localeCompare(b.name);
+      else if (localSortField === 'size') comp = a.size - b.size;
+      else if (localSortField === 'modified') comp = new Date(a.modified).getTime() - new Date(b.modified).getTime();
+      return localSortAsc ? comp : -comp;
     });
-  };
 
-  const sortRemoteFiles = (files: RemoteFile[], field: 'name' | 'size' | 'modified' | 'owner' | 'permissions', asc: boolean) => {
-    return [...files].sort((a, b) => {
+  const sortedRemoteFiles = [...remoteFiles]
+    .filter(f => f.name.toLowerCase().includes(remoteSearch.toLowerCase()))
+    .sort((a, b) => {
       if (a.isDirectory && !b.isDirectory) return -1;
       if (!a.isDirectory && b.isDirectory) return 1;
-
-      let comparison = 0;
-      if (field === 'name') {
-        comparison = a.name.localeCompare(b.name);
-      } else if (field === 'size') {
-        comparison = a.size - b.size;
-      } else if (field === 'modified') {
-        comparison = new Date(a.date).getTime() - new Date(b.date).getTime();
-      } else if (field === 'owner') {
-        comparison = a.owner.localeCompare(b.owner);
-      } else if (field === 'permissions') {
-        comparison = a.permissions.localeCompare(b.permissions);
-      }
-      return asc ? comparison : -comparison;
+      let comp = 0;
+      if (remoteSortField === 'name') comp = a.name.localeCompare(b.name);
+      else if (remoteSortField === 'size') comp = a.size - b.size;
+      else if (remoteSortField === 'modified') comp = new Date(a.date).getTime() - new Date(b.date).getTime();
+      else if (remoteSortField === 'owner') comp = a.owner.localeCompare(b.owner);
+      else if (remoteSortField === 'permissions') comp = a.permissions.localeCompare(b.permissions);
+      return remoteSortAsc ? comp : -comp;
     });
-  };
-
-  // Filter and sort lists based on parameters
-  const sortedLocalFiles = sortLocalFiles(
-    localFiles.filter(f => f.name.toLowerCase().includes(localSearch.toLowerCase())),
-    localSortField,
-    localSortAsc
-  );
-
-  const sortedRemoteFiles = sortRemoteFiles(
-    remoteFiles.filter(f => f.name.toLowerCase().includes(remoteSearch.toLowerCase())),
-    remoteSortField,
-    remoteSortAsc
-  );
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-[var(--bg-app)] text-[13px] text-[var(--text-main)] font-sans select-none theme-transition">
@@ -1205,354 +1120,74 @@ export const FileManager: React.FC<FileManagerProps> = ({
             style={{ width: `${localWidthPercent}%` }}
             className="flex flex-col border-r border-[var(--border-color)] bg-[var(--bg-panel)] shrink-0 overflow-hidden theme-transition"
           >
-            {/* Panel Label & Path */}
-            <div className="h-[28px] bg-[var(--bg-panel-header)] border-b border-[var(--border-color)] flex items-center px-2.5 gap-1.5 shrink-0 theme-transition">
-              <span className="text-[10px] font-bold text-[var(--text-subtle)] uppercase tracking-widest flex-shrink-0">Local</span>
-              <span className="text-[11px] font-mono text-[var(--text-muted)] overflow-hidden text-ellipsis whitespace-nowrap flex-1" title={localCurrentDir}>
-                {localCurrentDir}
-              </span>
-              <button 
-                onClick={() => {
-                  setLocalCollapsed(true);
-                  saveLayoutSettings({ localPanelCollapsed: true });
-                }} 
-                title="Collapse" 
-                className="bg-transparent border-none p-0.5 cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] flex items-center shrink-0 outline-none"
-              >
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <polyline points="8,2 3,6 8,10"/>
-                </svg>
-              </button>
-            </div>
-
-            {/* Navigation Toolbar */}
-            <div className="h-8 bg-[var(--bg-panel)] border-b border-[var(--border-color)] flex items-center px-1 shrink-0 theme-transition">
-              <button 
-                title="Back" 
-                onClick={handleLocalHistoryBack} 
-                disabled={localHistoryIdx <= 0}
-                className={`w-6 h-6 bg-transparent border-none cursor-pointer flex items-center justify-center rounded-[3px] outline-none transition-colors ${localHistoryIdx <= 0 ? 'opacity-40 cursor-default text-[var(--text-subtle)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)]'}`}
-              >
-                <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.7"><polyline points="8,2 4,6.5 8,11"/></svg>
-              </button>
-              <button 
-                title="Forward" 
-                onClick={handleLocalHistoryForward} 
-                disabled={localHistoryIdx >= localHistory.length - 1}
-                className={`w-6 h-6 bg-transparent border-none cursor-pointer flex items-center justify-center rounded-[3px] outline-none transition-colors ${localHistoryIdx >= localHistory.length - 1 ? 'opacity-40 cursor-default text-[var(--text-subtle)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)]'}`}
-              >
-                <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.7"><polyline points="5,2 9,6.5 5,11"/></svg>
-              </button>
-              <button 
-                onClick={handleLocalUp} 
-                title="Up" 
-                className="w-6 h-6 bg-transparent border-none cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)] flex items-center justify-center rounded-[3px] outline-none transition-colors"
-              >
-                <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.7"><polyline points="2,9 6.5,4 11,9"/></svg>
-              </button>
-              <button 
-                onClick={() => changeLocalDirectory(localHome)} 
-                title="Home" 
-                className="w-6 h-6 bg-transparent border-none cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)] flex items-center justify-center rounded-[3px] outline-none transition-colors"
-              >
-                <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M2 8L7 3l5 5M4 6.5V12h2.5V9h1V12H10V6.5"/></svg>
-              </button>
-              <button 
-                onClick={() => changeLocalDirectory(localCurrentDir, false)} 
-                title="Refresh" 
-                className="w-6 h-6 bg-transparent border-none cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)] flex items-center justify-center rounded-[3px] outline-none transition-colors"
-              >
-                <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M12 6.5A5.5 5.5 0 1 1 6.5 1M12 1v4h-4"/></svg>
-              </button>              <div className="relative shrink-0">
-                <button 
-                  onClick={() => setIsLocalBookmarksOpen(!isLocalBookmarksOpen)} 
-                  title="Bookmarks" 
-                  className={`w-6 h-6 border-none cursor-pointer flex items-center justify-center rounded-[3px] outline-none transition-colors ${isLocalBookmarksOpen ? 'bg-[var(--glow-color)] text-[var(--active-tab-text)]' : 'bg-transparent text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)]'}`}
-                >
-                  <svg width="11" height="13" viewBox="0 0 11 14" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M1 1h9v12L5.5 9.5 1 13z" fill={localBookmarks.length > 0 ? "currentColor" : "none"}/></svg>
-                </button>
-                {isLocalBookmarksOpen && (
-                  <div className="absolute left-0 mt-1 w-64 bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-[4px] shadow-lg z-50 py-1.5 text-xs text-[var(--text-main)] font-sans">
-                    <div className="px-3 py-1.5 border-b border-[var(--border-color)] font-bold text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Local Bookmarks</div>
-                    <button 
-                      onClick={async () => {
-                        if (connectionId && localCurrentDir) {
-                          await window.electronAPI.settings.addBookmark(connectionId, 'LOCAL', localCurrentDir);
-                          const list = await window.electronAPI.settings.getBookmarks(connectionId, 'LOCAL');
-                          setLocalBookmarks(list);
-                          setIsLocalBookmarksOpen(false);
-                        }
-                      }}
-                      className="w-full text-left px-3 py-2 bg-transparent hover:bg-[var(--glow-color)]/25 border-none text-[var(--text-main)] cursor-pointer flex items-center gap-1.5 outline-none font-semibold text-xs transition-colors"
-                    >
-                      + Bookmark current directory
-                    </button>
-                    <div className="border-t border-[var(--border-color)]/50 my-1"></div>
-                    <div className="max-h-48 overflow-y-auto">
-                      {localBookmarks.length > 0 ? (
-                        localBookmarks.map((bm) => (
-                          <div key={bm.id} className="px-3 py-1.5 flex items-center justify-between hover:bg-[var(--glow-color)]/10">
-                            <span 
-                              onClick={() => {
-                                loadLocalDirectory(bm.path);
-                                setIsLocalBookmarksOpen(false);
-                              }}
-                              className="font-mono overflow-hidden text-ellipsis whitespace-nowrap cursor-pointer flex-1 pr-2 hover:text-[var(--color-primary)] text-left"
-                              title={bm.path}
-                            >
-                              {bm.path}
-                            </span>
-                            <div className="flex gap-1.5 shrink-0">
-                              <button 
-                                onClick={async () => {
-                                  if (connectionId) {
-                                    await window.electronAPI.settings.setDefaultBookmark(connectionId, 'LOCAL', bm.isDefault ? -1 : bm.id);
-                                    const list = await window.electronAPI.settings.getBookmarks(connectionId, 'LOCAL');
-                                    setLocalBookmarks(list);
-                                  }
-                                }}
-                                className={`bg-transparent border-none cursor-pointer p-0.5 outline-none text-sm leading-none ${bm.isDefault ? 'text-amber-500' : 'text-[var(--text-subtle)] hover:text-amber-500'}`}
-                                title={bm.isDefault ? "Default bookmark" : "Set as default"}
-                              >
-                                ★
-                              </button>
-                              <button 
-                                onClick={async () => {
-                                  await window.electronAPI.settings.deleteBookmark(bm.id);
-                                  const list = await window.electronAPI.settings.getBookmarks(connectionId!, 'LOCAL');
-                                  setLocalBookmarks(list);
-                                }}
-                                className="bg-transparent border-none cursor-pointer text-[var(--text-subtle)] hover:text-red-500 p-0.5 outline-none font-bold"
-                                title="Remove Bookmark"
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="px-3 py-3 text-center text-[var(--text-subtle)]">No bookmarks saved.</div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="w-[1px] h-4 bg-[var(--border-color)] mx-1 shrink-0"></div>
+            <ExplorerPanel
+              pane="local"
+              loading={localLoading}
+              currentDir={localHistory.currentDir}
+              files={sortedLocalFiles}
+              selectedFile={selectedLocalFile}
+              onSelect={(file) => setSelectedLocalFile(file as LocalFile | null)}
+              onDoubleClick={(file) => handleLocalDblClick(file as LocalFile)}
+              onContextMenu={(e, file) => handleItemContextMenu(e, 'local', file as LocalFile)}
+              onBlankContextMenu={(e) => handleBlankContextMenu(e, 'local')}
+              onEmptySpaceClick={() => { setSelectedLocalFile(null); setActivePanel('local'); }}
+              viewMode={localView}
+              onViewModeChange={setLocalView}
+              searchQuery={localSearch}
+              onSearchChange={setLocalSearch}
+              sortField={localSortField}
+              sortAsc={localSortAsc}
+              onSort={toggleLocalSort}
+              colWidths={localColWidths}
+              onResizeStart={(e, col, curWidth) => handleResizeStart(e, 'local', col, curWidth)}
+              dragOverRow={dragOverLocalRow}
+              onDragStart={(e, file) => handleLocalDragStart(e, file as LocalFile)}
+              onDragEnterRow={(_, file) => {
+                if (file.isDirectory) setDragOverLocalRow(joinLocalPath(localHistory.currentDir, file.name));
+              }}
+              onDragLeaveRow={() => setDragOverLocalRow(null)}
+              onDrop={handleLocalDrop}
+              joinPath={joinLocalPath}
+              formatSize={formatSize}
               
-              <div className="flex-1 relative">
-                <input 
-                  type="text" 
-                  value={localSearch}
-                  onChange={(e) => setLocalSearch(e.target.value)}
-                  placeholder="Search…" 
-                  className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] hover:border-[var(--text-subtle)] focus:border-[var(--input-focus-border)] rounded-[3px] py-0.5 pl-6 pr-1.5 text-[var(--text-main)] placeholder-[var(--text-subtle)] text-xs outline-none transition-all"
-                />
-                <svg className="absolute left-2 top-1/2 transform -translate-y-1/2 text-[var(--text-subtle)]" width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="5.5" cy="5.5" r="3.5"/><line x1="8.5" y1="8.5" x2="11" y2="11"/></svg>
-              </div>
-              <div className="w-[1px] h-4 bg-[var(--border-color)] mx-1 shrink-0"></div>
-              
-              {/* View Toggle */}
-              <button 
-                onClick={() => setLocalView('list')} 
-                title="List view" 
-                className={`w-6 h-6 border-none cursor-pointer flex items-center justify-center rounded-[3px] outline-none transition-all ${localView === 'list' ? 'bg-[var(--glow-color)] text-[var(--active-tab-text)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
-              >
-                <svg width="12" height="12" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.6"><line x1="4" y1="3" x2="12" y2="3"/><line x1="4" y1="6.5" x2="12" y2="6.5"/><line x1="4" y1="10" x2="12" y2="10"/><rect x="1" y="2" width="2" height="2" fill="currentColor"/><rect x="1" y="5.5" width="2" height="2" fill="currentColor"/><rect x="1" y="9" width="2" height="2" fill="currentColor"/></svg>
-              </button>
-              <button 
-                onClick={() => setLocalView('grid')} 
-                title="Grid view" 
-                className={`w-6 h-6 border-none cursor-pointer flex items-center justify-center rounded-[3px] outline-none transition-all ${localView === 'grid' ? 'bg-[var(--glow-color)] text-[var(--active-tab-text)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
-              >
-                <svg width="12" height="12" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1" y="1" width="4.5" height="4.5" rx="0.5"/><rect x="7.5" y="1" width="4.5" height="4.5" rx="0.5"/><rect x="1" y="7.5" width="4.5" height="4.5" rx="0.5"/><rect x="7.5" y="7.5" width="4.5" height="4.5" rx="0.5"/></svg>
-              </button>
-            </div>
+              canGoBack={localHistory.canGoBack}
+              canGoForward={localHistory.canGoForward}
+              onGoBack={handleLocalHistoryBack}
+              onGoForward={handleLocalHistoryForward}
+              onGoUp={handleLocalUp}
+              onGoHome={() => changeLocalDirectory(localHistory.history[0] || '')}
+              onRefresh={() => loadLocalDirectory(localHistory.currentDir)}
+              onNavigatePath={changeLocalDirectory}
 
-
-
-            {/* Local Files View */}
-            <div 
-              className="flex-1 overflow-y-auto relative" 
-              onContextMenu={(e) => handleBlankContextMenu(e, 'local')} 
-              onClick={() => setActivePanel('local')}
-              onDragEnter={(e) => {
-                e.preventDefault();
-                if (e.dataTransfer.types.includes('Files') || e.dataTransfer.types.includes('application/json')) {
-                  setLocalDragCount(c => c + 1);
+              bookmarks={localBookmarks}
+              onBookmarkSelect={changeLocalDirectory}
+              onAddBookmark={async () => {
+                if (connectionId && localHistory.currentDir) {
+                  await window.electronAPI.settings.addBookmark(connectionId, 'LOCAL', localHistory.currentDir);
+                  setLocalBookmarks(await window.electronAPI.settings.getBookmarks(connectionId, 'LOCAL'));
+                  setIsLocalBookmarksOpen(false);
                 }
               }}
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'copy';
+              onDeleteBookmark={async (id) => {
+                await window.electronAPI.settings.deleteBookmark(id);
+                if (connectionId) setLocalBookmarks(await window.electronAPI.settings.getBookmarks(connectionId, 'LOCAL'));
               }}
-              onDragLeave={() => setLocalDragCount(c => Math.max(0, c - 1))}
-              onDrop={handleLocalDrop}
-            >
-              {localDragCount > 0 && (
-                <div className="absolute inset-0 bg-[var(--bg-app)]/90 backdrop-blur-[3px] flex flex-col items-center justify-center border-2 border-dashed border-[var(--color-primary)] m-2 rounded-[6px] z-50 pointer-events-none transition-all duration-200">
-                  <FaCloudDownloadAlt className="text-[var(--color-primary)] text-5xl mb-3 animate-pulse" />
-                  <div className="text-sm font-semibold text-[var(--text-main)]">Drop files to download</div>
-                  <div className="text-xs text-[var(--text-muted)] mt-1">Copying/downloading files into local folder</div>
-                </div>
-              )}
-
-              {localLoading ? (
-                <div className="h-full flex items-center justify-center text-xs text-[var(--text-muted)] font-mono">Loading...</div>
-              ) : localView === 'list' ? (
-                <div className="flex-1 overflow-auto h-full pr-4" onClick={() => setActivePanel('local')}>
-                  <table className="w-full border-collapse text-[13px] table-fixed">
-                    <colgroup>
-                      <col style={{ width: '26px' }} />
-                      <col style={{ width: `${localColWidths.name}px` }} />
-                      <col style={{ width: `${localColWidths.size}px` }} />
-                      <col style={{ width: `${localColWidths.modified}px` }} />
-                    </colgroup>
-                    <thead className="sticky top-0 bg-[var(--bg-panel-header)] z-10 border-b border-[var(--border-color)]">
-                      <tr className="h-[28px] text-[12px] text-[var(--text-muted)] border-b border-[var(--border-color)]">
-                        <th className="py-1 pl-2 text-left border-r border-[var(--border-color)]/30"></th>
-                        <th 
-                          onClick={() => toggleLocalSort('name')}
-                          className="relative text-left px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)] border-r border-[var(--border-color)]/30"
-                        >
-                          Name {localSortField === 'name' ? (localSortAsc ? '▲' : '▼') : ''}
-                          <div 
-                            onMouseDown={(e) => handleResizeStart(e, 'local', 'name', localColWidths.name)} 
-                            className="absolute right-0 top-1 bottom-1 w-[1px] bg-[var(--border-color)]/45 cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
-                          />
-                        </th>
-                        <th 
-                          onClick={() => toggleLocalSort('size')}
-                          className="relative text-right px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)] border-r border-[var(--border-color)]/30"
-                        >
-                          Size {localSortField === 'size' ? (localSortAsc ? '▲' : '▼') : ''}
-                          <div 
-                            onMouseDown={(e) => handleResizeStart(e, 'local', 'size', localColWidths.size)} 
-                            className="absolute right-0 top-1 bottom-1 w-[1px] bg-[var(--border-color)]/45 cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
-                          />
-                        </th>
-                        <th 
-                          onClick={() => toggleLocalSort('modified')}
-                          className="relative text-left px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)]"
-                        >
-                          Modified {localSortField === 'modified' ? (localSortAsc ? '▲' : '▼') : ''}
-                          <div 
-                            onMouseDown={(e) => handleResizeStart(e, 'local', 'modified', localColWidths.modified)} 
-                            className="absolute right-0 top-1 bottom-1 w-[1px] bg-[var(--border-color)]/45 cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
-                          />
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sortedLocalFiles.map((lf, i) => (
-                        <tr 
-                          key={i} 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setActivePanel('local');
-                            setSelectedLocalFile(lf);
-                          }}
-                          onDoubleClick={() => handleLocalDblClick(lf)}
-                          onContextMenu={(e) => {
-                            e.stopPropagation();
-                            setActivePanel('local');
-                            setSelectedLocalFile(lf);
-                            handleItemContextMenu(e, 'local', lf);
-                          }}
-                          draggable={true}
-                          onDragStart={(e) => handleLocalDragStart(e, lf)}
-                          onDragEnter={(e) => {
-                            e.stopPropagation();
-                            if (lf.isDirectory) {
-                              setDragOverLocalRow(joinLocalPath(localCurrentDir, lf.name));
-                            }
-                          }}
-                          onDragLeave={(e) => {
-                            e.stopPropagation();
-                            setDragOverLocalRow(null);
-                          }}
-                          onDragOver={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                          }}
-                          onDrop={handleLocalDrop}
-                          className={`${selectedLocalFile?.name === lf.name ? 'bg-[var(--glow-color)]/30 text-[var(--active-tab-text)] font-semibold' : 'hover:bg-[var(--glow-color)]/25'} ${dragOverLocalRow === joinLocalPath(localCurrentDir, lf.name) ? 'bg-[var(--color-primary)]/20 border-y border-dashed border-[var(--color-primary)]' : ''} cursor-default h-[30px] transition-colors duration-75 border-b border-[var(--border-color)]/50`}
-                        >
-                          <td className="pl-1.5 text-center align-middle">
-                            {lf.isDirectory ? (
-                              <svg width="14" height="12" viewBox="0 0 16 14" fill="none"><path d="M0 2.5h7l1.5 2H16v9H0z" fill="var(--color-primary)" opacity="0.85"/></svg>
-                            ) : (
-                              <svg width="12" height="14" viewBox="0 0 12 14" fill="none"><path d="M0 0h8l4 4v10H0z" fill="currentColor" className="text-[var(--text-muted)]" opacity="0.6"/><path d="M8 0l4 4H8z" fill="currentColor" className="text-[var(--text-subtle)]"/></svg>
-                            )}
-                          </td>
-                          <td className="px-2 text-[var(--text-main)] overflow-hidden text-ellipsis whitespace-nowrap align-middle" title={lf.name}>{lf.name}</td>
-                          <td className="px-2 text-right text-[var(--text-muted)] font-mono text-[12px] align-middle whitespace-nowrap">{formatSize(lf.size)}</td>
-                          <td className="px-2 text-[var(--text-subtle)] font-mono text-[12px] align-middle whitespace-nowrap">{lf.modified}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="p-1.5 flex flex-wrap gap-0.5 content-start items-start h-full pr-4" onContextMenu={(e) => handleBlankContextMenu(e, 'local')} onClick={() => setActivePanel('local')}>
-                  {sortedLocalFiles.map((lf, i) => (
-                    <div 
-                      key={i} 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActivePanel('local');
-                        setSelectedLocalFile(lf);
-                      }}
-                      onDoubleClick={() => handleLocalDblClick(lf)}
-                      onContextMenu={(e) => {
-                        e.stopPropagation();
-                        setActivePanel('local');
-                        setSelectedLocalFile(lf);
-                        handleItemContextMenu(e, 'local', lf);
-                      }}
-                      draggable={true}
-                      onDragStart={(e) => handleLocalDragStart(e, lf)}
-                      onDragEnter={(e) => {
-                        e.stopPropagation();
-                        if (lf.isDirectory) {
-                          setDragOverLocalRow(joinLocalPath(localCurrentDir, lf.name));
-                        }
-                      }}
-                      onDragLeave={(e) => {
-                        e.stopPropagation();
-                        setDragOverLocalRow(null);
-                      }}
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }}
-                      onDrop={handleLocalDrop}
-                      className={`w-20 p-1.5 flex flex-col items-center gap-1 cursor-default border rounded-[2px] ${selectedLocalFile?.name === lf.name ? 'bg-[var(--glow-color)]/40 border-[var(--color-primary)]' : 'border-transparent hover:bg-[var(--glow-color)]/20'} ${dragOverLocalRow === joinLocalPath(localCurrentDir, lf.name) ? 'bg-[var(--color-primary)]/20 border-[var(--color-primary)] border-dashed' : ''}`}
-                    >
-                      {lf.isDirectory ? (
-                        <svg width="40" height="34" viewBox="0 0 44 38" fill="none"><path d="M0 6h20l4 5H44v27H0z" fill="var(--color-primary)" opacity="0.85"/><path d="M0 6h20l4 5H44v4H0z" fill="white" opacity="0.15"/></svg>
-                      ) : (
-                        <svg width="32" height="40" viewBox="0 0 32 40" fill="none"><path d="M0 0h22l10 10v30H0z" fill="currentColor" className="text-[var(--text-muted)]" opacity="0.6"/><path d="M22 0l10 10H22z" fill="currentColor" className="text-[var(--text-subtle)]"/></svg>
-                      )}
-                      <span className="text-[10px] text-[var(--text-main)] text-center overflow-hidden text-ellipsis whitespace-nowrap w-full block leading-normal">{lf.name}</span>
-                      <span className="text-[10px] text-[var(--text-muted)] text-center">{formatSize(lf.size)}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Local Status Bar */}
-            <div className="h-5 bg-[var(--bg-panel-header)] border-t border-[var(--border-color)] flex items-center px-2 shrink-0 text-[11px] text-[var(--text-muted)] theme-transition">
-              <span>{sortedLocalFiles.length} items</span>
-            </div>
+              onSetDefaultBookmark={async (id, isDefault) => {
+                if (connectionId) {
+                  await window.electronAPI.settings.setDefaultBookmark(connectionId, 'LOCAL', isDefault ? id : -1);
+                  setLocalBookmarks(await window.electronAPI.settings.getBookmarks(connectionId, 'LOCAL'));
+                }
+              }}
+              isBookmarksOpen={isLocalBookmarksOpen}
+              setIsBookmarksOpen={setIsLocalBookmarksOpen}
+              onCollapse={() => { setLocalCollapsed(true); saveLayoutSettings({ localPanelCollapsed: true }); }}
+            />
           </div>
         ) : (
-          // Collapsed Local Strip
           <div 
             onClick={() => {
               setLocalCollapsed(false);
               saveLayoutSettings({ localPanelCollapsed: false });
-              // If the width is too small, reset it to a standard usable fallback width (e.g. 25%)
               if (localWidthPercentRef.current < 15) {
                 setLocalWidthPercent(25.0);
                 saveLayoutSettings({ localPanelWidth: 25.0 });
@@ -1565,7 +1200,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
           </div>
         )}
 
-        {/* Resize Handle Visual Separator */}
+        {/* Separator Resize Handle */}
         <div 
           onMouseDown={handleSeparatorMouseDown}
           className={`w-[4px] cursor-col-resize shrink-0 transition-colors ${isDraggingSeparator ? 'bg-[var(--color-primary)]' : 'bg-[var(--border-color)] hover:bg-[var(--color-primary)]/50'}`}
@@ -1573,448 +1208,87 @@ export const FileManager: React.FC<FileManagerProps> = ({
 
         {/* REMOTE PANEL */}
         <div className="flex-1 flex flex-col overflow-hidden bg-[var(--bg-panel)] theme-transition">
-          {/* Panel Label & Host */}
-          <div className="h-[28px] bg-[var(--bg-panel-header)] border-b border-[var(--border-color)] flex items-center px-2.5 gap-1.5 shrink-0 theme-transition">
-            <span className="text-[10px] font-bold text-[var(--text-subtle)] uppercase tracking-widest flex-shrink-0">Remote</span>
-            <span className="text-[11px] font-mono text-[var(--text-muted)] overflow-hidden text-ellipsis whitespace-nowrap flex-1" title={remoteCurrentDir}>
-              {connectionName} — {username}@{host}:{remoteCurrentDir}
-            </span>
-          </div>
-
-          {/* Remote Directory Tabs - Only visible when local panel is collapsed */}
-          {localCollapsed && (
-            <div className="h-[26px] bg-[var(--bg-panel-header)] border-b border-[var(--border-color)] flex items-end overflow-hidden shrink-0 theme-transition select-none">
-              {remoteTabs.map((tab, i) => {
-                const isActive = activeRemoteTabIdx === i;
-                const pathParts = tab.path.split('/').filter(Boolean);
-                const folderName = pathParts.length > 0 ? pathParts[pathParts.length - 1] : '/';
-                return (
-                  <div 
-                    key={i}
-                    onClick={() => handleSelectTab(i)} 
-                    onContextMenu={(e) => handleTabContextMenu(e, i)}
-                    className={`h-6 px-2.5 flex items-center gap-1.5 text-[11.5px] cursor-pointer border-r border-[var(--border-color)] shrink-0 border-t transition-all ${
-                      isActive 
-                        ? 'bg-[var(--bg-panel)] text-[var(--active-tab-text)] border-t border-t-[var(--color-primary)] font-semibold' 
-                        : 'bg-transparent text-[var(--text-muted)] border-t-transparent hover:text-[var(--text-main)] hover:bg-[var(--bg-panel)]/40'
-                    }`}
-                    title={tab.path}
-                  >
-                    <span>{tab.isPinned ? '📌 ' : ''}{folderName}</span>
-                    <span 
-                      onClick={(e) => handleCloseRemoteTab(i, e)}
-                      className="text-[var(--text-subtle)] hover:text-[var(--text-main)] text-[13px] font-bold ml-1 cursor-pointer"
-                    >
-                      ×
-                    </span>
-                  </div>
-                );
-              })}
-              <div 
-                onClick={handleAddTab}
-                className="w-6 h-6 flex items-center justify-center cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] text-[16px] shrink-0 border-b border-b-[var(--border-color)]"
-                title="New Remote Tab"
-              >
-                +
-              </div>
-            </div>
-          )}
-
-          {/* Remote Navigation Toolbar */}
-          <div className="h-8 bg-[var(--bg-panel)] border-b border-[var(--border-color)] flex items-center px-1 shrink-0 theme-transition">
-            <button 
-              title="Back" 
-              onClick={handleRemoteHistoryBack} 
-              disabled={remoteHistoryIdx <= 0}
-              className={`w-6 h-6 bg-transparent border-none cursor-pointer flex items-center justify-center rounded-[3px] outline-none transition-colors ${remoteHistoryIdx <= 0 ? 'opacity-40 cursor-default text-[var(--text-subtle)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)]'}`}
-            >
-              <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.7"><polyline points="8,2 4,6.5 8,11"/></svg>
-            </button>
-            <button 
-              title="Forward" 
-              onClick={handleRemoteHistoryForward} 
-              disabled={remoteHistoryIdx >= remoteHistory.length - 1}
-              className={`w-6 h-6 bg-transparent border-none cursor-pointer flex items-center justify-center rounded-[3px] outline-none transition-colors ${remoteHistoryIdx >= remoteHistory.length - 1 ? 'opacity-40 cursor-default text-[var(--text-subtle)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)]'}`}
-            >
-              <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.7"><polyline points="5,2 9,6.5 5,11"/></svg>
-            </button>
-            <button 
-              onClick={handleRemoteUp} 
-              title="Up" 
-              className="w-6 h-6 bg-transparent border-none cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)] flex items-center justify-center rounded-[3px] outline-none transition-colors"
-            >
-              <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.7"><polyline points="2,9 6.5,4 11,9"/></svg>
-            </button>
-            <button 
-              onClick={() => changeRemoteDirectory(remoteHome)} 
-              title="Home" 
-              className="w-6 h-6 bg-transparent border-none cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)] flex items-center justify-center rounded-[3px] outline-none transition-colors"
-            >
-              <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M2 8L7 3l5 5M4 6.5V12h2.5V9h1V12H10V6.5"/></svg>
-            </button>
-            <button 
-              onClick={() => changeRemoteDirectory(remoteCurrentDir, false)} 
-              title="Refresh" 
-              className="w-6 h-6 bg-transparent border-none cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)] flex items-center justify-center rounded-[3px] outline-none transition-colors"
-            >
-              <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M12 6.5A5.5 5.5 0 1 1 6.5 1M12 1v4h-4"/></svg>
-            </button>
-            <div className="relative shrink-0">
-              <button 
-                onClick={() => setIsRemoteBookmarksOpen(!isRemoteBookmarksOpen)} 
-                title="Bookmarks" 
-                className={`w-6 h-6 border-none cursor-pointer flex items-center justify-center rounded-[3px] outline-none transition-colors ${isRemoteBookmarksOpen ? 'bg-[var(--glow-color)] text-[var(--active-tab-text)]' : 'bg-transparent text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel-header)]'}`}
-              >
-                <svg width="11" height="13" viewBox="0 0 11 14" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M1 1h9v12L5.5 9.5 1 13z" fill={remoteBookmarks.length > 0 ? "currentColor" : "none"}/></svg>
-              </button>
-              {isRemoteBookmarksOpen && (
-                <div className="absolute left-0 mt-1 w-64 bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-[4px] shadow-lg z-50 py-1.5 text-xs text-[var(--text-main)] font-sans">
-                  <div className="px-3 py-1.5 border-b border-[var(--border-color)] font-bold text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Remote Bookmarks</div>
-                  <button 
-                    onClick={async () => {
-                      if (connectionId && remoteCurrentDir) {
-                        await window.electronAPI.settings.addBookmark(connectionId, 'REMOTE', remoteCurrentDir);
-                        const list = await window.electronAPI.settings.getBookmarks(connectionId, 'REMOTE');
-                        setRemoteBookmarks(list);
-                        setIsRemoteBookmarksOpen(false);
-                      }
-                    }}
-                    className="w-full text-left px-3 py-2 bg-transparent hover:bg-[var(--glow-color)]/25 border-none text-[var(--text-main)] cursor-pointer flex items-center gap-1.5 outline-none font-semibold text-xs transition-colors"
-                  >
-                    + Bookmark current directory
-                  </button>
-                  <div className="border-t border-[var(--border-color)]/50 my-1"></div>
-                  <div className="max-h-48 overflow-y-auto">
-                    {remoteBookmarks.length > 0 ? (
-                      remoteBookmarks.map((bm) => (
-                        <div key={bm.id} className="px-3 py-1.5 flex items-center justify-between hover:bg-[var(--glow-color)]/10">
-                          <span 
-                            onClick={() => {
-                              loadRemoteDirectory(bm.path);
-                              setIsRemoteBookmarksOpen(false);
-                            }}
-                            className="font-mono overflow-hidden text-ellipsis whitespace-nowrap cursor-pointer flex-1 pr-2 hover:text-[var(--color-primary)] text-left"
-                            title={bm.path}
-                          >
-                            {bm.path}
-                          </span>
-                          <div className="flex gap-1.5 shrink-0">
-                            <button 
-                              onClick={async () => {
-                                if (connectionId) {
-                                  await window.electronAPI.settings.setDefaultBookmark(connectionId, 'REMOTE', bm.isDefault ? -1 : bm.id);
-                                  const list = await window.electronAPI.settings.getBookmarks(connectionId, 'REMOTE');
-                                  setRemoteBookmarks(list);
-                                }
-                              }}
-                              className={`bg-transparent border-none cursor-pointer p-0.5 outline-none text-sm leading-none ${bm.isDefault ? 'text-amber-500' : 'text-[var(--text-subtle)] hover:text-amber-500'}`}
-                              title={bm.isDefault ? "Default bookmark" : "Set as default"}
-                            >
-                              ★
-                            </button>
-                            <button 
-                              onClick={async () => {
-                                await window.electronAPI.settings.deleteBookmark(bm.id);
-                                const list = await window.electronAPI.settings.getBookmarks(connectionId!, 'REMOTE');
-                                setRemoteBookmarks(list);
-                              }}
-                              className="bg-transparent border-none cursor-pointer text-[var(--text-subtle)] hover:text-red-500 p-0.5 outline-none font-bold"
-                              title="Remove Bookmark"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="px-3 py-3 text-center text-[var(--text-subtle)]">No bookmarks saved.</div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-            {/* Path breadcrumbs */}
-            <div className="flex-1 flex items-center gap-1 overflow-hidden px-1 font-mono text-[11px] text-[var(--text-muted)] select-text">
-              {remoteCurrentDir.split('/').map((part, idx, arr) => {
-                if (idx === 0 && part === '') {
-                  return <span key={idx} onClick={() => loadRemoteDirectory('/')} className="cursor-pointer hover:text-[var(--text-main)] transition-colors">/</span>;
-                }
-                if (part === '') return null;
-                const pathTarget = '/' + arr.slice(1, idx + 1).join('/');
-                return (
-                  <React.Fragment key={idx}>
-                    <span onClick={() => loadRemoteDirectory(pathTarget)} className="cursor-pointer hover:text-[var(--text-main)] transition-colors">{part}</span>
-                    {idx < arr.length - 1 && <span>/</span>}
-                  </React.Fragment>
-                );
-              })}
-            </div>
-            <div className="w-[1px] h-4 bg-[var(--border-color)] mx-1 shrink-0"></div>
+          <ExplorerPanel
+            pane="remote"
+            loading={remoteLoading}
+            currentDir={remoteHistory.currentDir}
+            files={sortedRemoteFiles}
+            selectedFile={selectedRemoteFile}
+            onSelect={(file) => setSelectedRemoteFile(file as RemoteFile | null)}
+            onDoubleClick={(file) => handleRemoteDblClick(file as RemoteFile)}
+            onContextMenu={(e, file) => handleItemContextMenu(e, 'remote', file as RemoteFile)}
+            onBlankContextMenu={(e) => handleBlankContextMenu(e, 'remote')}
+            onEmptySpaceClick={() => { setSelectedRemoteFile(null); setActivePanel('remote'); }}
+            viewMode={remoteView}
+            onViewModeChange={setRemoteView}
+            searchQuery={remoteSearch}
+            onSearchChange={setRemoteSearch}
+            sortField={remoteSortField}
+            sortAsc={remoteSortAsc}
+            onSort={toggleRemoteSort}
+            colWidths={remoteColWidths}
+            onResizeStart={(e, col, curWidth) => handleResizeStart(e, 'remote', col, curWidth)}
+            dragOverRow={dragOverRemoteRow}
+            onDragStart={(e, file) => handleRemoteDragStart(e, file as RemoteFile)}
+            onDragEnterRow={(_, file) => {
+              if (file.isDirectory) setDragOverRemoteRow(joinRemotePath(remoteHistory.currentDir, file.name));
+            }}
+            onDragLeaveRow={() => setDragOverRemoteRow(null)}
+            onDrop={handleRemoteDrop}
+            joinPath={joinRemotePath}
+            formatSize={formatSize}
             
-            <div className="relative shrink-0">
-              <input 
-                type="text" 
-                value={remoteSearch}
-                onChange={(e) => setRemoteSearch(e.target.value)}
-                placeholder="Search…" 
-                className="w-[140px] bg-[var(--input-bg)] border border-[var(--input-border)] hover:border-[var(--text-subtle)] focus:border-[var(--input-focus-border)] rounded-[3px] py-0.5 pl-6 pr-1.5 text-[var(--text-main)] placeholder-[var(--text-subtle)] text-xs outline-none transition-all"
-              />
-              <svg className="absolute left-2 top-1/2 transform -translate-y-1/2 text-[var(--text-subtle)]" width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="5.5" cy="5.5" r="3.5"/><line x1="8.5" y1="8.5" x2="11" y2="11"/></svg>
-            </div>
-            <div className="w-[1px] h-4 bg-[var(--border-color)] mx-1 shrink-0"></div>
-            
-            {/* View Toggles */}
-            <button 
-              onClick={() => setRemoteView('list')} 
-              title="List view" 
-              className={`w-6 h-6 border-none cursor-pointer flex items-center justify-center rounded-[3px] outline-none transition-all ${remoteView === 'list' ? 'bg-[var(--glow-color)] text-[var(--active-tab-text)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
-            >
-              <svg width="12" height="12" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.6"><line x1="4" y1="3" x2="12" y2="3"/><line x1="4" y1="6.5" x2="12" y2="6.5"/><line x1="4" y1="10" x2="12" y2="10"/><rect x="1" y="2" width="2" height="2" fill="currentColor"/><rect x="1" y="5.5" width="2" height="2" fill="currentColor"/><rect x="1" y="9" width="2" height="2" fill="currentColor"/></svg>
-            </button>
-            <button 
-              onClick={() => setRemoteView('grid')} 
-              title="Grid view" 
-              className={`w-6 h-6 border-none cursor-pointer flex items-center justify-center rounded-[3px] outline-none transition-all ${remoteView === 'grid' ? 'bg-[var(--glow-color)] text-[var(--active-tab-text)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
-            >
-              <svg width="12" height="12" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1" y="1" width="4.5" height="4.5" rx="0.5"/><rect x="7.5" y="1" width="4.5" height="4.5" rx="0.5"/><rect x="1" y="7.5" width="4.5" height="4.5" rx="0.5"/><rect x="7.5" y="7.5" width="4.5" height="4.5" rx="0.5"/></svg>
-            </button>
-            <button 
-              onClick={() => (window as any).electronAPI.terminal.openWindow(sessionId, username, host)} 
-              title="Open Terminal Window" 
-              className={`w-6 h-6 border-none cursor-pointer flex items-center justify-center rounded-[3px] ml-0.5 outline-none text-[var(--text-muted)] hover:text-[var(--active-tab-text)] hover:bg-[var(--glow-color)]/25 transition-colors`}
-            >
-              <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="1.5" y="2" width="11" height="10" rx="1.5"/><polyline points="4,5.5 6.5,8 4,10.5"/><line x1="7.5" y1="10.5" x2="11" y2="10.5"/></svg>
-            </button>
-          </div>
+            canGoBack={remoteHistory.canGoBack}
+            canGoForward={remoteHistory.canGoForward}
+            onGoBack={handleRemoteHistoryBack}
+            onGoForward={handleRemoteHistoryForward}
+            onGoUp={handleRemoteUp}
+            onGoHome={() => changeRemoteDirectory(remoteHistory.history[0] || '')}
+            onRefresh={() => loadRemoteDirectory(remoteHistory.currentDir)}
+            onNavigatePath={changeRemoteDirectory}
 
-
-
-          {/* Remote Files list content */}
-          <div 
-            className="flex-1 overflow-auto h-full relative" 
-            onContextMenu={(e) => handleBlankContextMenu(e, 'remote')} 
-            onClick={() => setActivePanel('remote')}
-            onDragEnter={(e) => {
-              e.preventDefault();
-              if (e.dataTransfer.types.includes('Files') || e.dataTransfer.types.includes('application/json')) {
-                setRemoteDragCount(c => c + 1);
+            bookmarks={remoteBookmarks}
+            onBookmarkSelect={changeRemoteDirectory}
+            onAddBookmark={async () => {
+              if (connectionId && remoteHistory.currentDir) {
+                await window.electronAPI.settings.addBookmark(connectionId, 'REMOTE', remoteHistory.currentDir);
+                setRemoteBookmarks(await window.electronAPI.settings.getBookmarks(connectionId, 'REMOTE'));
+                setIsRemoteBookmarksOpen(false);
               }
             }}
-            onDragOver={(e) => {
-              e.preventDefault();
-              e.dataTransfer.dropEffect = 'copy';
+            onDeleteBookmark={async (id) => {
+              await window.electronAPI.settings.deleteBookmark(id);
+              if (connectionId) setRemoteBookmarks(await window.electronAPI.settings.getBookmarks(connectionId, 'REMOTE'));
             }}
-            onDragLeave={() => setRemoteDragCount(c => Math.max(0, c - 1))}
-            onDrop={handleRemoteDrop}
-          >
-            {remoteDragCount > 0 && (
-              <div className="absolute inset-0 bg-[var(--bg-app)]/90 backdrop-blur-[3px] flex flex-col items-center justify-center border-2 border-dashed border-[var(--color-primary)] m-2 rounded-[6px] z-50 pointer-events-none transition-all duration-200">
-                <FaCloudUploadAlt className="text-[var(--color-primary)] text-5xl mb-3 animate-pulse" />
-                <div className="text-sm font-semibold text-[var(--text-main)]">Drop files to upload</div>
-                <div className="text-xs text-[var(--text-muted)] mt-1">Uploading files into remote folder</div>
-              </div>
-            )}
-
-            {remoteLoading ? (
-              <div className="h-full flex items-center justify-center text-xs text-[var(--text-muted)] font-mono">Loading...</div>
-            ) : remoteView === 'list' ? (
-              <div className="flex-1 overflow-auto h-full pr-4">
-                <table className="w-full border-collapse text-[13px] table-fixed">
-                  <colgroup>
-                    <col style={{ width: '26px' }} />
-                    <col style={{ width: `${remoteColWidths.name}px` }} />
-                    <col style={{ width: `${remoteColWidths.size}px` }} />
-                    <col style={{ width: `${remoteColWidths.modified}px` }} />
-                    <col style={{ width: `${remoteColWidths.owner}px` }} />
-                    <col style={{ width: `${remoteColWidths.perms}px` }} />
-                  </colgroup>
-                  <thead className="sticky top-0 bg-[var(--bg-panel-header)] z-10 border-b border-[var(--border-color)]">
-                    <tr className="h-[28px] text-[12px] text-[var(--text-muted)] border-b border-[var(--border-color)]">
-                      <th className="py-1 pl-2 text-left border-r border-[var(--border-color)]/30"><input type="checkbox" className="w-[11px] h-[11px] accent-[var(--color-primary)] cursor-pointer"/></th>
-                      <th 
-                        onClick={() => toggleRemoteSort('name')}
-                        className="relative text-left px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)] border-r border-[var(--border-color)]/30"
-                      >
-                        Name {remoteSortField === 'name' ? (remoteSortAsc ? '▲' : '▼') : ''}
-                        <div 
-                          onMouseDown={(e) => handleResizeStart(e, 'remote', 'name', remoteColWidths.name)} 
-                          className="absolute right-0 top-1 bottom-1 w-[1px] bg-[var(--border-color)]/45 cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
-                        />
-                      </th>
-                      <th 
-                        onClick={() => toggleRemoteSort('size')}
-                        className="relative text-right px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)] border-r border-[var(--border-color)]/30"
-                      >
-                        Size {remoteSortField === 'size' ? (remoteSortAsc ? '▲' : '▼') : ''}
-                        <div 
-                          onMouseDown={(e) => handleResizeStart(e, 'remote', 'size', remoteColWidths.size)} 
-                          className="absolute right-0 top-1 bottom-1 w-[1px] bg-[var(--border-color)]/45 cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
-                        />
-                      </th>
-                      <th 
-                        onClick={() => toggleRemoteSort('modified')}
-                        className="relative text-left px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)] border-r border-[var(--border-color)]/30"
-                      >
-                        Modified {remoteSortField === 'modified' ? (remoteSortAsc ? '▲' : '▼') : ''}
-                        <div 
-                          onMouseDown={(e) => handleResizeStart(e, 'remote', 'modified', remoteColWidths.modified)} 
-                          className="absolute right-0 top-1 bottom-1 w-[1px] bg-[var(--border-color)]/45 cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
-                        />
-                      </th>
-                      <th 
-                        onClick={() => toggleRemoteSort('owner')}
-                        className="relative text-left px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)] border-r border-[var(--border-color)]/30"
-                      >
-                        Owner {remoteSortField === 'owner' ? (remoteSortAsc ? '▲' : '▼') : ''}
-                        <div 
-                          onMouseDown={(e) => handleResizeStart(e, 'remote', 'owner', remoteColWidths.owner)} 
-                          className="absolute right-0 top-1 bottom-1 w-[1px] bg-[var(--border-color)]/45 cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
-                        />
-                      </th>
-                      <th 
-                        onClick={() => toggleRemoteSort('permissions')}
-                        className="relative text-left px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)]"
-                      >
-                        Perms {remoteSortField === 'permissions' ? (remoteSortAsc ? '▲' : '▼') : ''}
-                        <div 
-                          onMouseDown={(e) => handleResizeStart(e, 'remote', 'perms', remoteColWidths.perms)} 
-                          className="absolute right-0 top-1 bottom-1 w-[1px] bg-[var(--border-color)]/45 cursor-col-resize hover:bg-[var(--color-primary)] z-10" 
-                        />
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedRemoteFiles.map((rf, i) => (
-                      <tr 
-                        key={i} 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActivePanel('remote');
-                          setSelectedRemoteFile(rf);
-                        }}
-                        onDoubleClick={() => handleRemoteDblClick(rf)}
-                        onContextMenu={(e) => {
-                          e.stopPropagation();
-                          setActivePanel('remote');
-                          setSelectedRemoteFile(rf);
-                          handleItemContextMenu(e, 'remote', rf);
-                        }}
-                        draggable={true}
-                        onDragStart={(e) => handleRemoteDragStart(e, rf)}
-                        onDragEnter={(e) => {
-                          e.stopPropagation();
-                          if (rf.isDirectory) {
-                            setDragOverRemoteRow(joinRemotePath(remoteCurrentDir, rf.name));
-                          }
-                        }}
-                        onDragLeave={(e) => {
-                          e.stopPropagation();
-                          setDragOverRemoteRow(null);
-                        }}
-                        onDragOver={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                        }}
-                        onDrop={handleRemoteDrop}
-                        className={`${selectedRemoteFile?.name === rf.name ? 'bg-[var(--glow-color)]/30 text-[var(--active-tab-text)] font-semibold' : 'hover:bg-[var(--glow-color)]/25'} ${dragOverRemoteRow === joinRemotePath(remoteCurrentDir, rf.name) ? 'bg-[var(--color-primary)]/20 border-y border-dashed border-[var(--color-primary)]' : ''} cursor-default h-[30px] transition-colors duration-75 border-b border-[var(--border-color)]/50`}
-                      >
-                        <td className="pl-2 align-middle">
-                          <input 
-                            type="checkbox" 
-                            onChange={() => {}}
-                            className="w-[11px] h-[11px] accent-[var(--color-primary)] cursor-pointer"
-                          />
-                        </td>
-                        <td className="px-2 align-middle">
-                          <div className="flex items-center gap-1.5 overflow-hidden">
-                            {rf.isDirectory ? (
-                              <svg width="14" height="12" viewBox="0 0 16 14" fill="none" className="shrink-0"><path d="M0 2.5h7l1.5 2H16v9H0z" fill="var(--color-primary)" opacity="0.85"/></svg>
-                            ) : (
-                              <svg width="12" height="14" viewBox="0 0 12 14" fill="none" className="shrink-0"><path d="M0 0h8l4 4v10H0z" fill="currentColor" className="text-[var(--text-muted)]" opacity="0.6"/><path d="M8 0l4 4H8z" fill="currentColor" className="text-[var(--text-subtle)]"/></svg>
-                            )}
-                            <span className="text-[var(--text-main)] overflow-hidden text-ellipsis whitespace-nowrap" title={rf.name}>{rf.name}</span>
-                          </div>
-                        </td>
-                        <td className="px-2 text-right text-[var(--text-muted)] font-mono text-[12px] align-middle whitespace-nowrap">{formatSize(rf.size)}</td>
-                        <td className="px-2 text-[var(--text-subtle)] font-mono text-[12px] align-middle whitespace-nowrap">{rf.date}</td>
-                        <td className="px-2 text-[var(--text-subtle)] font-mono text-[12px] align-middle whitespace-nowrap">{rf.owner}</td>
-                        <td className="px-2 text-[var(--text-subtle)] font-mono text-[12px] align-middle whitespace-nowrap">{rf.permissions}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="p-2 flex flex-wrap gap-0.5 content-start items-start h-full pr-4" onContextMenu={(e) => handleBlankContextMenu(e, 'remote')} onClick={() => setActivePanel('remote')}>
-                {sortedRemoteFiles.map((rf, i) => (
-                  <div 
-                    key={i} 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setActivePanel('remote');
-                      setSelectedRemoteFile(rf);
-                    }}
-                    onDoubleClick={() => handleRemoteDblClick(rf)}
-                    onContextMenu={(e) => {
-                      e.stopPropagation();
-                      setActivePanel('remote');
-                      setSelectedRemoteFile(rf);
-                      handleItemContextMenu(e, 'remote', rf);
-                    }}
-                    draggable={true}
-                    onDragStart={(e) => handleRemoteDragStart(e, rf)}
-                    onDragEnter={(e) => {
-                      e.stopPropagation();
-                      if (rf.isDirectory) {
-                        setDragOverRemoteRow(joinRemotePath(remoteCurrentDir, rf.name));
-                      }
-                    }}
-                    onDragLeave={(e) => {
-                      e.stopPropagation();
-                      setDragOverRemoteRow(null);
-                    }}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                    }}
-                    onDrop={handleRemoteDrop}
-                    className={`w-[88px] p-2 flex flex-col items-center gap-1 cursor-default border rounded-[2px] ${selectedRemoteFile?.name === rf.name ? 'bg-[var(--glow-color)]/40 border-[var(--color-primary)]' : 'border-transparent hover:bg-[var(--glow-color)]/20'} ${dragOverRemoteRow === joinRemotePath(remoteCurrentDir, rf.name) ? 'bg-[var(--color-primary)]/20 border-[var(--color-primary)] border-dashed' : ''}`}
-                  >
-                    {rf.isDirectory ? (
-                      <svg width="48" height="40" viewBox="0 0 52 44" fill="none">
-                        <path d="M0 8h22l5 6H52v30H0z" fill="var(--color-primary)" opacity="0.9"/>
-                        <path d="M0 8h22l5 6H52v5H0z" fill="white" opacity="0.15"/>
-                      </svg>
-                    ) : (
-                      <svg width="38" height="48" viewBox="0 0 38 48" fill="none">
-                        <path d="M0 0h26l12 12v36H0z" fill="currentColor" className="text-[var(--text-muted)]" opacity="0.6"/>
-                        <path d="M26 0l12 12H26z" fill="currentColor" className="text-[var(--text-subtle)]"/>
-                        <line x1="7" y1="20" x2="31" y2="20" stroke="var(--border-color)" strokeWidth="2"/>
-                        <line x1="7" y1="26" x2="28" y2="26" stroke="var(--border-color)" strokeWidth="2"/>
-                        <line x1="7" y1="32" x2="24" y2="32" stroke="var(--border-color)" strokeWidth="2"/>
-                      </svg>
-                    )}
-                    <div className="text-[11px] text-[var(--text-main)] text-center overflow-hidden text-ellipsis whitespace-nowrap w-full leading-normal">{rf.name}</div>
-                    <div className="text-[10px] text-[var(--text-muted)] text-center">{formatSize(rf.size) || '--'}</div>
-                    <div className="text-[9px] text-[var(--text-subtle)] text-center font-mono">{rf.date}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Remote Status Bar */}
-          <div className="h-5 bg-[var(--bg-panel-header)] border-t border-[var(--border-color)] flex items-center px-2 gap-3.5 shrink-0 text-[11px] text-[var(--text-muted)] theme-transition">
-            <span>{sortedRemoteFiles.length} items</span>
-          </div>
-
+            onSetDefaultBookmark={async (id, isDefault) => {
+              if (connectionId) {
+                await window.electronAPI.settings.setDefaultBookmark(connectionId, 'REMOTE', isDefault ? id : -1);
+                setRemoteBookmarks(await window.electronAPI.settings.getBookmarks(connectionId, 'REMOTE'));
+              }
+            }}
+            isBookmarksOpen={isRemoteBookmarksOpen}
+            setIsBookmarksOpen={setIsRemoteBookmarksOpen}
+            
+            connectionName={connectionName}
+            username={username}
+            host={host}
+            onOpenTerminal={() => window.electronAPI.terminal.openWindow(sessionId, username, host)}
+            
+            localCollapsed={localCollapsed}
+            remoteTabs={remoteTabs}
+            activeRemoteTabIdx={activeRemoteTabIdx}
+            onSelectTab={handleSelectTab}
+            onCloseTab={handleCloseRemoteTab}
+            onTabContextMenu={handleTabContextMenu}
+            onAddTab={handleAddTab}
+          />
         </div>
       </div>
 
-      {/* Connected Blue Status Bar */}
+      {/* Blue Global Connected Footer Status Bar */}
       <div className="h-5 bg-[var(--color-primary)] text-white flex items-center px-2.5 gap-3.5 shrink-0 text-[11px] font-medium border-t border-[var(--border-color)] select-none text-left">
         <span>● Connected · {username}@{host}</span>
-        <span className="opacity-75">{remoteCurrentDir} · {sortedRemoteFiles.length} items</span>
+        <span className="opacity-75">{remoteHistory.currentDir} · {sortedRemoteFiles.length} items</span>
         <div className="flex-1"></div>
         <button 
           onClick={onDisconnect} 
@@ -2023,6 +1297,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
           Disconnect Session
         </button>
       </div>
+
       {/* Remote Tab Right-Click Context Menu */}
       {tabContextMenu && (
         <div 
@@ -2051,7 +1326,6 @@ export const FileManager: React.FC<FileManagerProps> = ({
           className="fixed bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-[3px] shadow-[0_4px_16px_rgba(0,0,0,0.35)] py-1.5 z-[100] w-48 text-xs text-[var(--text-main)] font-sans"
         >
           {contextMenu.item === null ? (
-            // Blank space menu
             <>
               <button 
                 onClick={() => handleRefresh(contextMenu.pane)}
@@ -2081,36 +1355,34 @@ export const FileManager: React.FC<FileManagerProps> = ({
               )}
             </>
           ) : (
-            // Item menu
             <>
               <button 
                 onClick={async () => {
                   const item = contextMenu.item;
+                  if (!item) return;
                   setLocalLoading(true);
                   setRemoteLoading(true);
                   try {
                     if (contextMenu.pane === 'local') {
-                      // Upload
-                      const src = joinLocalPath(localCurrentDir, item.name);
+                      const src = joinLocalPath(localHistory.currentDir, item.name);
                       if (item.isDirectory) {
-                        await window.electronAPI.ssh.uploadFolder(sessionId, src, remoteCurrentDir);
+                        await window.electronAPI.ssh.uploadFolder(sessionId, src, remoteHistory.currentDir);
                       } else {
-                        await window.electronAPI.ssh.upload(sessionId, src, remoteCurrentDir);
+                        await window.electronAPI.ssh.upload(sessionId, src, remoteHistory.currentDir);
                       }
                     } else {
-                      // Download
-                      const src = joinRemotePath(remoteCurrentDir, item.name);
+                      const src = joinRemotePath(remoteHistory.currentDir, item.name);
                       if (item.isDirectory) {
-                        await window.electronAPI.ssh.downloadFolder(sessionId, src, localCurrentDir);
+                        await window.electronAPI.ssh.downloadFolder(sessionId, src, localHistory.currentDir);
                       } else {
-                        await window.electronAPI.ssh.download(sessionId, src, localCurrentDir);
+                        await window.electronAPI.ssh.download(sessionId, src, localHistory.currentDir);
                       }
                     }
-                  } catch (err: any) {
-                    setErrorMsg(`Transfer failed: ${err.message}`);
+                  } catch (err: unknown) {
+                    setErrorMsg(`Transfer failed: ${(err as Error).message}`);
                   } finally {
-                    await loadLocalDirectory(localCurrentDir);
-                    await loadRemoteDirectory(remoteCurrentDir);
+                    await loadLocalDirectory(localHistory.currentDir);
+                    await loadRemoteDirectory(remoteHistory.currentDir);
                   }
                 }}
                 className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
@@ -2119,13 +1391,13 @@ export const FileManager: React.FC<FileManagerProps> = ({
               </button>
               <div className="border-t border-[var(--border-color)]/40 my-1"></div>
               <button 
-                onClick={() => handleCopy(contextMenu.pane, contextMenu.item)}
+                onClick={() => { if (contextMenu.item) handleCopy(contextMenu.pane, contextMenu.item); }}
                 className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
               >
                 📋 Copy
               </button>
               <button 
-                onClick={() => handleCut(contextMenu.pane, contextMenu.item)}
+                onClick={() => { if (contextMenu.item) handleCut(contextMenu.pane, contextMenu.item); }}
                 className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
               >
                 ✂️ Cut
@@ -2140,27 +1412,27 @@ export const FileManager: React.FC<FileManagerProps> = ({
               )}
               <div className="border-t border-[var(--border-color)]/40 my-1"></div>
               <button 
-                onClick={() => handleRename(contextMenu.pane, contextMenu.item)}
+                onClick={() => { if (contextMenu.item) handleRename(contextMenu.pane, contextMenu.item); }}
                 className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
               >
                 ✏️ Rename
               </button>
               <button 
-                onClick={() => handleDelete(contextMenu.pane, contextMenu.item)}
+                onClick={() => { if (contextMenu.item) handleDelete(contextMenu.pane, contextMenu.item); }}
                 className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left text-red-400"
               >
                 ❌ Delete
               </button>
               <div className="border-t border-[var(--border-color)]/40 my-1"></div>
               <button 
-                onClick={() => handleCompress(contextMenu.pane, contextMenu.item)}
+                onClick={() => { if (contextMenu.item) handleCompress(contextMenu.pane, contextMenu.item); }}
                 className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
               >
                 📦 Compress to tar.gz
               </button>
-              {(contextMenu.item.name.endsWith('.tar.gz') || contextMenu.item.name.endsWith('.tgz')) && (
+              {contextMenu.item && (contextMenu.item.name.endsWith('.tar.gz') || contextMenu.item.name.endsWith('.tgz')) && (
                 <button 
-                  onClick={() => handleExtract(contextMenu.pane, contextMenu.item)}
+                  onClick={() => { if (contextMenu.item) handleExtract(contextMenu.pane, contextMenu.item); }}
                   className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
                 >
                   📂 Extract Archive
@@ -2168,7 +1440,7 @@ export const FileManager: React.FC<FileManagerProps> = ({
               )}
               <div className="border-t border-[var(--border-color)]/40 my-1"></div>
               <button 
-                onClick={() => handleProperties(contextMenu.pane, contextMenu.item)}
+                onClick={() => { if (contextMenu.item) handleProperties(contextMenu.pane, contextMenu.item); }}
                 className="w-full text-left px-3.5 py-1.5 bg-transparent border-none text-[var(--text-main)] hover:bg-[var(--glow-color)]/25 cursor-pointer outline-none font-semibold text-xs text-left"
               >
                 ℹ️ Properties

@@ -42,8 +42,8 @@ function initializeSchema(db: DatabaseConnection.Database) {
     } else {
       throw new Error(`ddl.sql file not found at expected paths`);
     }
-  } catch (err: any) {
-    console.error(`Failed to initialize database schema: ${err.message}`);
+  } catch (err: unknown) {
+    console.error(`Failed to initialize database schema: ${(err as Error).message}`);
     throw err;
   }
 }

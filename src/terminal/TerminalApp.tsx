@@ -69,15 +69,23 @@ const TerminalApp: React.FC = () => {
   const activeTabIdRef = useRef<string>('');
   const themeRef = useRef<TerminalTheme>(getThemeById(loadThemeId()));
 
-  tabsRef.current = tabs;
-  activeTabIdRef.current = activeTabId;
-  themeRef.current = getThemeById(themeId);
+  useEffect(() => {
+    tabsRef.current = tabs;
+  }, [tabs]);
+
+  useEffect(() => {
+    activeTabIdRef.current = activeTabId;
+  }, [activeTabId]);
+
+  useEffect(() => {
+    themeRef.current = getThemeById(themeId);
+  }, [themeId]);
 
   const theme = getThemeById(themeId);
 
   // ── Platform state initialization ──────────────────────────────────────────
   useEffect(() => {
-    const api = (window as any).electronAPI;
+    const api = window.electronAPI;
     if (api && api.window) {
       api.window.getPlatform().then((p: string) => {
         setPlatform(p);
@@ -85,7 +93,7 @@ const TerminalApp: React.FC = () => {
       api.window.isMaximized().then((max: boolean) => {
         setIsMaximized(max);
       });
-      const unsub = api.window.onMaximizedState((_e: any, max: boolean) => {
+      const unsub = api.window.onMaximizedState((_e: unknown, max: boolean) => {
         setIsMaximized(max);
       });
       return () => unsub?.();
@@ -93,15 +101,15 @@ const TerminalApp: React.FC = () => {
   }, []);
 
   const handleMinimize = () => {
-    (window as any).electronAPI?.window.minimize();
+    window.electronAPI?.window.minimize();
   };
 
   const handleMaximize = () => {
-    (window as any).electronAPI?.window.maximize();
+    window.electronAPI?.window.maximize();
   };
 
   const handleClose = () => {
-    (window as any).electronAPI?.window.close();
+    window.electronAPI?.window.close();
   };
 
   // ── Close tab callback ──────────────────────────────────────────────────
@@ -109,7 +117,7 @@ const TerminalApp: React.FC = () => {
     const tab = tabsRef.current.find((t) => t.id === tabId);
     if (!tab) return;
     if (tab.shellId && !tab.isClosed) {
-      (window as any).electronAPI.terminal.closeShell(tab.shellId);
+      window.electronAPI.terminal.closeShell(tab.shellId);
     }
     tab.terminal.dispose();
     const remaining = tabsRef.current.filter((t) => t.id !== tabId);
@@ -121,7 +129,7 @@ const TerminalApp: React.FC = () => {
       activeTabIdRef.current = nextId;
     }
     if (remaining.length === 0) {
-      (window as any).electronAPI?.window.close();
+      window.electronAPI?.window.close();
     }
   }, []);
 
@@ -133,14 +141,14 @@ const TerminalApp: React.FC = () => {
 
     let shellId = '';
     try {
-      const res = await (window as any).electronAPI.terminal.openShell(sessionId, tabId);
+      const res = await window.electronAPI.terminal.openShell(sessionId, tabId);
       if (!res.success) {
         terminal.write(`\r\n\x1b[31mFailed to open shell: ${res.error}\x1b[0m\r\n`);
       } else {
         shellId = res.shellId;
       }
-    } catch (err: any) {
-      terminal.write(`\r\n\x1b[31mError: ${err.message}\x1b[0m\r\n`);
+    } catch (err: unknown) {
+      terminal.write(`\r\n\x1b[31mError: ${(err as Error).message}\x1b[0m\r\n`);
     }
 
     const newTab: TermTab = {
@@ -159,13 +167,13 @@ const TerminalApp: React.FC = () => {
     // Keystrokes → forward directly to SSH
     terminal.onData((data) => {
       if (!newTab.shellId || newTab.isClosed) return;
-      (window as any).electronAPI.terminal.writeShell(newTab.shellId, data);
+      window.electronAPI.terminal.writeShell(newTab.shellId, data);
     });
 
     // Resize → SSH
     terminal.onResize(({ cols, rows }) => {
       if (!newTab.shellId || newTab.isClosed) return;
-      (window as any).electronAPI.terminal.resizeShell(newTab.shellId, cols, rows);
+      window.electronAPI.terminal.resizeShell(newTab.shellId, cols, rows);
     });
 
     setTabs((prev) => {
@@ -223,7 +231,7 @@ const TerminalApp: React.FC = () => {
         navigator.clipboard.readText().then((text) => {
           const activeTab = tabsRef.current.find((t) => t.id === activeTabIdRef.current);
           if (activeTab && activeTab.shellId && !activeTab.isClosed) {
-            (window as any).electronAPI.terminal.writeShell(activeTab.shellId, text);
+            window.electronAPI.terminal.writeShell(activeTab.shellId, text);
           }
         });
       }
@@ -273,7 +281,7 @@ const TerminalApp: React.FC = () => {
     navigator.clipboard.readText().then((text) => {
       const activeTab = tabs.find((t) => t.id === activeTabId);
       if (activeTab && activeTab.shellId && !activeTab.isClosed) {
-        (window as any).electronAPI.terminal.writeShell(activeTab.shellId, text);
+        window.electronAPI.terminal.writeShell(activeTab.shellId, text);
       }
     });
     closeContextMenu();
@@ -304,8 +312,8 @@ const TerminalApp: React.FC = () => {
 
   // ── SSH data → xterm ─────────────────────────────────────────────────────
   useEffect(() => {
-    const unsub = (window as any).electronAPI.terminal.onShellData(
-      (_e: any, shellId: string, data: Uint8Array | string) => {
+    const unsub = window.electronAPI.terminal.onShellData(
+      (_e: unknown, shellId: string, data: string) => {
         const tab = tabsRef.current.find((t) => t.shellId === shellId);
         if (!tab) return;
         tab.terminal.write(data);
@@ -316,8 +324,8 @@ const TerminalApp: React.FC = () => {
 
   // ── Shell close event → Auto Close Tab ────────────────────────────────────
   useEffect(() => {
-    const unsub = (window as any).electronAPI.terminal.onShellClose(
-      (_e: any, shellId: string) => {
+    const unsub = window.electronAPI.terminal.onShellClose(
+      (_e: unknown, shellId: string) => {
         const tab = tabsRef.current.find((t) => t.shellId === shellId);
         if (tab) {
           closeTab(tab.id);
@@ -329,8 +337,8 @@ const TerminalApp: React.FC = () => {
 
   // ── IPC: open new tab from main process ──────────────────────────────────
   useEffect(() => {
-    const unsub = (window as any).electronAPI.terminal.onOpenTab(
-      (_e: any, sessionId: string, username: string, host: string) =>
+    const unsub = window.electronAPI.terminal.onOpenTab(
+      (_e: unknown, sessionId: string, username: string, host: string) =>
         openShell(sessionId, username, host)
     );
     return () => unsub?.();

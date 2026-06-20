@@ -58,7 +58,7 @@ export class ConnectionDao {
 
       log.info(`Added connection profile: ${name} (id=${connId})`);
       return connId;
-    } catch (err: any) {
+    } catch (err: unknown) {
       log.error(`addConnection failed for ${name}`, err);
       throw err;
     }
@@ -77,7 +77,7 @@ export class ConnectionDao {
         ORDER BY c.name ASC
       `).all() as ConnectionProfile[];
       return rows;
-    } catch (err: any) {
+    } catch (err: unknown) {
       log.error('getConnections failed', err);
       return [];
     }
@@ -96,7 +96,7 @@ export class ConnectionDao {
         WHERE c.id = ?
       `).get(id) as ConnectionProfile | undefined;
       return row || null;
-    } catch (err: any) {
+    } catch (err: unknown) {
       log.error(`getConnection failed for id=${id}`, err);
       return null;
     }
@@ -130,7 +130,7 @@ export class ConnectionDao {
         id
       );
       log.info(`Updated connection profile id=${id}`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       log.error(`updateConnection failed for id=${id}`, err);
       throw err;
     }
@@ -141,7 +141,7 @@ export class ConnectionDao {
     try {
       db.prepare('DELETE FROM connections WHERE id = ?').run(id);
       log.info(`Deleted connection profile id=${id}`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       log.error(`deleteConnection failed for id=${id}`, err);
       throw err;
     }
@@ -154,7 +154,7 @@ export class ConnectionDao {
         Math.floor(Date.now() / 1000),
         id
       );
-    } catch (err: any) {
+    } catch (err: unknown) {
       log.error(`touchConnection failed for id=${id}`, err);
     }
   }
@@ -163,7 +163,7 @@ export class ConnectionDao {
     const db = getDatabase();
     try {
       return db.prepare('SELECT id, code, name FROM connection_types').all() as ConnectionType[];
-    } catch (err: any) {
+    } catch (err: unknown) {
       log.error('getConnectionTypes failed', err);
       return [];
     }

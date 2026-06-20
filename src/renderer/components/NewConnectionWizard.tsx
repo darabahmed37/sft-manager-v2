@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import type { ConnectionProfile } from '../global';
 
 interface NewConnectionWizardProps {
   connectionId?: number | null;
@@ -12,7 +13,7 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
   onSave,
 }) => {
   const [step, setStep] = useState<number>(1);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(connectionId !== null);
 
   // Form Fields State
   const [name, setName] = useState<string>('');
@@ -31,7 +32,7 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
   const [passphrase, setPassphrase] = useState<string>('');
 
   // Dropdown list for Bastion jumps
-  const [bastionProfiles, setBastionProfiles] = useState<any[]>([]);
+  const [bastionProfiles, setBastionProfiles] = useState<ConnectionProfile[]>([]);
 
   // Testing connection state
   const [testing, setTesting] = useState<boolean>(false);
@@ -42,12 +43,11 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
     // Load bastion profiles for Gateway options
     window.electronAPI.db.getConnections().then((conns) => {
       // Filter out current profile if editing to avoid loops
-      const list = conns.filter((c: any) => connectionId === null || c.id !== connectionId);
+      const list = conns.filter((c: ConnectionProfile) => connectionId === null || c.id !== connectionId);
       setBastionProfiles(list);
     });
 
     if (connectionId !== null) {
-      setLoading(true);
       window.electronAPI.db.getConnection(connectionId).then(async (conn) => {
         if (conn) {
           setName(conn.name);
@@ -103,7 +103,7 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
           keyName = getPrivateKeyFilename(privateKeyPath);
           keyContent = await window.electronAPI.fs.readFile(privateKeyPath);
           keyPassphrase = passphrase;
-        } catch (readErr: any) {
+        } catch (readErr: unknown) {
           let loaded = false;
           if (connectionId !== null) {
             const existingConn = await window.electronAPI.db.getConnection(connectionId);
@@ -163,8 +163,8 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
       } else {
         setTestResult({ success: false, message: res.error || 'Connection failed.' });
       }
-    } catch (err: any) {
-      setTestResult({ success: false, message: err.message || 'Connection failed.' });
+    } catch (err: unknown) {
+      setTestResult({ success: false, message: (err as Error).message || 'Connection failed.' });
     } finally {
       setTesting(false);
     }
@@ -187,7 +187,7 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
           keyName = getPrivateKeyFilename(privateKeyPath);
           keyContent = await window.electronAPI.fs.readFile(privateKeyPath);
           keyPassphrase = passphrase;
-        } catch (readErr: any) {
+        } catch (readErr: unknown) {
           let loaded = false;
           if (connectionId !== null) {
             const existingConn = await window.electronAPI.db.getConnection(connectionId);
@@ -269,8 +269,8 @@ export const NewConnectionWizard: React.FC<NewConnectionWizardProps> = ({
       }
 
       onSave();
-    } catch (err: any) {
-      alert(`Save failed: ${err.message}`);
+    } catch (err: unknown) {
+      alert(`Save failed: ${(err as Error).message}`);
     } finally {
       setLoading(false);
     }

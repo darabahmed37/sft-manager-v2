@@ -7,7 +7,7 @@ export interface Server {
   username: string;
   password?: string;
   totpSecret?: string;
-  privateKey?: string; // for key auth
+  privateKey?: string | Buffer; // for key auth
   passphrase?: string; // for encrypted keys
 }
 
@@ -46,8 +46,8 @@ export class SshSessionState {
       this.dropListener = null;
       try {
         listener();
-      } catch (ex: any) {
-        console.warn(`[SSH] Session drop listener threw: ${ex.message}`);
+      } catch (ex: unknown) {
+        console.warn(`[SSH] Session drop listener threw: ${(ex as Error).message}`);
       }
     }
   }

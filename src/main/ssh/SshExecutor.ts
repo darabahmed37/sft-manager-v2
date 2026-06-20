@@ -1,4 +1,3 @@
-import { Client } from 'ssh2';
 import { SshSessionState } from './types';
 import { Logger } from '../log/Logger';
 
@@ -31,7 +30,7 @@ export class SshExecutor {
       client.exec(command, (err, stream) => {
         if (err) {
           log.error(`EXEC error cmd=${command}`, err);
-          return resolve({ stdout: '', stderr: err.message, exitCode: -1 });
+          return resolve({ stdout: '', stderr: (err as Error).message, exitCode: -1 });
         }
 
         let stdout = '';

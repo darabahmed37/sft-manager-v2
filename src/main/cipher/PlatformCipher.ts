@@ -8,7 +8,7 @@ const FALLBACK_KEY = Buffer.alloc(32, FALLBACK_KEY_RAW);
 export class PlatformCipher {
   private static isSafeStorageAvailable(): boolean {
     try {
-      // safeStorage is dynamically imported to prevent Node testing failures
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const electron = require('electron');
       return electron && electron.safeStorage && electron.safeStorage.isEncryptionAvailable();
     } catch {
@@ -21,11 +21,12 @@ export class PlatformCipher {
 
     if (this.isSafeStorageAvailable()) {
       try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { safeStorage } = require('electron');
         const buffer = safeStorage.encryptString(plaintext);
         return ENC_PREFIX + buffer.toString('base64');
-      } catch (err: any) {
-        console.warn(`[PlatformCipher] safeStorage.encryptString failed: ${err.message}`);
+      } catch (err) {
+        console.warn(`[PlatformCipher] safeStorage.encryptString failed: ${(err as Error).message}`);
       }
     }
 
@@ -53,8 +54,8 @@ export class PlatformCipher {
         let decrypted = decipher.update(data, 'base64', 'utf8');
         decrypted += decipher.final('utf8');
         return decrypted;
-      } catch (err: any) {
-        console.warn(`[PlatformCipher] CLI fallback decrypt failed: ${err.message}`);
+      } catch (err) {
+        console.warn(`[PlatformCipher] CLI fallback decrypt failed: ${(err as Error).message}`);
         return '';
       }
     }
@@ -65,11 +66,12 @@ export class PlatformCipher {
 
     if (this.isSafeStorageAvailable()) {
       try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { safeStorage } = require('electron');
         const buffer = Buffer.from(ciphertext.substring(ENC_PREFIX.length), 'base64');
         return safeStorage.decryptString(buffer);
-      } catch (err: any) {
-        console.warn(`[PlatformCipher] safeStorage.decryptString failed: ${err.message}`);
+      } catch (err) {
+        console.warn(`[PlatformCipher] safeStorage.decryptString failed: ${(err as Error).message}`);
         return '';
       }
     }

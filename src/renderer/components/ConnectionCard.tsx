@@ -7,10 +7,10 @@ export interface Connection {
   port: number;
   workingDir: string;
   connectionTypeId: number;
-  connectionTypeCode: string;
+  connectionTypeCode?: string;
   credentialId: number | null;
   tunnelViaConnectionId: number | null;
-  lastUsed: number;
+  lastUsed?: number;
   credentialName?: string;
   credentialUsername?: string;
   credentialType?: string;
@@ -44,7 +44,7 @@ export const ConnectionCard: React.FC<ConnectionCardProps> = ({
 
   const userHost = `${connection.credentialUsername || 'root'}@${connection.host}:${connection.port}`;
   const authLabel = connection.credentialType === 'KEY_ONLY' ? 'SSH Key' : 'Password';
-  const lastConn = connection.lastUsed > 0 
+  const lastConn = connection.lastUsed && connection.lastUsed > 0 
     ? `Last used: ${new Date(connection.lastUsed * 1000).toLocaleDateString()}` 
     : 'Never connected';
 

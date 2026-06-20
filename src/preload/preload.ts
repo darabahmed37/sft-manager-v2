@@ -7,7 +7,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     close: () => ipcRenderer.send('window-close'),
     getPlatform: () => ipcRenderer.invoke('window-get-platform'),
     isMaximized: () => ipcRenderer.invoke('window-is-maximized'),
-    onMaximizedState: (callback: (event: any, isMaximized: boolean) => void) => {
+    onMaximizedState: (callback: (event: unknown, isMaximized: boolean) => void) => {
       ipcRenderer.on('window-maximized-state', callback);
       return () => {
         ipcRenderer.removeListener('window-maximized-state', callback);
@@ -99,13 +99,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     download: (sessionId: string, remotePath: string, localDir: string) => ipcRenderer.invoke('ssh-download', sessionId, remotePath, localDir),
     uploadFolder: (sessionId: string, localFolder: string, remoteDir: string) => ipcRenderer.invoke('ssh-upload-folder', sessionId, localFolder, remoteDir),
     downloadFolder: (sessionId: string, remoteFolder: string, localDir: string) => ipcRenderer.invoke('ssh-download-folder', sessionId, remoteFolder, localDir),
-    onProgress: (callback: (event: any, data: { connectionId: number; message: string }) => void) => {
+    onProgress: (callback: (event: unknown, data: { connectionId: number; message: string }) => void) => {
       ipcRenderer.on('ssh-connect-progress', callback);
       return () => {
         ipcRenderer.removeListener('ssh-connect-progress', callback);
       };
     },
-    onHostKeyVerify: (callback: (event: any, data: any) => void) => {
+    onHostKeyVerify: (callback: (event: unknown, data: unknown) => void) => {
       ipcRenderer.on('ssh-host-key-verify', callback);
       return () => {
         ipcRenderer.removeListener('ssh-host-key-verify', callback);
@@ -126,15 +126,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.send('terminal-shell-resize', shellId, cols, rows),
     closeShell: (shellId: string) =>
       ipcRenderer.send('terminal-shell-close', shellId),
-    onShellData: (callback: (event: any, shellId: string, data: string) => void) => {
+    onShellData: (callback: (event: unknown, shellId: string, data: string) => void) => {
       ipcRenderer.on('terminal-shell-data', callback);
       return () => ipcRenderer.removeListener('terminal-shell-data', callback);
     },
-    onShellClose: (callback: (event: any, shellId: string) => void) => {
+    onShellClose: (callback: (event: unknown, shellId: string) => void) => {
       ipcRenderer.on('terminal-shell-close', callback);
       return () => ipcRenderer.removeListener('terminal-shell-close', callback);
     },
-    onOpenTab: (callback: (event: any, sessionId: string, username: string, host: string) => void) => {
+    onOpenTab: (callback: (event: unknown, sessionId: string, username: string, host: string) => void) => {
       ipcRenderer.on('terminal-open-tab', callback);
       return () => ipcRenderer.removeListener('terminal-open-tab', callback);
     },
@@ -151,9 +151,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     deleteKnownHost: (id: number) => ipcRenderer.invoke('known-hosts-delete', id),
     addKnownHost: (host: string, port: number, keyType: string, publicKey: string, fingerprint: string) => ipcRenderer.invoke('known-hosts-add', host, port, keyType, publicKey, fingerprint),
     getConnectionSettings: (connectionId: number) => ipcRenderer.invoke('connection-settings-get', connectionId),
-    updateConnectionSettings: (connectionId: number, settings: any) => ipcRenderer.invoke('connection-settings-update', connectionId, settings),
+    updateConnectionSettings: (connectionId: number, settings: unknown) => ipcRenderer.invoke('connection-settings-update', connectionId, settings),
     getRemoteTabs: (connectionId: number) => ipcRenderer.invoke('remote-tabs-get', connectionId),
-    saveRemoteTabs: (connectionId: number, tabs: any[]) => ipcRenderer.invoke('remote-tabs-save', connectionId, tabs),
+    saveRemoteTabs: (connectionId: number, tabs: unknown[]) => ipcRenderer.invoke('remote-tabs-save', connectionId, tabs),
     resetApp: () => ipcRenderer.invoke('maintenance-reset-app'),
     clearTemp: () => ipcRenderer.invoke('maintenance-clear-temp'),
     clearLogs: () => ipcRenderer.invoke('maintenance-clear-logs'),

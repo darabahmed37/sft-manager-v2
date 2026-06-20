@@ -1,4 +1,4 @@
-import { SFTPWrapper } from 'ssh2';
+import { SFTPWrapper, Stats } from 'ssh2';
 import * as fs from 'fs';
 import * as path from 'path';
 import { SshSessionState } from './types';
@@ -80,7 +80,7 @@ export class SftpTransfer {
         writeStream.destroy();
       };
 
-      readStream.on('data', (chunk: any) => {
+      readStream.on('data', (chunk: string | Buffer) => {
         if (this.isCancelRequested) {
           cleanup();
           return reject(new Error('Transfer cancelled by user'));
@@ -100,12 +100,12 @@ export class SftpTransfer {
         }
       });
 
-      writeStream.on('error', (err: any) => {
+      writeStream.on('error', (err: Error) => {
         cleanup();
         reject(err);
       });
 
-      readStream.on('error', (err: any) => {
+      readStream.on('error', (err: Error) => {
         cleanup();
         reject(err);
       });
@@ -126,15 +126,15 @@ export class SftpTransfer {
     // Attempt to stat size
     let totalBytes = 1;
     try {
-      const stats = await new Promise<any>((resolve, reject) => {
-        sftp.stat(remotePath, (err: any, s: any) => {
+      const stats = await new Promise<Stats>((resolve, reject) => {
+        sftp.stat(remotePath, (err: Error | undefined, s: Stats) => {
           if (err) reject(err);
           else resolve(s);
         });
       });
       totalBytes = stats.size || 1;
-    } catch (err: any) {
-      log.debug(`Could not stat size of remote path ${remotePath}: ${err.message}`);
+    } catch (err: unknown) {
+      log.debug(`Could not stat size of remote path ${remotePath}: ${(err as Error).message}`);
     }
 
     if (progress) progress.update(0, totalBytes, 'Downloading via SFTP...');
@@ -172,12 +172,12 @@ export class SftpTransfer {
         }
       });
 
-      writeStream.on('error', (err: any) => {
+      writeStream.on('error', (err: Error) => {
         cleanup();
         reject(err);
       });
 
-      readStream.on('error', (err: any) => {
+      readStream.on('error', (err: Error) => {
         cleanup();
         reject(err);
       });
@@ -242,7 +242,7 @@ export class SftpTransfer {
           writeStream.destroy();
         };
 
-        readStream.on('data', (chunk: any) => {
+        readStream.on('data', (chunk: string | Buffer) => {
           if (this.isCancelRequested) {
             cleanup();
             return reject(new Error('Transfer cancelled by user'));
@@ -260,12 +260,12 @@ export class SftpTransfer {
           }
         });
 
-        writeStream.on('error', (err: any) => {
+        writeStream.on('error', (err: Error) => {
           cleanup();
           reject(err);
         });
 
-        readStream.on('error', (err: any) => {
+        readStream.on('error', (err: Error) => {
           cleanup();
           reject(err);
         });
@@ -293,7 +293,7 @@ export class SftpTransfer {
       totalBytes = bytes;
       log.info(`[DownloadFolder SFTP] Sizing completed concurrently: ${bytes} bytes`);
     }).catch(err => {
-      log.warn(`Sizing concurrently failed: ${err.message}`);
+      log.warn(`Sizing concurrently failed: ${(err as Error).message}`);
     });
 
     let doneBytes = 0;
@@ -307,10 +307,16 @@ export class SftpTransfer {
         throw new Error('Transfer cancelled by user');
       }
 
-      const entries = await new Promise<any[]>((resolve, reject) => {
-        sftp.readdir(remoteDir, (err: any, list: any) => {
+      interface SshFileEntry {
+        filename: string;
+        attrs: {
+          mode?: number;
+        };
+      }
+      const entries = await new Promise<SshFileEntry[]>((resolve, reject) => {
+        sftp.readdir(remoteDir, (err: Error | undefined, list) => {
           if (err) reject(err);
-          else resolve(list);
+          else resolve(list as SshFileEntry[]);
         });
       });
 
@@ -344,7 +350,7 @@ export class SftpTransfer {
               writeStream.destroy();
             };
 
-            readStream.on('data', (chunk: any) => {
+            readStream.on('data', (chunk: Buffer) => {
               if (this.isCancelRequested) {
                 cleanup();
                 return reject(new Error('Transfer cancelled by user'));
@@ -362,12 +368,12 @@ export class SftpTransfer {
               }
             });
 
-            writeStream.on('error', (err: any) => {
+            writeStream.on('error', (err: Error) => {
               cleanup();
               reject(err);
             });
 
-            readStream.on('error', (err: any) => {
+            readStream.on('error', (err: Error) => {
               cleanup();
               reject(err);
             });
@@ -388,8 +394,8 @@ export class SftpTransfer {
     if (this.sftpWrapper) {
       try {
         this.sftpWrapper.end();
-      } catch (ex: any) {
-        log.warn(`SFTP channel close error: ${ex.message}`);
+      } catch (ex: unknown) {
+        log.warn(`SFTP channel close error: ${(ex as Error).message}`);
       }
       this.sftpWrapper = undefined;
     }

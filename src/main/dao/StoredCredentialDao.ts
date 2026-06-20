@@ -19,6 +19,19 @@ export interface StoredCredential {
   privateKeyPassphrase?: string;
 }
 
+interface StoredCredentialDbRow {
+  id: number;
+  name: string | null;
+  username: string | null;
+  passwordEncrypted: string | null;
+  totpSecretEncrypted: string | null;
+  privateKeyName: string | null;
+  privateKeyContentEncrypted: string | null;
+  privateKeyPassphraseEncrypted: string | null;
+  isDefault: number;
+  type: string | null;
+}
+
 export class StoredCredentialDao {
   static addCredential(
     name: string,
@@ -55,7 +68,7 @@ export class StoredCredentialDao {
       );
       log.info(`Added credential profile: ${name} (id=${info.lastInsertRowid})`);
       return Number(info.lastInsertRowid);
-    } catch (err: any) {
+    } catch (err: unknown) {
       log.error(`addCredential failed for ${name}`, err);
       throw err;
     }
@@ -70,10 +83,10 @@ export class StoredCredentialDao {
                private_key_passphrase as privateKeyPassphraseEncrypted, is_default as isDefault, type
         FROM stored_credentials
         ORDER BY name ASC
-      `).all() as any[];
+      `).all() as StoredCredentialDbRow[];
 
       return rows.map(r => this.mapRow(r));
-    } catch (err: any) {
+    } catch (err: unknown) {
       log.error('getCredentials failed', err);
       return [];
     }
@@ -88,10 +101,10 @@ export class StoredCredentialDao {
                private_key_passphrase as privateKeyPassphraseEncrypted, is_default as isDefault, type
         FROM stored_credentials
         WHERE id = ?
-      `).get(id) as any;
+      `).get(id) as StoredCredentialDbRow | undefined;
 
       return row ? this.mapRow(row) : null;
-    } catch (err: any) {
+    } catch (err: unknown) {
       log.error(`getCredential failed for id=${id}`, err);
       return null;
     }
@@ -133,7 +146,7 @@ export class StoredCredentialDao {
         id
       );
       log.info(`Updated credential profile id=${id}`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       log.error(`updateCredential failed for id=${id}`, err);
       throw err;
     }
@@ -146,7 +159,7 @@ export class StoredCredentialDao {
         DELETE FROM stored_credentials WHERE id = ?
       `).run(id);
       log.info(`Deleted credential profile id=${id}`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       log.error(`deleteCredential failed for id=${id}`, err);
       throw err;
     }
@@ -163,7 +176,7 @@ export class StoredCredentialDao {
     try {
       transaction();
       log.info(`Set credential profile id=${id} as default`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       log.error(`setDefaultCredential failed for id=${id}`, err);
       throw err;
     }
@@ -179,16 +192,16 @@ export class StoredCredentialDao {
         FROM stored_credentials
         WHERE is_default = 1
         LIMIT 1
-      `).get() as any;
+      `).get() as StoredCredentialDbRow | undefined;
 
       return row ? this.mapRow(row) : null;
-    } catch (err: any) {
+    } catch (err: unknown) {
       log.error('getDefaultCredential failed', err);
       return null;
     }
   }
 
-  private static mapRow(row: any): StoredCredential {
+  private static mapRow(row: StoredCredentialDbRow): StoredCredential {
     const passwordEncrypted = row.passwordEncrypted || '';
     const totpSecretEncrypted = row.totpSecretEncrypted || '';
     const keyContentEnc = row.privateKeyContentEncrypted || '';

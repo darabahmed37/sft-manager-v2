@@ -45,7 +45,7 @@ export const XtermPane: React.FC<XtermPaneProps> = ({ tab, isActive, onContextMe
       });
       tab.terminal.loadAddon(webgl);
       webglRef.current = webgl;
-    } catch (_) {
+    } catch {
       // Fallback to DOM rendering automatically
     }
 
