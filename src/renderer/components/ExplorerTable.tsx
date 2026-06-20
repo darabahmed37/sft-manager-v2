@@ -72,7 +72,7 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const rowRefs = useRef<(HTMLTableRowElement | null)[]>([]);
   const lassoStartRef = useRef<{ x: number; y: number } | null>(null);
-  const prevSelectedRef = useRef<string>(''); // serialised names for change-detection
+  const prevSelectedRef = useRef<string>('');
   const [lassoBox, setLassoBox] = useState<{
     left: number; top: number; width: number; height: number;
   } | null>(null);
@@ -88,7 +88,7 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
 
       setLassoBox({ left, top, width: right - left, height: bottom - top });
 
-      // ── Real-time selection: hit-test every row on each mousemove ──
+      // Real-time hit-test against actual file rows only
       const selected: (LocalFile | RemoteFile)[] = [];
       rowRefs.current.forEach((rowEl, idx) => {
         if (!rowEl || idx >= files.length) return;
@@ -98,7 +98,6 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
         }
       });
 
-      // Only fire if selection actually changed (avoids flood of re-renders)
       const key = selected.map(f => f.name).join('\0');
       if (key !== prevSelectedRef.current) {
         prevSelectedRef.current = key;
@@ -116,9 +115,7 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
       prevSelectedRef.current = '';
       setLassoBox(null);
 
-      // If it was just a click (no real drag) clear multi-selection
       if (dx < 5 && dy < 5) onMultiSelectChange([]);
-      // Otherwise the selection is already live from the last mousemove — leave it.
     };
 
     document.addEventListener('mousemove', handleMouseMove);
@@ -139,17 +136,20 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
   };
   // ────────────────────────────────────────────────────────────────────────────
 
+  // Number of defined columns (icon + data cols + filler)
+  const colSpanAll = pane === 'remote' ? 6 : 5;
+
   return (
     <>
-      {/* Lasso overlay — fixed so coords are in viewport space */}
+      {/* Lasso overlay — fixed viewport coords */}
       {lassoBox && lassoBox.width > 4 && lassoBox.height > 4 && (
         <div
           style={{
             position: 'fixed',
-            left:     lassoBox.left,
-            top:      lassoBox.top,
-            width:    lassoBox.width,
-            height:   lassoBox.height,
+            left:   lassoBox.left,
+            top:    lassoBox.top,
+            width:  lassoBox.width,
+            height: lassoBox.height,
             pointerEvents: 'none',
             zIndex: 9998,
             background: 'rgba(99, 120, 255, 0.10)',
@@ -159,12 +159,6 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
         />
       )}
 
-      {/*
-        The scroll container: NO pr-4. The table does NOT use w-full so it
-        only takes its natural column widths. The remaining area to the right
-        of the table is genuine empty space — right-clicking there triggers
-        the blank context menu via the container's onContextMenu handler.
-      */}
       <div
         ref={containerRef}
         className="flex-1 overflow-auto h-full"
@@ -180,11 +174,10 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
         }}
       >
         {/*
-          min-w-full makes the table expand to fill the container when there
-          is enough room, but shrinks to its natural width on narrow panels.
-          We do NOT use table-fixed so columns size to their content + col hints.
+          w-full + table-fixed: columns respect colgroup widths exactly,
+          which is what makes the resize handles work.
         */}
-        <table className="min-w-full border-collapse text-[13px]">
+        <table className="w-full border-collapse text-[13px] table-fixed">
           <colgroup>
             <col style={{ width: '28px' }} />
             <col style={{ width: `${colWidths.name}px` }} />
@@ -193,71 +186,71 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
             {pane === 'remote' && (
               <col style={{ width: `${colWidths.owner ?? 80}px` }} />
             )}
-            {/* Filler column — fills remaining width and acts as "empty space" */}
-            <col style={{ width: 'auto' }} />
+            {/* Filler column — takes remaining width, right-click → blank menu */}
+            <col />
           </colgroup>
 
           <thead className="sticky top-0 bg-[var(--bg-panel-header)] z-10 border-b border-[var(--border-color)]">
-            <tr className="h-[28px] text-[12px] text-[var(--text-muted)] border-b border-[var(--border-color)]">
-              {/* Icon column header */}
-              <th className="py-1 pl-2 text-left border-r border-[var(--border-color)]/30" />
+            <tr className="h-[30px] text-[12px] text-[var(--text-muted)] border-b border-[var(--border-color)]">
+
+              {/* Icon col — no header text */}
+              <th className="py-1 pl-2 border-r border-[var(--border-color)]/30" />
 
               <th
                 onClick={() => onSort('name')}
-                className="relative text-left px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)] border-r border-[var(--border-color)]/30"
+                className="relative text-left px-3 font-semibold tracking-wide select-none cursor-pointer hover:text-[var(--text-main)] border-r border-[var(--border-color)]/30 uppercase text-[11px]"
               >
                 Name {sortField === 'name' ? (sortAsc ? '▲' : '▼') : ''}
                 <div
-                  onMouseDown={(e) => { e.stopPropagation(); onResizeStart(e, 'name', colWidths.name); }}
-                  className="absolute right-0 top-1 bottom-1 w-[3px] cursor-col-resize hover:bg-[var(--color-primary)] z-10"
+                  onMouseDown={(e) => onResizeStart(e, 'name', colWidths.name)}
+                  className="absolute right-0 top-1 bottom-1 w-[1px] bg-[var(--border-color)]/45 cursor-col-resize hover:bg-[var(--color-primary)] hover:w-[2px] z-10"
                 />
               </th>
 
               <th
                 onClick={() => onSort('size')}
-                className="relative text-right px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)] border-r border-[var(--border-color)]/30"
+                className="relative text-right px-3 font-semibold tracking-wide select-none cursor-pointer hover:text-[var(--text-main)] border-r border-[var(--border-color)]/30 uppercase text-[11px]"
               >
                 Size {sortField === 'size' ? (sortAsc ? '▲' : '▼') : ''}
                 <div
-                  onMouseDown={(e) => { e.stopPropagation(); onResizeStart(e, 'size', colWidths.size); }}
-                  className="absolute right-0 top-1 bottom-1 w-[3px] cursor-col-resize hover:bg-[var(--color-primary)] z-10"
+                  onMouseDown={(e) => onResizeStart(e, 'size', colWidths.size)}
+                  className="absolute right-0 top-1 bottom-1 w-[1px] bg-[var(--border-color)]/45 cursor-col-resize hover:bg-[var(--color-primary)] hover:w-[2px] z-10"
                 />
               </th>
 
               <th
                 onClick={() => onSort('modified')}
-                className={`relative text-left px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)] ${pane === 'remote' ? 'border-r border-[var(--border-color)]/30' : ''}`}
+                className={`relative text-left px-3 font-semibold tracking-wide select-none cursor-pointer hover:text-[var(--text-main)] uppercase text-[11px] ${pane === 'remote' ? 'border-r border-[var(--border-color)]/30' : ''}`}
               >
                 Modified {sortField === 'modified' ? (sortAsc ? '▲' : '▼') : ''}
                 <div
-                  onMouseDown={(e) => { e.stopPropagation(); onResizeStart(e, 'modified', colWidths.modified); }}
-                  className="absolute right-0 top-1 bottom-1 w-[3px] cursor-col-resize hover:bg-[var(--color-primary)] z-10"
+                  onMouseDown={(e) => onResizeStart(e, 'modified', colWidths.modified)}
+                  className="absolute right-0 top-1 bottom-1 w-[1px] bg-[var(--border-color)]/45 cursor-col-resize hover:bg-[var(--color-primary)] hover:w-[2px] z-10"
                 />
               </th>
 
               {pane === 'remote' && (
                 <th
                   onClick={() => onSort('owner')}
-                  className="relative text-left px-2 font-semibold tracking-wider select-none cursor-pointer hover:text-[var(--text-main)] border-r border-[var(--border-color)]/30"
+                  className="relative text-left px-3 font-semibold tracking-wide select-none cursor-pointer hover:text-[var(--text-main)] border-r border-[var(--border-color)]/30 uppercase text-[11px]"
                 >
                   Owner {sortField === 'owner' ? (sortAsc ? '▲' : '▼') : ''}
                   <div
-                    onMouseDown={(e) => { e.stopPropagation(); onResizeStart(e, 'owner', colWidths.owner ?? 80); }}
-                    className="absolute right-0 top-1 bottom-1 w-[3px] cursor-col-resize hover:bg-[var(--color-primary)] z-10"
+                    onMouseDown={(e) => onResizeStart(e, 'owner', colWidths.owner ?? 80)}
+                    className="absolute right-0 top-1 bottom-1 w-[1px] bg-[var(--border-color)]/45 cursor-col-resize hover:bg-[var(--color-primary)] hover:w-[2px] z-10"
                   />
                 </th>
               )}
 
-              {/* Filler header — empty, fills remaining width */}
+              {/* Filler header — right-click → blank menu */}
               <th
                 onContextMenu={(e) => { e.stopPropagation(); onEmptyContextMenu(e); }}
-                className="pointer-events-auto"
               />
             </tr>
           </thead>
 
           <tbody>
-            {files.map((file, i) => {
+            {files.flatMap((file, i) => {
               const targetPath = joinPath(currentDir, file.name);
               const isSelected = selectedFile?.name === file.name;
               const isMultiSel = selectedFiles.some(f => f.name === file.name);
@@ -271,9 +264,9 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
                   ? 'bg-[var(--glow-color)]/30 text-[var(--active-tab-text)] font-semibold'
                   : 'hover:bg-[var(--glow-color)]/15';
 
-              return (
+              const fileRow = (
                 <tr
-                  key={i}
+                  key={`file-${i}`}
                   data-file-row="true"
                   ref={el => { rowRefs.current[i] = el; }}
                   onDoubleClick={() => onDoubleClick(file)}
@@ -290,12 +283,12 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
                     rowBg,
                     isDragOver ? 'bg-[var(--color-primary)]/20 border-y border-dashed border-[var(--color-primary)]' : '',
                     isCut ? 'opacity-40' : '',
-                    'cursor-default h-[32px] transition-colors duration-75 border-b border-[var(--border-color)]/40',
+                    'cursor-default h-[30px] transition-colors duration-75',
                   ].join(' ')}
                 >
-                  {/* Icon — no click handler needed here, falls through to row */}
+                  {/* Icon */}
                   <td
-                    className="pl-2 pr-1 text-center align-middle w-[28px]"
+                    className="pl-2 pr-1 text-center align-middle"
                     onClick={(e) => { e.stopPropagation(); onSelect(file); onMultiSelectChange([]); }}
                     onContextMenu={(e) => { e.stopPropagation(); onSelect(file); onContextMenu(e, file); }}
                   >
@@ -313,13 +306,15 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
 
                   {/* Name */}
                   <td
-                    className="px-2 text-[var(--text-main)] overflow-hidden text-ellipsis whitespace-nowrap align-middle"
+                    className="px-3 text-[var(--text-main)] overflow-hidden text-ellipsis whitespace-nowrap align-middle"
                     title={file.name}
                     onClick={(e) => {
                       e.stopPropagation();
                       if (e.ctrlKey || e.metaKey) {
                         const already = selectedFiles.some(f => f.name === file.name);
-                        onMultiSelectChange(already ? selectedFiles.filter(f => f.name !== file.name) : [...selectedFiles, file]);
+                        onMultiSelectChange(already
+                          ? selectedFiles.filter(f => f.name !== file.name)
+                          : [...selectedFiles, file]);
                       } else {
                         onSelect(file);
                         onMultiSelectChange([]);
@@ -332,7 +327,7 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
 
                   {/* Size */}
                   <td
-                    className="px-2 text-right text-[var(--text-muted)] font-mono text-[12px] align-middle whitespace-nowrap tabular-nums"
+                    className="px-3 text-right text-[var(--text-muted)] font-mono text-[12px] align-middle whitespace-nowrap tabular-nums"
                     onClick={(e) => { e.stopPropagation(); onSelect(file); onMultiSelectChange([]); }}
                     onContextMenu={(e) => { e.stopPropagation(); onSelect(file); onContextMenu(e, file); }}
                   >
@@ -341,7 +336,7 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
 
                   {/* Modified */}
                   <td
-                    className="px-2 text-[var(--text-subtle)] font-mono text-[12px] align-middle whitespace-nowrap tabular-nums"
+                    className="px-3 text-[var(--text-subtle)] font-mono text-[12px] align-middle whitespace-nowrap tabular-nums"
                     onClick={(e) => { e.stopPropagation(); onSelect(file); onMultiSelectChange([]); }}
                     onContextMenu={(e) => { e.stopPropagation(); onSelect(file); onContextMenu(e, file); }}
                   >
@@ -351,7 +346,7 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
                   {/* Owner (remote only) */}
                   {pane === 'remote' && (
                     <td
-                      className="px-2 text-[var(--text-subtle)] font-mono text-[12px] align-middle whitespace-nowrap"
+                      className="px-3 text-[var(--text-subtle)] font-mono text-[12px] align-middle whitespace-nowrap"
                       onClick={(e) => { e.stopPropagation(); onSelect(file); onMultiSelectChange([]); }}
                       onContextMenu={(e) => { e.stopPropagation(); onSelect(file); onContextMenu(e, file); }}
                     >
@@ -360,31 +355,38 @@ export const ExplorerTable: React.FC<ExplorerTableProps> = ({
                   )}
 
                   {/*
-                    Filler cell — the entire remaining width of the row.
-                    Right-clicking here shows the BLANK context menu, not the item menu.
-                    Left-clicking selects the file (good UX: clicking anywhere in a row selects it).
+                    Filler cell — fills remaining row width.
+                    Left-click → select; Right-click → blank context menu.
                   */}
                   <td
-                    className="w-full"
                     onClick={(e) => { e.stopPropagation(); onSelect(file); onMultiSelectChange([]); }}
-                    onContextMenu={(e) => {
-                      e.stopPropagation();
-                      // Right-click on filler area → blank context menu
-                      onEmptyContextMenu(e);
-                    }}
+                    onContextMenu={(e) => { e.stopPropagation(); onEmptyContextMenu(e); }}
                   />
                 </tr>
               );
+
+              // Thin spacer row after every file/folder row — right-click shows blank menu
+              const spacerRow = (
+                <tr
+                  key={`spacer-${i}`}
+                  className="h-[6px]"
+                  onContextMenu={(e) => { e.stopPropagation(); onEmptyContextMenu(e); }}
+                >
+                  <td colSpan={colSpanAll} />
+                </tr>
+              );
+
+              return [fileRow, spacerRow];
             })}
 
-            {/* Ghost rows — give breathing room + right-click surface below last file */}
-            {Array.from({ length: 8 }).map((_, i) => (
+            {/* Extra blank rows at the bottom for easy empty-space right-clicking */}
+            {Array.from({ length: 6 }).map((_, i) => (
               <tr
                 key={`ghost-${i}`}
-                className="h-[32px] border-b border-[var(--border-color)]/20"
+                className="h-[30px]"
                 onContextMenu={(e) => { e.stopPropagation(); onEmptyContextMenu(e); }}
               >
-                <td colSpan={pane === 'remote' ? 6 : 5} />
+                <td colSpan={colSpanAll} />
               </tr>
             ))}
           </tbody>
